@@ -20,7 +20,7 @@ use std::collections::HashMap;
 
 use super::errors::{SchemaError, SchemaResult, ValidationDetails};
 use super::loader::SchemaLoader;
-use super::types::{FieldDef, FieldType, Schema};
+use super::types::{FieldDef, FieldType};
 
 /// Schema validator that enforces schema rules on documents.
 ///
