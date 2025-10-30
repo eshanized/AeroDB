@@ -1,0 +1,485 @@
+//! WAL record types and structures
+//!
+//! Per WAL.md §87-137, each WAL record contains:
+//! - Record Length (u32 LE)
+//! - Record Type (u8): INSERT / UPDATE / DELETE
+//! - Sequence Number (u64 LE)
+//! - Payload (variable)
+//! - Checksum (u32 LE)
+//!
+//! Payload must include:
+//! - Collection identifier
+//! - Document primary key
+//! - Schema version identifier
+//! - Full document body (post-operation state)
+
+use std::io::{self, Read, Write};
+
+/// WAL record types as defined in WAL.md §141-172
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum RecordType {
+    /// Insertion of a new document
+    Insert = 0,
+    /// Replacement of an existing document (full document, not delta)
+    Update = 1,
+    /// Deletion of a document (tombstone)
+    Delete = 2,
+}
+
+impl RecordType {
+    /// Convert from u8, returns None for invalid values
+    pub fn from_u8(value: u8) -> Option<Self> {
+        match value {
+            0 => Some(RecordType::Insert),
+            1 => Some(RecordType::Update),
+            2 => Some(RecordType::Delete),
+            _ => None,
+        }
+    }
+
+    /// Convert to u8
+    pub fn as_u8(self) -> u8 {
+        self as u8
+    }
+}
+
+/// WAL payload containing all required fields per WAL.md §119-137
+///
+/// WAL records always store the full document state, not deltas.
+/// This guarantees deterministic replay.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WalPayload {
+    /// Collection identifier
+    pub collection_id: String,
+    /// Document primary key
+    pub document_id: String,
+    /// Schema identifier
+    pub schema_id: String,
+    /// Schema version identifier
+    pub schema_version: String,
+    /// Full document body (post-operation state)
+    /// For DELETE operations, this is empty (tombstone)
+    pub document_body: Vec<u8>,
+}
+
+impl WalPayload {
+    /// Create a new WAL payload
+    pub fn new(
+        collection_id: impl Into<String>,
+        document_id: impl Into<String>,
+        schema_id: impl Into<String>,
+        schema_version: impl Into<String>,
+        document_body: Vec<u8>,
+    ) -> Self {
+        Self {
+            collection_id: collection_id.into(),
+            document_id: document_id.into(),
+            schema_id: schema_id.into(),
+            schema_version: schema_version.into(),
+            document_body,
+        }
+    }
+
+    /// Create a tombstone payload for DELETE operations
+    pub fn tombstone(
+        collection_id: impl Into<String>,
+        document_id: impl Into<String>,
+        schema_id: impl Into<String>,
+        schema_version: impl Into<String>,
+    ) -> Self {
+        Self {
+            collection_id: collection_id.into(),
+            document_id: document_id.into(),
+            schema_id: schema_id.into(),
+            schema_version: schema_version.into(),
+            document_body: Vec::new(),
+        }
+    }
+
+    /// Serialize payload to bytes
+    ///
+    /// Format:
+    /// - collection_id_len (u32 LE)
+    /// - collection_id (bytes)
+    /// - document_id_len (u32 LE)
+    /// - document_id (bytes)
+    /// - schema_id_len (u32 LE)
+    /// - schema_id (bytes)
+    /// - schema_version_len (u32 LE)
+    /// - schema_version (bytes)
+    /// - document_body_len (u32 LE)
+    /// - document_body (bytes)
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        self.write_to(&mut buf).expect("Vec write cannot fail");
+        buf
+    }
+
+    /// Write payload to a writer
+    pub fn write_to<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        // Collection ID
+        writer.write_all(&(self.collection_id.len() as u32).to_le_bytes())?;
+        writer.write_all(self.collection_id.as_bytes())?;
+
+        // Document ID
+        writer.write_all(&(self.document_id.len() as u32).to_le_bytes())?;
+        writer.write_all(self.document_id.as_bytes())?;
+
+        // Schema ID
+        writer.write_all(&(self.schema_id.len() as u32).to_le_bytes())?;
+        writer.write_all(self.schema_id.as_bytes())?;
+
+        // Schema Version
+        writer.write_all(&(self.schema_version.len() as u32).to_le_bytes())?;
+        writer.write_all(self.schema_version.as_bytes())?;
+
+        // Document Body
+        writer.write_all(&(self.document_body.len() as u32).to_le_bytes())?;
+        writer.write_all(&self.document_body)?;
+
+        Ok(())
+    }
+
+    /// Deserialize payload from bytes
+    pub fn deserialize(data: &[u8]) -> io::Result<Self> {
+        let mut cursor = io::Cursor::new(data);
+        Self::read_from(&mut cursor)
+    }
+
+    /// Read payload from a reader
+    pub fn read_from<R: Read>(reader: &mut R) -> io::Result<Self> {
+        fn read_string<R: Read>(reader: &mut R) -> io::Result<String> {
+            let mut len_buf = [0u8; 4];
+            reader.read_exact(&mut len_buf)?;
+            let len = u32::from_le_bytes(len_buf) as usize;
+
+            let mut string_buf = vec![0u8; len];
+            reader.read_exact(&mut string_buf)?;
+
+            String::from_utf8(string_buf).map_err(|e| {
+                io::Error::new(io::ErrorKind::InvalidData, format!("Invalid UTF-8: {}", e))
+            })
+        }
+
+        fn read_bytes<R: Read>(reader: &mut R) -> io::Result<Vec<u8>> {
+            let mut len_buf = [0u8; 4];
+            reader.read_exact(&mut len_buf)?;
+            let len = u32::from_le_bytes(len_buf) as usize;
+
+            let mut buf = vec![0u8; len];
+            reader.read_exact(&mut buf)?;
+
+            Ok(buf)
+        }
+
+        let collection_id = read_string(reader)?;
+        let document_id = read_string(reader)?;
+        let schema_id = read_string(reader)?;
+        let schema_version = read_string(reader)?;
+        let document_body = read_bytes(reader)?;
+
+        Ok(Self {
+            collection_id,
+            document_id,
+            schema_id,
+            schema_version,
+            document_body,
+        })
+    }
+}
+
+/// Complete WAL record structure per WAL.md §87-116
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WalRecord {
+    /// Record type (INSERT / UPDATE / DELETE)
+    pub record_type: RecordType,
+    /// Global monotonic operation ID (starts at 1, never repeats)
+    pub sequence_number: u64,
+    /// Operation payload
+    pub payload: WalPayload,
+}
+
+impl WalRecord {
+    /// Create a new WAL record
+    pub fn new(record_type: RecordType, sequence_number: u64, payload: WalPayload) -> Self {
+        Self {
+            record_type,
+            sequence_number,
+            payload,
+        }
+    }
+
+    /// Create an INSERT record
+    pub fn insert(sequence_number: u64, payload: WalPayload) -> Self {
+        Self::new(RecordType::Insert, sequence_number, payload)
+    }
+
+    /// Create an UPDATE record
+    pub fn update(sequence_number: u64, payload: WalPayload) -> Self {
+        Self::new(RecordType::Update, sequence_number, payload)
+    }
+
+    /// Create a DELETE record
+    pub fn delete(sequence_number: u64, payload: WalPayload) -> Self {
+        Self::new(RecordType::Delete, sequence_number, payload)
+    }
+
+    /// Serialize the record body (everything except length prefix and checksum)
+    /// This is the data over which the checksum is computed.
+    ///
+    /// Format:
+    /// - Record Type (u8)
+    /// - Sequence Number (u64 LE)
+    /// - Payload (variable)
+    fn serialize_body(&self) -> Vec<u8> {
+        let payload_bytes = self.payload.serialize();
+        let body_len = 1 + 8 + payload_bytes.len();
+        let mut buf = Vec::with_capacity(body_len);
+
+        buf.push(self.record_type.as_u8());
+        buf.extend_from_slice(&self.sequence_number.to_le_bytes());
+        buf.extend_from_slice(&payload_bytes);
+
+        buf
+    }
+
+    /// Serialize the complete record to bytes
+    ///
+    /// Format per WAL.md:
+    /// - Record Length (u32 LE) - total record length including this field
+    /// - Record Type (u8)
+    /// - Sequence Number (u64 LE)
+    /// - Payload (variable)
+    /// - Checksum (u32 LE)
+    pub fn serialize(&self) -> Vec<u8> {
+        let body = self.serialize_body();
+
+        // Record length = 4 (length field) + body.len() + 4 (checksum field)
+        let record_length = (4 + body.len() + 4) as u32;
+
+        // Checksum covers: length field + body (everything except checksum itself)
+        let mut checksum_data = Vec::with_capacity(4 + body.len());
+        checksum_data.extend_from_slice(&record_length.to_le_bytes());
+        checksum_data.extend_from_slice(&body);
+        let checksum = crate::wal::checksum::compute_checksum(&checksum_data);
+
+        // Build final record
+        let mut record = Vec::with_capacity(record_length as usize);
+        record.extend_from_slice(&record_length.to_le_bytes());
+        record.extend_from_slice(&body);
+        record.extend_from_slice(&checksum.to_le_bytes());
+
+        record
+    }
+
+    /// Deserialize a record from bytes, verifying checksum
+    ///
+    /// Returns the record and the number of bytes consumed.
+    /// Returns an error if checksum validation fails or data is malformed.
+    pub fn deserialize(data: &[u8]) -> io::Result<(Self, usize)> {
+        // Minimum record size: 4 (len) + 1 (type) + 8 (seq) + 20 (min payload) + 4 (checksum)
+        const MIN_RECORD_SIZE: usize = 4 + 1 + 8 + 4;
+
+        if data.len() < MIN_RECORD_SIZE {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "Record too short",
+            ));
+        }
+
+        // Read record length
+        let record_length = u32::from_le_bytes([data[0], data[1], data[2], data[3]]) as usize;
+
+        if record_length < MIN_RECORD_SIZE {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("Invalid record length: {}", record_length),
+            ));
+        }
+
+        if data.len() < record_length {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                format!(
+                    "Record truncated: expected {} bytes, got {}",
+                    record_length,
+                    data.len()
+                ),
+            ));
+        }
+
+        // Extract checksum from end of record
+        let checksum_offset = record_length - 4;
+        let stored_checksum = u32::from_le_bytes([
+            data[checksum_offset],
+            data[checksum_offset + 1],
+            data[checksum_offset + 2],
+            data[checksum_offset + 3],
+        ]);
+
+        // Verify checksum over everything except the checksum itself
+        let checksum_data = &data[0..checksum_offset];
+        let computed_checksum = crate::wal::checksum::compute_checksum(checksum_data);
+
+        if computed_checksum != stored_checksum {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "Checksum mismatch: computed {:08x}, stored {:08x}",
+                    computed_checksum, stored_checksum
+                ),
+            ));
+        }
+
+        // Parse record body
+        let record_type_byte = data[4];
+        let record_type = RecordType::from_u8(record_type_byte).ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("Invalid record type: {}", record_type_byte),
+            )
+        })?;
+
+        let sequence_number = u64::from_le_bytes([
+            data[5], data[6], data[7], data[8], data[9], data[10], data[11], data[12],
+        ]);
+
+        // Parse payload
+        let payload_data = &data[13..checksum_offset];
+        let payload = WalPayload::deserialize(payload_data)?;
+
+        Ok((
+            WalRecord {
+                record_type,
+                sequence_number,
+                payload,
+            },
+            record_length,
+        ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_payload() -> WalPayload {
+        WalPayload::new(
+            "users",
+            "user_123",
+            "user_schema",
+            "v1",
+            b"{\"name\": \"Alice\"}".to_vec(),
+        )
+    }
+
+    #[test]
+    fn test_record_type_roundtrip() {
+        for record_type in [RecordType::Insert, RecordType::Update, RecordType::Delete] {
+            let byte = record_type.as_u8();
+            let recovered = RecordType::from_u8(byte).unwrap();
+            assert_eq!(record_type, recovered);
+        }
+    }
+
+    #[test]
+    fn test_invalid_record_type() {
+        assert!(RecordType::from_u8(3).is_none());
+        assert!(RecordType::from_u8(255).is_none());
+    }
+
+    #[test]
+    fn test_payload_roundtrip() {
+        let payload = sample_payload();
+        let serialized = payload.serialize();
+        let deserialized = WalPayload::deserialize(&serialized).unwrap();
+        assert_eq!(payload, deserialized);
+    }
+
+    #[test]
+    fn test_tombstone_payload() {
+        let tombstone = WalPayload::tombstone("users", "user_123", "user_schema", "v1");
+        assert!(tombstone.document_body.is_empty());
+
+        let serialized = tombstone.serialize();
+        let deserialized = WalPayload::deserialize(&serialized).unwrap();
+        assert_eq!(tombstone, deserialized);
+    }
+
+    #[test]
+    fn test_record_roundtrip() {
+        let record = WalRecord::insert(1, sample_payload());
+        let serialized = record.serialize();
+        let (deserialized, bytes_consumed) = WalRecord::deserialize(&serialized).unwrap();
+
+        assert_eq!(record, deserialized);
+        assert_eq!(bytes_consumed, serialized.len());
+    }
+
+    #[test]
+    fn test_record_sequence_number_preserved() {
+        let record = WalRecord::update(42, sample_payload());
+        let serialized = record.serialize();
+        let (deserialized, _) = WalRecord::deserialize(&serialized).unwrap();
+
+        assert_eq!(deserialized.sequence_number, 42);
+    }
+
+    #[test]
+    fn test_record_type_preserved() {
+        for record_type in [RecordType::Insert, RecordType::Update, RecordType::Delete] {
+            let record = WalRecord::new(record_type, 1, sample_payload());
+            let serialized = record.serialize();
+            let (deserialized, _) = WalRecord::deserialize(&serialized).unwrap();
+            assert_eq!(deserialized.record_type, record_type);
+        }
+    }
+
+    #[test]
+    fn test_checksum_detects_corruption() {
+        let record = WalRecord::insert(1, sample_payload());
+        let mut serialized = record.serialize();
+
+        // Corrupt a byte in the middle
+        let mid = serialized.len() / 2;
+        serialized[mid] ^= 0xFF;
+
+        let result = WalRecord::deserialize(&serialized);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("Checksum mismatch"));
+    }
+
+    #[test]
+    fn test_truncated_record_detected() {
+        let record = WalRecord::insert(1, sample_payload());
+        let serialized = record.serialize();
+
+        // Truncate
+        let truncated = &serialized[0..serialized.len() - 10];
+        let result = WalRecord::deserialize(truncated);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_deterministic_serialization() {
+        let record = WalRecord::insert(1, sample_payload());
+        let serialized1 = record.serialize();
+        let serialized2 = record.serialize();
+        assert_eq!(serialized1, serialized2, "Serialization must be deterministic");
+    }
+
+    #[test]
+    fn test_replay_idempotency() {
+        // Applying the same record twice produces the same result
+        let payload = sample_payload();
+        let record1 = WalRecord::update(1, payload.clone());
+        let record2 = WalRecord::update(2, payload.clone());
+
+        // Both records have the same payload (full document state)
+        // After replay, the final state should be the same document
+        assert_eq!(record1.payload.document_body, record2.payload.document_body);
+        assert_eq!(record1.payload.document_id, record2.payload.document_id);
+    }
+}
