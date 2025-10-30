@@ -41,7 +41,7 @@ pub enum SchemaErrorCode {
     /// Attempt to modify existing schema
     AeroSchemaImmutable,
     /// Schema missing during recovery (FATAL)
-    AeroRecoverySchemaM issing,
+    AeroRecoverySchemaMissing,
 }
 
 impl SchemaErrorCode {
