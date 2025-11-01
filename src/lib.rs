@@ -2,6 +2,7 @@
 //!
 //! Phase 0: Minimum Viable Infrastructure
 
+pub mod planner;
 pub mod schema;
 pub mod storage;
 pub mod wal;
