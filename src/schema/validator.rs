@@ -314,6 +314,7 @@ fn type_error(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::types::Schema;
     use serde_json::json;
     use tempfile::TempDir;
 
