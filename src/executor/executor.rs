@@ -14,8 +14,8 @@
 
 use serde_json::Value;
 
-use crate::planner::planner::QueryPlan;
-use crate::storage::record::DocumentRecord;
+use crate::planner::{FilterOp, QueryPlan, ScanType};
+use crate::storage::DocumentRecord;
 
 use super::errors::{ExecutorError, ExecutorResult};
 use super::filters::PredicateFilter;
@@ -137,14 +137,12 @@ impl<'a, I: IndexLookup, S: StorageRead> QueryExecutor<'a, I, S> {
 
     /// Gets candidate document offsets based on plan's chosen index and scan type.
     fn get_candidate_offsets(&self, plan: &QueryPlan) -> Vec<u64> {
-        use crate::planner::planner::ScanType;
-
         match plan.scan_type {
             ScanType::PrimaryKey => {
                 // Find the _id predicate value
                 for pred in &plan.predicates {
                     if pred.field == "_id" {
-                        if let crate::planner::ast::FilterOp::Eq(ref val) = pred.op {
+                        if let FilterOp::Eq(ref val) = pred.op {
                             if let Some(pk) = val.as_str() {
                                 return self.index.lookup_pk(pk);
                             }
@@ -157,7 +155,7 @@ impl<'a, I: IndexLookup, S: StorageRead> QueryExecutor<'a, I, S> {
                 // Find the equality predicate for chosen index
                 for pred in &plan.predicates {
                     if pred.field == plan.chosen_index {
-                        if let crate::planner::ast::FilterOp::Eq(ref val) = pred.op {
+                        if let FilterOp::Eq(ref val) = pred.op {
                             return self.index.lookup_eq(&plan.chosen_index, val);
                         }
                     }
@@ -172,10 +170,10 @@ impl<'a, I: IndexLookup, S: StorageRead> QueryExecutor<'a, I, S> {
                 for pred in &plan.predicates {
                     if pred.field == plan.chosen_index {
                         match &pred.op {
-                            crate::planner::ast::FilterOp::Gte(v) |
-                            crate::planner::ast::FilterOp::Gt(v) => min = Some(v),
-                            crate::planner::ast::FilterOp::Lte(v) |
-                            crate::planner::ast::FilterOp::Lt(v) => max = Some(v),
+                            FilterOp::Gte(v) |
+                            FilterOp::Gt(v) => min = Some(v),
+                            FilterOp::Lte(v) |
+                            FilterOp::Lt(v) => max = Some(v),
                             _ => {}
                         }
                     }
@@ -190,10 +188,8 @@ impl<'a, I: IndexLookup, S: StorageRead> QueryExecutor<'a, I, S> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::planner::ast::{Predicate, SortSpec};
-    use crate::planner::bounds::BoundednessProof;
-    use crate::planner::planner::ScanType;
-    use crate::storage::record::DocumentRecord;
+    use crate::planner::{BoundednessProof, Predicate, SortSpec};
+    use crate::storage::DocumentRecord;
     use serde_json::json;
     use std::collections::HashMap;
 

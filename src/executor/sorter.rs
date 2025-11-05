@@ -2,7 +2,7 @@
 //!
 //! Sorts results by indexed fields only, deterministically.
 
-use crate::planner::ast::{SortDirection, SortSpec};
+use crate::planner::{SortDirection, SortSpec};
 use super::result::ResultDocument;
 
 /// Sorts result documents
