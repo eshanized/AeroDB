@@ -136,15 +136,17 @@ impl IndexTree {
     ) -> Vec<StorageOffset> {
         use std::ops::Bound;
 
-        let range = match (min, max) {
-            (Some(mn), Some(mx)) => self.tree.range((Bound::Included(mn), Bound::Included(mx))),
-            (Some(mn), None) => self.tree.range((Bound::Included(mn), Bound::Unbounded)),
-            (None, Some(mx)) => self.tree.range((Bound::Unbounded, Bound::Included(mx))),
-            (None, None) => self.tree.range((Bound::Unbounded, Bound::Unbounded)),
+        let min_bound: Bound<&IndexKey> = match min {
+            Some(k) => Bound::Included(k),
+            None => Bound::Unbounded,
+        };
+        let max_bound: Bound<&IndexKey> = match max {
+            Some(k) => Bound::Included(k),
+            None => Bound::Unbounded,
         };
 
         let mut result = Vec::new();
-        for (_, offsets) in range {
+        for (_, offsets) in self.tree.range((min_bound, max_bound)) {
             result.extend(offsets);
         }
 
