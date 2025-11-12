@@ -69,11 +69,10 @@ pub fn write_error(code: &str, message: &str) -> CliResult<()> {
     Ok(())
 }
 
-/// Write a raw JSON value to stdout
-pub fn write_json(value: &Value) -> CliResult<()> {
+/// Write a raw JSON string to stdout
+pub fn write_json(json_str: &str) -> CliResult<()> {
     let mut stdout = io::stdout();
-    serde_json::to_writer(&mut stdout, value)?;
-    writeln!(stdout)?;
+    writeln!(stdout, "{}", json_str)?;
     stdout.flush()?;
     
     Ok(())

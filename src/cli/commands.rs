@@ -11,7 +11,6 @@ use serde_json::{json, Value};
 
 use crate::api::{ApiHandler, Subsystems};
 use crate::index::IndexManager;
-use crate::recovery::StartupManager;
 use crate::schema::SchemaLoader;
 use crate::storage::{StorageReader, StorageWriter};
 use crate::wal::WalWriter;
@@ -333,6 +332,7 @@ fn boot_system(data_dir: &Path) -> CliResult<(WalWriter, StorageWriter, StorageR
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::errors::CliErrorCode;
     use std::fs;
     use tempfile::TempDir;
     

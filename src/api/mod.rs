@@ -23,6 +23,7 @@ mod request;
 mod response;
 
 pub use errors::{ApiError, ApiErrorCode, ApiResult};
-pub use handler::ApiHandler;
+pub use handler::{ApiHandler, Subsystems};
 pub use request::{DeleteRequest, InsertRequest, QueryRequest, Request, UpdateRequest};
 pub use response::{ErrorResponse, Response, SuccessResponse};
+
