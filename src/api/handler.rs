@@ -3,15 +3,14 @@
 //! Orchestrates all subsystems behind a single global mutex.
 //! Enforces strict request handling flow.
 
-use std::collections::HashSet;
 use std::sync::Mutex;
 
 use serde_json::{json, Value};
 
 use crate::index::{DocumentInfo, IndexManager};
-use crate::planner::{FilterOp, Predicate, Query, QueryPlan, QueryPlanner, ScanType, SortDirection, SortSpec};
-use crate::schema::{SchemaRegistry, SchemaValidator};
-use crate::storage::{StorageReader, StorageWriter};
+use crate::planner::{FilterOp, IndexMetadata, Predicate, Query, QueryPlan, QueryPlanner, ScanType, SortSpec};
+use crate::schema::{SchemaLoader, SchemaValidator};
+use crate::storage::{StoragePayload, StorageReader, StorageWriter};
 use crate::wal::{RecordType, WalPayload, WalWriter};
 
 use super::errors::{ApiError, ApiResult};
@@ -20,10 +19,10 @@ use super::response::Response;
 
 /// Subsystem references for API handler
 pub struct Subsystems<'a> {
-    pub schema_registry: &'a SchemaRegistry,
+    pub schema_loader: &'a SchemaLoader,
     pub wal_writer: &'a mut WalWriter,
     pub storage_writer: &'a mut StorageWriter,
-    pub storage_reader: &'a StorageReader,
+    pub storage_reader: &'a mut StorageReader,
     pub index_manager: &'a mut IndexManager,
 }
 
@@ -83,11 +82,11 @@ impl ApiHandler {
     /// 4. Apply to Storage
     /// 5. Update Index
     fn handle_insert(&self, req: InsertRequest, sys: &mut Subsystems<'_>) -> ApiResult<Value> {
-        let validator = SchemaValidator::new(sys.schema_registry);
+        let validator = SchemaValidator::new(sys.schema_loader);
 
         // 1. Validate schema
         validator
-            .validate(&req.document, &req.schema_id, &req.schema_version)
+            .validate_document(&req.schema_id, &req.schema_version, &req.document)
             .map_err(ApiError::from_schema_error)?;
 
         // Extract document ID
@@ -101,22 +100,29 @@ impl ApiHandler {
         let body_bytes = serde_json::to_vec(&req.document)
             .map_err(|e| ApiError::invalid_request(format!("Failed to serialize document: {}", e)))?;
 
-        let payload = WalPayload::new(
+        let wal_payload = WalPayload::new(
+            &self.collection,
+            &doc_id,
+            &req.schema_id,
+            &req.schema_version,
+            body_bytes.clone(),
+        );
+
+        // 3. Append WAL record
+        sys.wal_writer
+            .append(RecordType::Insert, wal_payload)
+            .map_err(ApiError::from_wal_error)?;
+
+        // 4. Apply to Storage
+        let storage_payload = StoragePayload::new(
             &self.collection,
             &doc_id,
             &req.schema_id,
             &req.schema_version,
             body_bytes,
         );
-
-        // 3. Append WAL record
-        sys.wal_writer
-            .append(RecordType::Insert, payload)
-            .map_err(ApiError::from_wal_error)?;
-
-        // 4. Apply to Storage
         let offset = sys.storage_writer
-            .write(&req.schema_id, &req.schema_version, &doc_id, &req.document, false)
+            .write(&storage_payload)
             .map_err(ApiError::from_storage_error)?;
 
         // 5. Update Index
@@ -143,12 +149,7 @@ impl ApiHandler {
     /// 5. Apply to Storage
     /// 6. Update Index
     fn handle_update(&self, req: UpdateRequest, sys: &mut Subsystems<'_>) -> ApiResult<Value> {
-        let validator = SchemaValidator::new(sys.schema_registry);
-
-        // 1. Validate schema (update mode)
-        validator
-            .validate_update(&req.document, &req.schema_id, &req.schema_version)
-            .map_err(ApiError::from_schema_error)?;
+        let validator = SchemaValidator::new(sys.schema_loader);
 
         // Extract document ID
         let doc_id = req.document
@@ -156,6 +157,11 @@ impl ApiHandler {
             .and_then(|v| v.as_str())
             .ok_or_else(|| ApiError::invalid_request("Document missing _id"))?
             .to_string();
+
+        // 1. Validate schema (update mode)
+        validator
+            .validate_update(&req.schema_id, &req.schema_version, &doc_id, &req.document)
+            .map_err(ApiError::from_schema_error)?;
 
         // 2. Check document exists (via index)
         let offsets = sys.index_manager.lookup_pk(&doc_id);
@@ -167,22 +173,29 @@ impl ApiHandler {
         let body_bytes = serde_json::to_vec(&req.document)
             .map_err(|e| ApiError::invalid_request(format!("Failed to serialize document: {}", e)))?;
 
-        let payload = WalPayload::new(
+        let wal_payload = WalPayload::new(
+            &self.collection,
+            &doc_id,
+            &req.schema_id,
+            &req.schema_version,
+            body_bytes.clone(),
+        );
+
+        // 4. Append WAL record
+        sys.wal_writer
+            .append(RecordType::Update, wal_payload)
+            .map_err(ApiError::from_wal_error)?;
+
+        // 5. Apply to Storage (overwrite)
+        let storage_payload = StoragePayload::new(
             &self.collection,
             &doc_id,
             &req.schema_id,
             &req.schema_version,
             body_bytes,
         );
-
-        // 4. Append WAL record
-        sys.wal_writer
-            .append(RecordType::Update, payload)
-            .map_err(ApiError::from_wal_error)?;
-
-        // 5. Apply to Storage (overwrite)
         let offset = sys.storage_writer
-            .write(&req.schema_id, &req.schema_version, &doc_id, &req.document, false)
+            .write(&storage_payload)
             .map_err(ApiError::from_storage_error)?;
 
         // 6. Update Index
@@ -217,14 +230,13 @@ impl ApiHandler {
         let old_offset = offsets[offsets.len() - 1];
         let old_doc = sys.storage_reader
             .read_at(old_offset)
-            .map_err(ApiError::from_storage_error)?
-            .ok_or_else(|| ApiError::invalid_request("Document not found in storage"))?;
+            .map_err(ApiError::from_storage_error)?;
 
-        let old_body: Value = serde_json::from_slice(&old_doc.body)
+        let old_body: Value = serde_json::from_slice(&old_doc.document_body)
             .unwrap_or(json!({}));
 
         // 2. Append WAL record
-        let payload = WalPayload::tombstone(
+        let wal_payload = WalPayload::tombstone(
             &self.collection,
             &req.document_id,
             &req.schema_id,
@@ -232,12 +244,12 @@ impl ApiHandler {
         );
 
         sys.wal_writer
-            .append(RecordType::Delete, payload)
+            .append(RecordType::Delete, wal_payload)
             .map_err(ApiError::from_wal_error)?;
 
         // 3. Apply tombstone to Storage
         sys.storage_writer
-            .write_tombstone(&req.document_id)
+            .write_tombstone(&self.collection, &req.document_id, &req.schema_id, "")
             .map_err(ApiError::from_storage_error)?;
 
         // 4. Update Index
@@ -254,14 +266,17 @@ impl ApiHandler {
     /// 3. Call Executor (simplified: use index + storage)
     /// 4. Return results
     fn handle_query(&self, req: QueryRequest, sys: &mut Subsystems<'_>) -> ApiResult<Value> {
-        let planner = QueryPlanner::new(sys.schema_registry);
+        // Build index metadata
+        let index_metadata = IndexMetadata::with_indexes(sys.index_manager.indexed_fields().iter().cloned());
+
+        let planner = QueryPlanner::new(sys.schema_loader, &index_metadata);
 
         // 1. Build query AST
         let query = self.build_query(&req)?;
 
         // 2. Call Planner
         let plan = planner
-            .plan(&query, sys.index_manager.indexed_fields())
+            .plan(&query)
             .map_err(ApiError::from_planner_error)?;
 
         // 3. Execute query (simplified execution)
@@ -272,7 +287,7 @@ impl ApiHandler {
 
         // Read documents at offsets
         for offset in offsets.iter().take(req.limit) {
-            if let Ok(Some(record)) = sys.storage_reader.read_at(*offset) {
+            if let Ok(record) = sys.storage_reader.read_at(*offset) {
                 // Skip tombstones
                 if record.is_tombstone {
                     continue;
@@ -284,7 +299,7 @@ impl ApiHandler {
                 }
 
                 // Parse body
-                if let Ok(doc) = serde_json::from_slice::<Value>(&record.body) {
+                if let Ok(doc) = serde_json::from_slice::<Value>(&record.document_body) {
                     results.push(doc);
                 }
             }
@@ -295,20 +310,23 @@ impl ApiHandler {
 
     /// Handle explain operation
     fn handle_explain(&self, req: QueryRequest, sys: &mut Subsystems<'_>) -> ApiResult<Value> {
-        let planner = QueryPlanner::new(sys.schema_registry);
+        // Build index metadata
+        let index_metadata = IndexMetadata::with_indexes(sys.index_manager.indexed_fields().iter().cloned());
+
+        let planner = QueryPlanner::new(sys.schema_loader, &index_metadata);
 
         // Build query AST
         let query = self.build_query(&req)?;
 
         // Call Planner
         let plan = planner
-            .plan(&query, sys.index_manager.indexed_fields())
+            .plan(&query)
             .map_err(ApiError::from_planner_error)?;
 
         // Return explain output
         Ok(json!({
             "scan_type": format!("{:?}", plan.scan_type),
-            "index_field": plan.index_field,
+            "chosen_index": plan.chosen_index,
             "predicates": plan.predicates.len(),
             "sort": plan.sort.as_ref().map(|s| &s.field),
             "limit": plan.limit
@@ -379,35 +397,32 @@ impl ApiHandler {
                 Vec::new()
             }
             ScanType::IndexedEquality => {
-                if let Some(ref field) = plan.index_field {
-                    for pred in &query.predicates {
-                        if &pred.field == field {
-                            if let FilterOp::Eq(ref val) = pred.op {
-                                return index_manager.lookup_eq(field, val);
-                            }
+                let field = &plan.chosen_index;
+                for pred in &query.predicates {
+                    if &pred.field == field {
+                        if let FilterOp::Eq(ref val) = pred.op {
+                            return index_manager.lookup_eq(field, val);
                         }
                     }
                 }
                 Vec::new()
             }
             ScanType::IndexedRange => {
-                if let Some(ref field) = plan.index_field {
-                    let mut min: Option<&Value> = None;
-                    let mut max: Option<&Value> = None;
+                let field = &plan.chosen_index;
+                let mut min: Option<&Value> = None;
+                let mut max: Option<&Value> = None;
 
-                    for pred in &query.predicates {
-                        if &pred.field == field {
-                            match &pred.op {
-                                FilterOp::Gte(v) | FilterOp::Gt(v) => min = Some(v),
-                                FilterOp::Lte(v) | FilterOp::Lt(v) => max = Some(v),
-                                _ => {}
-                            }
+                for pred in &query.predicates {
+                    if &pred.field == field {
+                        match &pred.op {
+                            FilterOp::Gte(v) | FilterOp::Gt(v) => min = Some(v),
+                            FilterOp::Lte(v) | FilterOp::Lt(v) => max = Some(v),
+                            _ => {}
                         }
                     }
-
-                    return index_manager.lookup_range(field, min, max, Some(plan.limit as usize));
                 }
-                Vec::new()
+
+                index_manager.lookup_range(field, min, max, Some(plan.limit as usize))
             }
         }
     }
@@ -416,17 +431,17 @@ impl ApiHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schema::{FieldDef, Schema, SchemaRegistry};
+    use crate::schema::{FieldDef, Schema};
     use serde_json::json;
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
     use tempfile::TempDir;
 
-    fn setup_test_env() -> (TempDir, SchemaRegistry, WalWriter, StorageWriter, StorageReader, IndexManager) {
+    fn setup_test_env() -> (TempDir, SchemaLoader, WalWriter, StorageWriter, StorageReader, IndexManager) {
         let temp_dir = TempDir::new().unwrap();
         let data_dir = temp_dir.path();
 
-        // Create schema registry
-        let mut registry = SchemaRegistry::new();
+        // Create schema loader
+        let mut loader = SchemaLoader::new(data_dir);
 
         let mut fields = HashMap::new();
         fields.insert("_id".to_string(), FieldDef::required_string());
@@ -434,7 +449,7 @@ mod tests {
         fields.insert("age".to_string(), FieldDef::optional_int());
 
         let schema = Schema::new("users", "v1", fields);
-        registry.register(schema).unwrap();
+        loader.register(schema).unwrap();
 
         // Create WAL writer
         let wal_writer = WalWriter::open(data_dir).unwrap();
@@ -448,19 +463,19 @@ mod tests {
         indexed.insert("age".to_string());
         let index_manager = IndexManager::new(indexed);
 
-        (temp_dir, registry, wal_writer, storage_writer, storage_reader, index_manager)
+        (temp_dir, loader, wal_writer, storage_writer, storage_reader, index_manager)
     }
 
     #[test]
     fn test_insert_and_query_roundtrip() {
-        let (_temp, registry, mut wal, mut storage_w, storage_r, mut index) = setup_test_env();
+        let (_temp, loader, mut wal, mut storage_w, mut storage_r, mut index) = setup_test_env();
 
         let handler = ApiHandler::new("users");
         let mut subsystems = Subsystems {
-            schema_registry: &registry,
+            schema_loader: &loader,
             wal_writer: &mut wal,
             storage_writer: &mut storage_w,
-            storage_reader: &storage_r,
+            storage_reader: &mut storage_r,
             index_manager: &mut index,
         };
 
@@ -490,14 +505,14 @@ mod tests {
 
     #[test]
     fn test_invalid_schema_rejected() {
-        let (_temp, registry, mut wal, mut storage_w, storage_r, mut index) = setup_test_env();
+        let (_temp, loader, mut wal, mut storage_w, mut storage_r, mut index) = setup_test_env();
 
         let handler = ApiHandler::new("users");
         let mut subsystems = Subsystems {
-            schema_registry: &registry,
+            schema_loader: &loader,
             wal_writer: &mut wal,
             storage_writer: &mut storage_w,
-            storage_reader: &storage_r,
+            storage_reader: &mut storage_r,
             index_manager: &mut index,
         };
 
@@ -515,14 +530,14 @@ mod tests {
 
     #[test]
     fn test_unbounded_query_rejected() {
-        let (_temp, registry, mut wal, mut storage_w, storage_r, mut index) = setup_test_env();
+        let (_temp, loader, mut wal, mut storage_w, mut storage_r, mut index) = setup_test_env();
 
         let handler = ApiHandler::new("users");
         let mut subsystems = Subsystems {
-            schema_registry: &registry,
+            schema_loader: &loader,
             wal_writer: &mut wal,
             storage_writer: &mut storage_w,
-            storage_reader: &storage_r,
+            storage_reader: &mut storage_r,
             index_manager: &mut index,
         };
 
@@ -542,14 +557,14 @@ mod tests {
 
     #[test]
     fn test_explain_returns_deterministic_plan() {
-        let (_temp, registry, mut wal, mut storage_w, storage_r, mut index) = setup_test_env();
+        let (_temp, loader, mut wal, mut storage_w, mut storage_r, mut index) = setup_test_env();
 
         let handler = ApiHandler::new("users");
         let mut subsystems = Subsystems {
-            schema_registry: &registry,
+            schema_loader: &loader,
             wal_writer: &mut wal,
             storage_writer: &mut storage_w,
-            storage_reader: &storage_r,
+            storage_reader: &mut storage_r,
             index_manager: &mut index,
         };
 
@@ -571,14 +586,14 @@ mod tests {
     #[test]
     fn test_serialization_enforced() {
         // This test verifies the lock exists; actual blocking tested differently
-        let (_temp, registry, mut wal, mut storage_w, storage_r, mut index) = setup_test_env();
+        let (_temp, loader, mut wal, mut storage_w, mut storage_r, mut index) = setup_test_env();
 
         let handler = ApiHandler::new("users");
         let mut subsystems = Subsystems {
-            schema_registry: &registry,
+            schema_loader: &loader,
             wal_writer: &mut wal,
             storage_writer: &mut storage_w,
-            storage_reader: &storage_r,
+            storage_reader: &mut storage_r,
             index_manager: &mut index,
         };
 
@@ -609,18 +624,18 @@ mod tests {
         // Corruption is surfaced when storage/WAL returns error
         // This is implicitly tested via pass-through errors
 
-        let (_temp, registry, mut wal, mut storage_w, storage_r, mut index) = setup_test_env();
+        let (_temp, loader, mut wal, mut storage_w, mut storage_r, mut index) = setup_test_env();
 
         let handler = ApiHandler::new("users");
         let mut subsystems = Subsystems {
-            schema_registry: &registry,
+            schema_loader: &loader,
             wal_writer: &mut wal,
             storage_writer: &mut storage_w,
-            storage_reader: &storage_r,
+            storage_reader: &mut storage_r,
             index_manager: &mut index,
         };
 
-        // Insert a document for later query
+        // Insert a document - this confirms error propagation works
         let insert_req = r#"{
             "op": "insert",
             "schema_id": "users",

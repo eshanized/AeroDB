@@ -200,6 +200,17 @@ impl SchemaLoader {
     }
 }
 
+// Implement planner's SchemaRegistry trait
+impl crate::planner::SchemaRegistry for SchemaLoader {
+    fn schema_exists(&self, schema_id: &str) -> bool {
+        self.schema_id_exists(schema_id)
+    }
+
+    fn schema_version_exists(&self, schema_id: &str, version: &str) -> bool {
+        self.exists(schema_id, version)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

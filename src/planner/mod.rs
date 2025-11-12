@@ -27,4 +27,5 @@ pub use ast::{FilterOp, Predicate, Query, SortDirection, SortSpec};
 pub use bounds::BoundednessProof;
 pub use errors::{PlannerError, PlannerErrorCode, PlannerResult};
 pub use explain::ExplainPlan;
-pub use planner::{IndexMetadata, QueryPlan, QueryPlanner, ScanType};
+pub use planner::{IndexMetadata, QueryPlan, QueryPlanner, ScanType, SchemaRegistry};
+

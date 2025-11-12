@@ -20,4 +20,4 @@ mod manager;
 
 pub use btree::{IndexKey, IndexTree};
 pub use errors::{IndexError, IndexErrorCode, IndexResult};
-pub use manager::IndexManager;
+pub use manager::{DocumentInfo, IndexManager};
