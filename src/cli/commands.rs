@@ -11,9 +11,10 @@ use serde_json::{json, Value};
 
 use crate::api::{ApiHandler, Subsystems};
 use crate::index::IndexManager;
+use crate::recovery::RecoveryManager;
 use crate::schema::SchemaLoader;
 use crate::storage::{StorageReader, StorageWriter};
-use crate::wal::WalWriter;
+use crate::wal::{WalReader, WalWriter};
 
 use super::args::Command;
 use super::errors::{CliError, CliResult};
@@ -288,44 +289,91 @@ fn is_initialized(data_dir: &Path) -> bool {
     data_dir.join("metadata").join("schemas").exists()
 }
 
-/// Boot the system per BOOT.md
+/// Boot the system per BOOT.md with mandatory recovery
 ///
-/// Steps:
+/// Steps (strict order, all mandatory):
 /// 1. Load schemas
-/// 2. Recovery (WAL replay) - via StartupManager
-/// 3. Index rebuild
-/// 4. Verification
+/// 2. Open WAL reader for replay
+/// 3. Open recovery storage (combined writer + scanner)
+/// 4. Execute RecoveryManager::recover() which:
+///    - Replays WAL from offset 0
+///    - Applies all records to storage
+///    - Rebuilds indexes from storage
+///    - Verifies consistency
+///    - Removes clean_shutdown marker
+/// 5. Return initialized subsystems
+///
+/// FATAL: Any failure at any step halts startup immediately.
+/// No partial startup. No serving without complete recovery.
 fn boot_system(data_dir: &Path) -> CliResult<(WalWriter, StorageWriter, StorageReader, SchemaLoader, IndexManager)> {
-    // 1. Load schemas
+    use crate::recovery::RecoveryStorage;
+    
+    // Step 1: Load schemas (required for schema validation during recovery)
     let mut schema_loader = SchemaLoader::new(data_dir);
     schema_loader.load_all()
         .map_err(|e| CliError::boot_failed(format!("Schema load failed: {}", e)))?;
     
-    // 2. Open WAL and Storage
-    let wal_writer = WalWriter::open(data_dir)
-        .map_err(|e| CliError::boot_failed(format!("WAL open failed: {}", e)))?;
+    // Step 2: Open WAL reader for replay
+    let wal_path = data_dir.join("wal").join("wal.log");
+    let wal_exists = wal_path.exists();
     
-    let storage_writer = StorageWriter::open(data_dir)
-        .map_err(|e| CliError::boot_failed(format!("Storage open failed: {}", e)))?;
-    
-    let storage_reader = StorageReader::open_from_data_dir(data_dir)
-        .map_err(|e| CliError::boot_failed(format!("Storage reader open failed: {}", e)))?;
-    
-    // 3. Create index manager with indexed fields
-    // For Phase 0, we index _id and any fields marked in schema
+    // Step 3: Create index manager
     let indexed_fields: HashSet<String> = HashSet::new();
-    let index_manager = IndexManager::new(indexed_fields);
+    let mut index_manager = IndexManager::new(indexed_fields);
     
-    // 4. Recovery and verification via StartupManager
-    // Note: StartupManager performs WAL replay, index rebuild, and verification
-    // For Phase 0, we do a simplified startup
+    // Step 4: Execute RecoveryManager::recover() - MANDATORY
+    // This performs: WAL replay -> Index rebuild -> Consistency verification
+    let recovery_manager = RecoveryManager::new(data_dir);
     
-    // Remove clean_shutdown marker if present
-    let shutdown_marker = data_dir.join("clean_shutdown");
-    if shutdown_marker.exists() {
-        let _ = fs::remove_file(&shutdown_marker);
-    }
+    let (storage_writer, storage_reader) = if wal_exists {
+        // Open WAL reader
+        let mut wal_reader = WalReader::open(&wal_path)
+            .map_err(|e| CliError::boot_failed(format!("WAL reader open failed: {}", e)))?;
+        
+        // Open recovery storage (implements both StorageApply + StorageScan)
+        let mut recovery_storage = RecoveryStorage::open(data_dir)
+            .map_err(|e| CliError::boot_failed(format!("Recovery storage open failed: {}", e)))?;
+        
+        // Execute full recovery sequence
+        // This MUST succeed before we can serve any requests
+        let _recovery_state = recovery_manager.recover(
+            &mut wal_reader,
+            &mut recovery_storage,
+            &mut index_manager,
+            &schema_loader,
+        ).map_err(|e| {
+            // Recovery failure is FATAL - system cannot serve
+            CliError::boot_failed(format!(
+                "Recovery failed (FATAL): {}. System cannot serve requests.",
+                e
+            ))
+        })?;
+        
+        // Extract writer and reader from recovery storage
+        recovery_storage.into_parts()
+    } else {
+        // No WAL file exists - fresh database
+        // Still need to remove shutdown marker if present
+        let shutdown_marker = data_dir.join("clean_shutdown");
+        if shutdown_marker.exists() {
+            fs::remove_file(&shutdown_marker)
+                .map_err(|e| CliError::boot_failed(format!("Failed to remove shutdown marker: {}", e)))?;
+        }
+        
+        // Open storage directly
+        let storage_writer = StorageWriter::open(data_dir)
+            .map_err(|e| CliError::boot_failed(format!("Storage writer open failed: {}", e)))?;
+        let storage_reader = StorageReader::open_from_data_dir(data_dir)
+            .map_err(|e| CliError::boot_failed(format!("Storage reader open failed: {}", e)))?;
+        
+        (storage_writer, storage_reader)
+    };
     
+    // Step 5: Open WAL writer for new writes
+    let wal_writer = WalWriter::open(data_dir)
+        .map_err(|e| CliError::boot_failed(format!("WAL writer open failed: {}", e)))?;
+    
+    // Recovery complete - system may now enter SERVING state
     Ok((wal_writer, storage_writer, storage_reader, schema_loader, index_manager))
 }
 

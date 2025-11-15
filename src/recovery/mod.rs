@@ -19,12 +19,15 @@
 //! - R2: Sequential replay from byte 0
 //! - K2: Halt-on-corruption policy
 
+mod adapters;
 mod errors;
 mod replay;
 mod startup;
 mod verifier;
 
+pub use adapters::RecoveryStorage;
 pub use errors::{RecoveryError, RecoveryErrorCode, RecoveryResult};
-pub use replay::WalReplayer;
-pub use startup::RecoveryManager;
-pub use verifier::ConsistencyVerifier;
+pub use replay::{ReplayStats, StorageApply, WalRead, WalReplayer};
+pub use startup::{IndexRebuild, RecoveryManager, RecoveryState};
+pub use verifier::{ConsistencyVerifier, SchemaCheck, StorageScan, StorageRecordInfo, VerificationStats};
+
