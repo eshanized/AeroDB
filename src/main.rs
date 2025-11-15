@@ -1,26 +1,24 @@
 //! AeroDB CLI entry point
 //!
-//! Per BOOT.md, main.rs must:
-//! 1. Parse args
-//! 2. Dispatch to CLI commands
-//! 3. Never call subsystems directly
+//! This is a minimal entrypoint that:
+//! 1. Parses CLI arguments (via cli::run)
+//! 2. Dispatches to CLI commands (via cli::run)
+//! 3. Prints errors to stderr
+//! 4. Exits with non-zero on failure
+//!
+//! Per BOOT.md, main.rs must NOT:
+//! - Load configuration
+//! - Initialize subsystems
+//! - Perform recovery
+//! - Open files or spawn threads
+//!
+//! All logic is delegated to the CLI module.
 
-use std::process;
-
-use aerodb::cli::{Cli, run_command};
+use aerodb::cli;
 
 fn main() {
-    let cli = Cli::parse_args();
-    
-    if let Err(e) = run_command(cli.command) {
-        // Print error JSON and exit non-zero
-        let error_json = serde_json::json!({
-            "status": "error",
-            "code": e.code_str(),
-            "message": e.message()
-        });
-        
-        eprintln!("{}", error_json);
-        process::exit(1);
+    if let Err(e) = cli::run() {
+        eprintln!("{}", e);
+        std::process::exit(1);
     }
 }

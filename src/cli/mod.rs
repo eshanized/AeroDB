@@ -12,6 +12,6 @@ mod errors;
 mod io;
 
 pub use args::{Cli, Command};
-pub use commands::{run_command, init, start, query, explain};
+pub use commands::{run, run_command, init, start, query, explain};
 pub use errors::{CliError, CliResult};
 pub use io::{read_request, write_response, write_error};

@@ -85,6 +85,15 @@ impl Config {
     }
 }
 
+/// Main CLI entry point
+///
+/// Parses arguments and dispatches to the appropriate command.
+/// This is the only function that main.rs should call.
+pub fn run() -> CliResult<()> {
+    let cli = super::args::Cli::parse_args();
+    run_command(cli.command)
+}
+
 /// Run the appropriate command based on CLI args
 pub fn run_command(cmd: Command) -> CliResult<()> {
     match cmd {
