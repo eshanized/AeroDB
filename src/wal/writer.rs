@@ -204,6 +204,106 @@ impl WalWriter {
     pub fn append_delete(&mut self, payload: WalPayload) -> WalResult<u64> {
         self.append(RecordType::Delete, payload)
     }
+
+    /// Explicitly fsync the WAL file.
+    ///
+    /// This ensures all pending writes are durable on disk.
+    /// Called before snapshot creation per CHECKPOINT.md.
+    pub fn fsync(&self) -> WalResult<()> {
+        self.file.sync_all().map_err(|e| {
+            WalError::fsync_failed("Explicit WAL fsync failed", e)
+        })
+    }
+
+    /// Returns the WAL directory path.
+    pub fn wal_dir(&self) -> &Path {
+        self.wal_path.parent().unwrap_or(Path::new("."))
+    }
+
+    /// Truncate WAL to zero (after successful snapshot).
+    ///
+    /// Per CHECKPOINT.md §6:
+    /// - WAL file deleted or truncated
+    /// - New WAL starts empty
+    /// - Sequence numbers reset to 1
+    ///
+    /// This operation is atomic: the old file is removed and a new empty
+    /// file is created with fsync.
+    ///
+    /// # Errors
+    ///
+    /// Returns `WalError` if truncation fails. If truncation fails,
+    /// the WAL is left in its original state.
+    pub fn truncate(&mut self) -> WalResult<()> {
+        // Close current file by dropping and reopening
+        let wal_dir = self.wal_path.parent().unwrap_or(Path::new("."));
+
+        // Remove old WAL file
+        if self.wal_path.exists() {
+            fs::remove_file(&self.wal_path).map_err(|e| {
+                WalError::append_failed(
+                    format!("Failed to remove WAL file during truncation: {}", self.wal_path.display()),
+                    e,
+                )
+            })?;
+        }
+
+        // Create new empty WAL file
+        let new_file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&self.wal_path)
+            .map_err(|e| {
+                WalError::append_failed(
+                    format!("Failed to create new WAL file during truncation: {}", self.wal_path.display()),
+                    e,
+                )
+            })?;
+
+        // fsync new file
+        new_file.sync_all().map_err(|e| {
+            WalError::fsync_failed(
+                format!("Failed to fsync new WAL file: {}", self.wal_path.display()),
+                e,
+            )
+        })?;
+
+        // fsync WAL directory to ensure file creation is durable
+        let dir_handle = OpenOptions::new()
+            .read(true)
+            .open(wal_dir)
+            .map_err(|e| {
+                WalError::append_failed(
+                    format!("Failed to open WAL directory for fsync: {}", wal_dir.display()),
+                    e,
+                )
+            })?;
+
+        dir_handle.sync_all().map_err(|e| {
+            WalError::fsync_failed(
+                format!("Failed to fsync WAL directory: {}", wal_dir.display()),
+                e,
+            )
+        })?;
+
+        // Reopen file for append
+        let file = OpenOptions::new()
+            .append(true)
+            .open(&self.wal_path)
+            .map_err(|e| {
+                WalError::append_failed(
+                    format!("Failed to reopen WAL file after truncation: {}", self.wal_path.display()),
+                    e,
+                )
+            })?;
+
+        // Update internal state
+        self.file = file;
+        self.next_sequence = 1;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -327,6 +427,118 @@ mod tests {
             assert_eq!(record2.sequence_number, 2);
             assert_eq!(record2.record_type, RecordType::Update);
 
+            assert!(reader.read_next().unwrap().is_none());
+        }
+    }
+
+    #[test]
+    fn test_fsync_explicit() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut writer = WalWriter::open(temp_dir.path()).unwrap();
+
+        writer.append_insert(create_test_payload("doc1")).unwrap();
+
+        // Explicit fsync should succeed
+        assert!(writer.fsync().is_ok());
+    }
+
+    #[test]
+    fn test_wal_dir() {
+        let temp_dir = TempDir::new().unwrap();
+        let writer = WalWriter::open(temp_dir.path()).unwrap();
+
+        let wal_dir = writer.wal_dir();
+        assert!(wal_dir.ends_with("wal"));
+    }
+
+    #[test]
+    fn test_truncate_empties_wal() {
+        use super::super::reader::WalReader;
+
+        let temp_dir = TempDir::new().unwrap();
+
+        // Write some records
+        let mut writer = WalWriter::open(temp_dir.path()).unwrap();
+        writer.append_insert(create_test_payload("doc1")).unwrap();
+        writer.append_insert(create_test_payload("doc2")).unwrap();
+        writer.append_insert(create_test_payload("doc3")).unwrap();
+
+        assert_eq!(writer.next_sequence_number(), 4);
+
+        // Truncate
+        writer.truncate().unwrap();
+
+        // Verify sequence reset
+        assert_eq!(writer.next_sequence_number(), 1);
+
+        // Verify WAL is empty
+        let wal_path = temp_dir.path().join("wal").join("wal.log");
+        let mut reader = WalReader::open(&wal_path).unwrap();
+        assert!(reader.read_next().unwrap().is_none());
+    }
+
+    #[test]
+    fn test_truncate_allows_new_writes() {
+        let temp_dir = TempDir::new().unwrap();
+
+        let mut writer = WalWriter::open(temp_dir.path()).unwrap();
+        writer.append_insert(create_test_payload("doc1")).unwrap();
+        writer.append_insert(create_test_payload("doc2")).unwrap();
+
+        // Truncate
+        writer.truncate().unwrap();
+
+        // New writes should start at sequence 1
+        let seq1 = writer.append_insert(create_test_payload("new_doc1")).unwrap();
+        let seq2 = writer.append_insert(create_test_payload("new_doc2")).unwrap();
+
+        assert_eq!(seq1, 1);
+        assert_eq!(seq2, 2);
+    }
+
+    #[test]
+    fn test_truncate_persists_across_reopen() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Write and truncate
+        {
+            let mut writer = WalWriter::open(temp_dir.path()).unwrap();
+            writer.append_insert(create_test_payload("doc1")).unwrap();
+            writer.append_insert(create_test_payload("doc2")).unwrap();
+            writer.truncate().unwrap();
+        }
+
+        // Reopen and verify empty WAL, sequence starts at 1
+        {
+            let writer = WalWriter::open(temp_dir.path()).unwrap();
+            assert_eq!(writer.next_sequence_number(), 1);
+        }
+    }
+
+    #[test]
+    fn test_truncate_then_write_then_reopen() {
+        use super::super::reader::WalReader;
+
+        let temp_dir = TempDir::new().unwrap();
+
+        // Write, truncate, write again
+        {
+            let mut writer = WalWriter::open(temp_dir.path()).unwrap();
+            writer.append_insert(create_test_payload("old_doc")).unwrap();
+            writer.truncate().unwrap();
+            writer.append_insert(create_test_payload("new_doc")).unwrap();
+        }
+
+        // Reopen and verify only new record exists
+        {
+            let wal_path = temp_dir.path().join("wal").join("wal.log");
+            let mut reader = WalReader::open(&wal_path).unwrap();
+
+            let record = reader.read_next().unwrap().unwrap();
+            assert_eq!(record.sequence_number, 1);
+            assert_eq!(record.payload.document_id, "new_doc");
+
+            // No more records
             assert!(reader.read_next().unwrap().is_none());
         }
     }
