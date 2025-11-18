@@ -9,5 +9,6 @@ pub mod index;
 pub mod planner;
 pub mod recovery;
 pub mod schema;
+pub mod snapshot;
 pub mod storage;
 pub mod wal;
