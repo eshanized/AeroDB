@@ -3,6 +3,7 @@
 //! Phase 0: Minimum Viable Infrastructure
 
 pub mod api;
+pub mod backup;
 pub mod checkpoint;
 pub mod cli;
 pub mod executor;
