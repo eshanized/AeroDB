@@ -126,9 +126,8 @@ impl RestoreManager {
             cleanup_temp_dir(&temp_dir);
 
             // Clean up reorganized directory if it exists
-            if let Ok(reorganized) = temp_dir.parent()
-                .map(|p| p.join(format!("{}.reorganized", temp_dir.file_name().unwrap().to_string_lossy())))
-            {
+            if let Some(parent) = temp_dir.parent() {
+                let reorganized = parent.join(format!("{}.reorganized", temp_dir.file_name().unwrap().to_string_lossy()));
                 cleanup_temp_dir(&reorganized);
             }
         }
