@@ -10,6 +10,7 @@ pub mod executor;
 pub mod index;
 pub mod planner;
 pub mod recovery;
+pub mod restore;
 pub mod schema;
 pub mod snapshot;
 pub mod storage;
