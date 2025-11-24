@@ -8,6 +8,7 @@ pub mod checkpoint;
 pub mod cli;
 pub mod executor;
 pub mod index;
+pub mod observability;
 pub mod planner;
 pub mod recovery;
 pub mod restore;
