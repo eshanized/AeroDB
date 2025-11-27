@@ -9,6 +9,7 @@ pub mod cli;
 pub mod crash_point;
 pub mod executor;
 pub mod index;
+pub mod mvcc;
 pub mod observability;
 pub mod planner;
 pub mod recovery;
