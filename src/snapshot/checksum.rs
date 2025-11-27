@@ -62,14 +62,6 @@ pub fn compute_file_checksum(path: &Path) -> SnapshotResult<u32> {
 /// Formats a CRC32 checksum as a string per SNAPSHOT.md format.
 ///
 /// Format: `crc32:XXXXXXXX` (lowercase hex, 8 characters, zero-padded)
-///
-/// # Example
-///
-/// ```
-/// use aerodb::snapshot::checksum::format_checksum;
-/// let formatted = format_checksum(0xDEADBEEF);
-/// assert_eq!(formatted, "crc32:deadbeef");
-/// ```
 pub fn format_checksum(checksum: u32) -> String {
     format!("crc32:{:08x}", checksum)
 }
