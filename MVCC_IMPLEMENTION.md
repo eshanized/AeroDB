@@ -1,41 +1,72 @@
 # AeroDB MVCC Implementation Status
 
-## MVCC-01: Domain Foundations (Completed)
+## Phase 2: MVCC Implementation
 
-**Status**: Implemented & Tested  
-**Focus**: Pure domain types, structural invariants, no runtime behavior.
+---
 
-### Module Structure
-`src/mvcc/`
-- `mod.rs`: Module exports
-- `commit_id.rs`: Totally ordered commit identity
-- `version.rs`: Immutable document version
-- `version_chain.rs`: Version history container
-- `read_view.rs`: Stable snapshot boundary
+## MVCC-01: Domain Foundations ✓
 
-### Type Definitions
+**Status**: Complete
 
-#### `CommitId`
-- **Definition**: `pub struct CommitId(u64)` (Newtype)
-- **Invariants**: Opaque, strictly totally ordered, no arithmetic.
-- **Role**: Sole authority for visibility ordering.
+### Types Implemented
 
-#### `Version`
-- **Definition**: Immutable struct.
-- **Fields**:
-  - `key: String`
-  - `payload: VersionPayload` (Document or Tombstone)
-  - `commit_id: CommitId`
-- **Invariants**: Once created, never mutated. Tombstones are explicit.
+| Type | Location | Description |
+|------|----------|-------------|
+| `CommitId` | `mvcc/commit_id.rs` | Opaque, totally ordered commit identity |
+| `Version` | `mvcc/version.rs` | Immutable document version |
+| `VersionPayload` | `mvcc/version.rs` | Explicit Document/Tombstone enum |
+| `VersionChain` | `mvcc/version_chain.rs` | Document history container |
+| `ReadView` | `mvcc/read_view.rs` | Stable snapshot boundary |
 
-#### `VersionChain`
-- **Definition**: `pub struct VersionChain { key: String, versions: Vec<Version> }`
-- **Role**: Pure data container for a document's history. No traversal logic implies no visibility decisions yet.
+---
 
-#### `ReadView`
-- **Definition**: `pub struct ReadView { read_upper_bound: CommitId }`
-- **Role**: Defines a stable snapshot cut. Immutable after construction.
+## MVCC-02: Commit Identity WAL Authority ✓
 
-### Test Coverage
-- **22 unit tests** passing.
-- Verified immutability, explicit construction, and lack of side effects.
+**Status**: Complete
+
+### WAL Additions
+
+| Type | Description |
+|------|-------------|
+| `RecordType::MvccCommit` | WAL record type (value 3) |
+| `MvccCommitPayload` | Commit identity payload |
+| `MvccCommitRecord` | Complete commit record with checksum |
+
+### Commit Authority
+
+| Component | Location | Description |
+|-----------|----------|-------------|
+| `CommitAuthority` | `mvcc/commit_authority.rs` | WAL-based commit identity assignment |
+| `CommitAuthorityError` | `mvcc/commit_authority.rs` | Non-monotonic/out-of-order errors |
+
+### Crash Points
+
+| Point | Purpose |
+|-------|---------|
+| `mvcc_before_commit_record` | Before commit identity persisted |
+| `mvcc_after_commit_record` | After append, before fsync |
+| `mvcc_after_commit_fsync` | After durable commit |
+
+### Core Principle
+
+> **The WAL is the sole source of truth for commit ordering.**
+
+- No in-memory counters
+- No atomic integers
+- No clock usage
+- If not durably recorded, it does not exist
+
+---
+
+## Test Results
+
+```
+test result: ok. 433 passed; 0 failed
+```
+
+---
+
+## Next Steps
+
+- MVCC-03: Version Persistence
+- MVCC-04: Read View and Visibility Logic
