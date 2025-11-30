@@ -821,8 +821,8 @@ mod tests {
 
     #[test]
     fn test_invalid_record_type() {
-        // 3 is now valid (MvccCommit), so test 4 and 255
-        assert!(RecordType::from_u8(4).is_none());
+        // 4 is now valid (MvccVersion), so test 5 and 255
+        assert!(RecordType::from_u8(5).is_none());
         assert!(RecordType::from_u8(255).is_none());
     }
 
@@ -978,4 +978,64 @@ mod tests {
 
         assert_eq!(deserialized.sequence_number, 42);
     }
+
+    // === MVCC Version Record Tests ===
+
+    #[test]
+    fn test_mvcc_version_payload_roundtrip() {
+        let payload = MvccVersionPayload::new(42, "users:user_1", b"data".to_vec());
+        let serialized = payload.serialize();
+        let deserialized = MvccVersionPayload::deserialize(&serialized).unwrap();
+        assert_eq!(payload, deserialized);
+    }
+
+    #[test]
+    fn test_mvcc_version_tombstone_roundtrip() {
+        let payload = MvccVersionPayload::tombstone(42, "users:user_1");
+        let serialized = payload.serialize();
+        let deserialized = MvccVersionPayload::deserialize(&serialized).unwrap();
+        assert_eq!(payload, deserialized);
+        assert!(deserialized.is_tombstone);
+        assert!(deserialized.payload.is_empty());
+    }
+
+    #[test]
+    fn test_mvcc_version_record_roundtrip() {
+        let record = MvccVersionRecord::new(1, 100, "users:user_1", b"document".to_vec());
+        let serialized = record.serialize();
+        let (deserialized, bytes_consumed) = MvccVersionRecord::deserialize(&serialized).unwrap();
+
+        assert_eq!(record, deserialized);
+        assert_eq!(bytes_consumed, serialized.len());
+        assert_eq!(deserialized.commit_id(), 100);
+        assert_eq!(deserialized.key(), "users:user_1");
+    }
+
+    #[test]
+    fn test_mvcc_version_record_deterministic_serialization() {
+        let record = MvccVersionRecord::new(1, 42, "key", b"data".to_vec());
+        let serialized1 = record.serialize();
+        let serialized2 = record.serialize();
+        assert_eq!(serialized1, serialized2, "Serialization must be deterministic");
+    }
+
+    #[test]
+    fn test_mvcc_version_checksum_detects_corruption() {
+        let record = MvccVersionRecord::new(1, 100, "key", b"data".to_vec());
+        let mut serialized = record.serialize();
+
+        let mid = serialized.len() / 2;
+        serialized[mid] ^= 0xFF;
+
+        let result = MvccVersionRecord::deserialize(&serialized);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_mvcc_version_record_type() {
+        assert_eq!(RecordType::MvccVersion.as_u8(), 4);
+        assert_eq!(RecordType::from_u8(4), Some(RecordType::MvccVersion));
+        assert!(RecordType::MvccVersion.is_mvcc_record());
+    }
 }
+
