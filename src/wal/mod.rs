@@ -29,5 +29,5 @@ mod writer;
 pub use checksum::compute_checksum;
 pub use errors::{WalError, WalResult};
 pub use reader::WalReader;
-pub use record::{MvccCommitPayload, MvccCommitRecord, RecordType, WalPayload, WalRecord};
+pub use record::{MvccCommitPayload, MvccCommitRecord, MvccVersionPayload, MvccVersionRecord, RecordType, WalPayload, WalRecord};
 pub use writer::WalWriter;

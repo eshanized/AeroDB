@@ -112,6 +112,11 @@ pub mod points {
     pub const MVCC_BEFORE_COMMIT_RECORD: &str = "mvcc_before_commit_record";
     pub const MVCC_AFTER_COMMIT_RECORD: &str = "mvcc_after_commit_record";
     pub const MVCC_AFTER_COMMIT_FSYNC: &str = "mvcc_after_commit_fsync";
+    
+    // MVCC version persistence crash points per MVCC-03
+    pub const MVCC_BEFORE_VERSION_WRITE: &str = "mvcc_before_version_write";
+    pub const MVCC_AFTER_VERSION_WRITE: &str = "mvcc_after_version_write";
+    pub const MVCC_AFTER_VERSION_FSYNC: &str = "mvcc_after_version_fsync";
 
     /// Get all crash point names
     pub fn all() -> &'static [&'static str] {
@@ -148,6 +153,9 @@ pub mod points {
             MVCC_BEFORE_COMMIT_RECORD,
             MVCC_AFTER_COMMIT_RECORD,
             MVCC_AFTER_COMMIT_FSYNC,
+            MVCC_BEFORE_VERSION_WRITE,
+            MVCC_AFTER_VERSION_WRITE,
+            MVCC_AFTER_VERSION_FSYNC,
         ]
     }
 }
@@ -165,7 +173,7 @@ mod tests {
     #[test]
     fn test_all_crash_points_defined() {
         let all = points::all();
-        assert_eq!(all.len(), 32);
+        assert_eq!(all.len(), 35);
 
         // Verify WAL points
         assert!(all.contains(&"wal_before_append"));

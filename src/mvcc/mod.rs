@@ -10,15 +10,21 @@
 //! - `VersionChain` - Version history for a document
 //! - `ReadView` - Stable snapshot boundary
 //! - `CommitAuthority` - WAL-based commit identity assignment
+//! - `VersionStorage` - Commit-bound version persistence
 
 mod commit_authority;
 mod commit_id;
 mod read_view;
 mod version;
 mod version_chain;
+mod version_storage;
 
 pub use commit_authority::{CommitAuthority, CommitAuthorityError};
 pub use commit_id::CommitId;
 pub use read_view::ReadView;
 pub use version::{Version, VersionPayload};
 pub use version_chain::VersionChain;
+pub use version_storage::{
+    PersistedVersion, VersionExpectations, VersionStorageError, VersionStorageResult, VersionValidator,
+};
+

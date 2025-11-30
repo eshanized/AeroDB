@@ -29,6 +29,9 @@ pub enum RecordType {
     /// MVCC commit identity record
     /// Per MVCC_WAL_INTERACTION.md: The commit identity is the visibility barrier
     MvccCommit = 3,
+    /// MVCC version record - binds version data to commit identity
+    /// Per MVCC_WAL_INTERACTION.md: Versions exist only with durable commit
+    MvccVersion = 4,
 }
 
 impl RecordType {
@@ -39,13 +42,14 @@ impl RecordType {
             1 => Some(RecordType::Update),
             2 => Some(RecordType::Delete),
             3 => Some(RecordType::MvccCommit),
+            4 => Some(RecordType::MvccVersion),
             _ => None,
         }
     }
 
     /// Returns true if this is an MVCC-specific record type
     pub fn is_mvcc_record(self) -> bool {
-        matches!(self, RecordType::MvccCommit)
+        matches!(self, RecordType::MvccCommit | RecordType::MvccVersion)
     }
 
     /// Convert to u8
@@ -98,6 +102,117 @@ impl MvccCommitPayload {
             data[4], data[5], data[6], data[7],
         ]);
         Ok(Self { commit_id })
+    }
+}
+
+/// MVCC Version payload - binds version data to commit identity
+///
+/// Per MVCC_WAL_INTERACTION.md and PHASE2_INVARIANTS.md:
+/// - A version exists if and only if its commit identity exists durably
+/// - Versions are written AFTER commit identity records
+/// - Atomicity is enforced at recovery time
+///
+/// This record type contains all data needed for a versioned document.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MvccVersionPayload {
+    /// The commit identity this version belongs to
+    /// Must reference a durable MvccCommit record
+    pub commit_id: u64,
+    /// Document key (collection:document_id)
+    pub key: String,
+    /// Whether this is a tombstone (delete) version
+    pub is_tombstone: bool,
+    /// Document payload (empty for tombstones)
+    pub payload: Vec<u8>,
+}
+
+impl MvccVersionPayload {
+    /// Create a new version payload for a document
+    pub fn new(commit_id: u64, key: impl Into<String>, payload: Vec<u8>) -> Self {
+        Self {
+            commit_id,
+            key: key.into(),
+            is_tombstone: false,
+            payload,
+        }
+    }
+
+    /// Create a tombstone version payload
+    pub fn tombstone(commit_id: u64, key: impl Into<String>) -> Self {
+        Self {
+            commit_id,
+            key: key.into(),
+            is_tombstone: true,
+            payload: Vec::new(),
+        }
+    }
+
+    /// Serialize to bytes
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        
+        // commit_id (u64 LE)
+        buf.extend_from_slice(&self.commit_id.to_le_bytes());
+        
+        // key (length-prefixed string)
+        buf.extend_from_slice(&(self.key.len() as u32).to_le_bytes());
+        buf.extend_from_slice(self.key.as_bytes());
+        
+        // is_tombstone (u8)
+        buf.push(if self.is_tombstone { 1 } else { 0 });
+        
+        // payload (length-prefixed bytes)
+        buf.extend_from_slice(&(self.payload.len() as u32).to_le_bytes());
+        buf.extend_from_slice(&self.payload);
+        
+        buf
+    }
+
+    /// Deserialize from bytes
+    pub fn deserialize(data: &[u8]) -> std::io::Result<Self> {
+        use std::io::{Cursor, Read};
+        
+        if data.len() < 8 + 4 + 1 + 4 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                "MvccVersionPayload too short",
+            ));
+        }
+        
+        let mut cursor = Cursor::new(data);
+        
+        // commit_id
+        let mut commit_buf = [0u8; 8];
+        cursor.read_exact(&mut commit_buf)?;
+        let commit_id = u64::from_le_bytes(commit_buf);
+        
+        // key
+        let mut len_buf = [0u8; 4];
+        cursor.read_exact(&mut len_buf)?;
+        let key_len = u32::from_le_bytes(len_buf) as usize;
+        let mut key_buf = vec![0u8; key_len];
+        cursor.read_exact(&mut key_buf)?;
+        let key = String::from_utf8(key_buf).map_err(|e| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Invalid UTF-8: {}", e))
+        })?;
+        
+        // is_tombstone
+        let mut tombstone_buf = [0u8; 1];
+        cursor.read_exact(&mut tombstone_buf)?;
+        let is_tombstone = tombstone_buf[0] != 0;
+        
+        // payload
+        cursor.read_exact(&mut len_buf)?;
+        let payload_len = u32::from_le_bytes(len_buf) as usize;
+        let mut payload = vec![0u8; payload_len];
+        cursor.read_exact(&mut payload)?;
+        
+        Ok(Self {
+            commit_id,
+            key,
+            is_tombstone,
+            payload,
+        })
     }
 }
 
@@ -537,6 +652,142 @@ impl MvccCommitRecord {
 
         Ok((
             MvccCommitRecord {
+                sequence_number,
+                payload,
+            },
+            record_length,
+        ))
+    }
+}
+
+/// MVCC Version WAL record - binds version data to commit identity
+///
+/// Per MVCC_WAL_INTERACTION.md and PHASE2_INVARIANTS.md:
+/// - A version exists if and only if its commit identity exists durably
+/// - This record is written AFTER the MvccCommit record
+/// - Recovery cross-validates WAL and storage
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MvccVersionRecord {
+    /// Global monotonic sequence number
+    pub sequence_number: u64,
+    /// The version payload with commit binding
+    pub payload: MvccVersionPayload,
+}
+
+impl MvccVersionRecord {
+    /// Create a new MVCC version record
+    pub fn new(sequence_number: u64, commit_id: u64, key: impl Into<String>, data: Vec<u8>) -> Self {
+        Self {
+            sequence_number,
+            payload: MvccVersionPayload::new(commit_id, key, data),
+        }
+    }
+
+    /// Create a tombstone version record
+    pub fn tombstone(sequence_number: u64, commit_id: u64, key: impl Into<String>) -> Self {
+        Self {
+            sequence_number,
+            payload: MvccVersionPayload::tombstone(commit_id, key),
+        }
+    }
+
+    /// Get the commit identity
+    pub fn commit_id(&self) -> u64 {
+        self.payload.commit_id
+    }
+
+    /// Get the document key
+    pub fn key(&self) -> &str {
+        &self.payload.key
+    }
+
+    /// Serialize the record body
+    fn serialize_body(&self) -> Vec<u8> {
+        let payload_bytes = self.payload.serialize();
+        let mut buf = Vec::with_capacity(1 + 8 + payload_bytes.len());
+        buf.push(RecordType::MvccVersion.as_u8());
+        buf.extend_from_slice(&self.sequence_number.to_le_bytes());
+        buf.extend_from_slice(&payload_bytes);
+        buf
+    }
+
+    /// Serialize the complete record to bytes with checksum
+    pub fn serialize(&self) -> Vec<u8> {
+        let body = self.serialize_body();
+        let record_length = (4 + body.len() + 4) as u32;
+
+        let mut checksum_data = Vec::with_capacity(4 + body.len());
+        checksum_data.extend_from_slice(&record_length.to_le_bytes());
+        checksum_data.extend_from_slice(&body);
+        let checksum = crate::wal::checksum::compute_checksum(&checksum_data);
+
+        let mut record = Vec::with_capacity(record_length as usize);
+        record.extend_from_slice(&record_length.to_le_bytes());
+        record.extend_from_slice(&body);
+        record.extend_from_slice(&checksum.to_le_bytes());
+        record
+    }
+
+    /// Deserialize from bytes, verifying checksum
+    pub fn deserialize(data: &[u8]) -> io::Result<(Self, usize)> {
+        const MIN_RECORD_SIZE: usize = 4 + 1 + 8 + 8 + 4 + 1 + 4 + 4; // length + type + seq + commit_id + key_len + tombstone + payload_len + checksum
+
+        if data.len() < MIN_RECORD_SIZE {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "MVCC version record too short",
+            ));
+        }
+
+        let record_length = u32::from_le_bytes([data[0], data[1], data[2], data[3]]) as usize;
+
+        if data.len() < record_length {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "MVCC version record truncated",
+            ));
+        }
+
+        // Verify checksum
+        let checksum_offset = record_length - 4;
+        let stored_checksum = u32::from_le_bytes([
+            data[checksum_offset],
+            data[checksum_offset + 1],
+            data[checksum_offset + 2],
+            data[checksum_offset + 3],
+        ]);
+
+        let checksum_data = &data[0..checksum_offset];
+        let computed_checksum = crate::wal::checksum::compute_checksum(checksum_data);
+
+        if computed_checksum != stored_checksum {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "MVCC version checksum mismatch: computed {:08x}, stored {:08x}",
+                    computed_checksum, stored_checksum
+                ),
+            ));
+        }
+
+        // Verify record type
+        let record_type_byte = data[4];
+        if record_type_byte != RecordType::MvccVersion.as_u8() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("Expected MvccVersion record type, got {}", record_type_byte),
+            ));
+        }
+
+        let sequence_number = u64::from_le_bytes([
+            data[5], data[6], data[7], data[8], data[9], data[10], data[11], data[12],
+        ]);
+
+        let payload_data = &data[13..checksum_offset];
+        let payload = MvccVersionPayload::deserialize(payload_data)?;
+
+        Ok((
+            MvccVersionRecord {
                 sequence_number,
                 payload,
             },

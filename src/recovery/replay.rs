@@ -45,6 +45,8 @@ pub struct ReplayStats {
     pub deletes: u64,
     /// Number of MVCC commits
     pub mvcc_commits: u64,
+    /// Number of MVCC versions
+    pub mvcc_versions: u64,
     /// Final WAL offset
     pub final_offset: u64,
     /// Final sequence number
@@ -102,6 +104,7 @@ impl WalReplayer {
                 RecordType::Update => stats.updates += 1,
                 RecordType::Delete => stats.deletes += 1,
                 RecordType::MvccCommit => stats.mvcc_commits += 1,
+                RecordType::MvccVersion => stats.mvcc_versions += 1,
             }
         }
 
