@@ -73,6 +73,18 @@ impl VersionChain {
     pub fn push(&mut self, version: Version) {
         self.versions.push(version);
     }
+
+    /// Find the visible version for this chain given a read view.
+    ///
+    /// Per MVCC_VISIBILITY.md §3:
+    /// 1. Consider only versions where V.commit_id ≤ R.read_upper_bound
+    /// 2. Select the version with the LARGEST commit_id
+    /// 3. If that version is a tombstone, return Invisible
+    ///
+    /// This is a convenience wrapper around Visibility::visible_version.
+    pub fn visible_version(&self, view: super::ReadView) -> super::VisibilityResult<'_> {
+        super::Visibility::visible_version(self, view)
+    }
 }
 
 #[cfg(test)]

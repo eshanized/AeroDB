@@ -11,6 +11,7 @@
 //! - `ReadView` - Stable snapshot boundary
 //! - `CommitAuthority` - WAL-based commit identity assignment
 //! - `VersionStorage` - Commit-bound version persistence
+//! - `Visibility` - Deterministic snapshot isolation
 
 mod commit_authority;
 mod commit_id;
@@ -18,6 +19,7 @@ mod read_view;
 mod version;
 mod version_chain;
 mod version_storage;
+mod visibility;
 
 pub use commit_authority::{CommitAuthority, CommitAuthorityError};
 pub use commit_id::CommitId;
@@ -27,4 +29,4 @@ pub use version_chain::VersionChain;
 pub use version_storage::{
     PersistedVersion, VersionExpectations, VersionStorageError, VersionStorageResult, VersionValidator,
 };
-
+pub use visibility::{Visibility, VisibilityResult};

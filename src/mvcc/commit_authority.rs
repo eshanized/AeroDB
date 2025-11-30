@@ -116,6 +116,20 @@ impl CommitAuthority {
             Some(CommitId::new(self.highest_commit_id))
         }
     }
+
+    /// Create a read view (snapshot) at the current commit point.
+    ///
+    /// Per MVCC_VISIBILITY.md §2.2:
+    /// - ReadView captures exactly one value: read_upper_bound = latest_durable_commit_id
+    /// - Immutable once created
+    /// - Never changes during query execution
+    ///
+    /// Per MVCC.md §3.1:
+    /// - Established at read start
+    /// - Never changes during the read
+    pub fn current_snapshot(&self) -> crate::mvcc::ReadView {
+        crate::mvcc::ReadView::new(CommitId::new(self.highest_commit_id))
+    }
 }
 
 impl Default for CommitAuthority {
