@@ -16,6 +16,7 @@
 use std::io::{self, Read, Write};
 
 /// WAL record types as defined in WAL.md §141-172
+/// Extended for MVCC per MVCC_WAL_INTERACTION.md
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum RecordType {
@@ -25,6 +26,9 @@ pub enum RecordType {
     Update = 1,
     /// Deletion of a document (tombstone)
     Delete = 2,
+    /// MVCC commit identity record
+    /// Per MVCC_WAL_INTERACTION.md: The commit identity is the visibility barrier
+    MvccCommit = 3,
 }
 
 impl RecordType {
@@ -34,13 +38,66 @@ impl RecordType {
             0 => Some(RecordType::Insert),
             1 => Some(RecordType::Update),
             2 => Some(RecordType::Delete),
+            3 => Some(RecordType::MvccCommit),
             _ => None,
         }
+    }
+
+    /// Returns true if this is an MVCC-specific record type
+    pub fn is_mvcc_record(self) -> bool {
+        matches!(self, RecordType::MvccCommit)
     }
 
     /// Convert to u8
     pub fn as_u8(self) -> u8 {
         self as u8
+    }
+}
+
+/// MVCC Commit payload per MVCC_WAL_INTERACTION.md
+///
+/// This record type represents a commit identity assignment.
+/// Per MVCC_WAL_INTERACTION.md §2:
+/// - Commit identities are assigned exactly once
+/// - Assignment occurs as part of commit
+/// - The ordering is total, strict, and replayable
+/// - No commit identity exists outside the WAL
+///
+/// Per MVCC_WAL_INTERACTION.md §3.2:
+/// - Visibility is tied to commit identity durability
+/// - A version becomes visible only after its commit identity is durable
+/// - WAL fsync is the visibility barrier
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MvccCommitPayload {
+    /// The commit identity value
+    /// Per PHASE2_INVARIANTS.md §2.5: Strictly monotonic, never reused
+    pub commit_id: u64,
+}
+
+impl MvccCommitPayload {
+    /// Create a new MVCC commit payload
+    pub fn new(commit_id: u64) -> Self {
+        Self { commit_id }
+    }
+
+    /// Serialize to bytes
+    pub fn serialize(&self) -> Vec<u8> {
+        self.commit_id.to_le_bytes().to_vec()
+    }
+
+    /// Deserialize from bytes
+    pub fn deserialize(data: &[u8]) -> std::io::Result<Self> {
+        if data.len() < 8 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                "MvccCommitPayload too short",
+            ));
+        }
+        let commit_id = u64::from_le_bytes([
+            data[0], data[1], data[2], data[3],
+            data[4], data[5], data[6], data[7],
+        ]);
+        Ok(Self { commit_id })
     }
 }
 
@@ -360,6 +417,134 @@ impl WalRecord {
     }
 }
 
+/// MVCC Commit WAL record per MVCC_WAL_INTERACTION.md
+///
+/// This is a separate record type for MVCC commits because:
+/// - The payload structure differs from document operations
+/// - Commit records only contain a CommitId
+/// - Recovery must handle these records specially
+///
+/// Per MVCC_WAL_INTERACTION.md:
+/// - The WAL is the sole source of truth for commit ordering
+/// - Commit identity is the visibility barrier
+/// - No commit identity exists outside the WAL
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MvccCommitRecord {
+    /// Global monotonic sequence number
+    pub sequence_number: u64,
+    /// The commit identity payload
+    pub payload: MvccCommitPayload,
+}
+
+impl MvccCommitRecord {
+    /// Create a new MVCC commit record
+    pub fn new(sequence_number: u64, commit_id: u64) -> Self {
+        Self {
+            sequence_number,
+            payload: MvccCommitPayload::new(commit_id),
+        }
+    }
+
+    /// Get the commit identity
+    pub fn commit_id(&self) -> u64 {
+        self.payload.commit_id
+    }
+
+    /// Serialize the record body
+    fn serialize_body(&self) -> Vec<u8> {
+        let payload_bytes = self.payload.serialize();
+        let mut buf = Vec::with_capacity(1 + 8 + payload_bytes.len());
+        buf.push(RecordType::MvccCommit.as_u8());
+        buf.extend_from_slice(&self.sequence_number.to_le_bytes());
+        buf.extend_from_slice(&payload_bytes);
+        buf
+    }
+
+    /// Serialize the complete record to bytes with checksum
+    pub fn serialize(&self) -> Vec<u8> {
+        let body = self.serialize_body();
+        let record_length = (4 + body.len() + 4) as u32;
+
+        let mut checksum_data = Vec::with_capacity(4 + body.len());
+        checksum_data.extend_from_slice(&record_length.to_le_bytes());
+        checksum_data.extend_from_slice(&body);
+        let checksum = crate::wal::checksum::compute_checksum(&checksum_data);
+
+        let mut record = Vec::with_capacity(record_length as usize);
+        record.extend_from_slice(&record_length.to_le_bytes());
+        record.extend_from_slice(&body);
+        record.extend_from_slice(&checksum.to_le_bytes());
+        record
+    }
+
+    /// Deserialize from bytes, verifying checksum
+    pub fn deserialize(data: &[u8]) -> io::Result<(Self, usize)> {
+        const MIN_RECORD_SIZE: usize = 4 + 1 + 8 + 8 + 4; // length + type + seq + commit_id + checksum
+
+        if data.len() < MIN_RECORD_SIZE {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "MVCC commit record too short",
+            ));
+        }
+
+        let record_length = u32::from_le_bytes([data[0], data[1], data[2], data[3]]) as usize;
+
+        if data.len() < record_length {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "MVCC commit record truncated",
+            ));
+        }
+
+        // Verify checksum
+        let checksum_offset = record_length - 4;
+        let stored_checksum = u32::from_le_bytes([
+            data[checksum_offset],
+            data[checksum_offset + 1],
+            data[checksum_offset + 2],
+            data[checksum_offset + 3],
+        ]);
+
+        let checksum_data = &data[0..checksum_offset];
+        let computed_checksum = crate::wal::checksum::compute_checksum(checksum_data);
+
+        if computed_checksum != stored_checksum {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "MVCC commit checksum mismatch: computed {:08x}, stored {:08x}",
+                    computed_checksum, stored_checksum
+                ),
+            ));
+        }
+
+        // Verify record type
+        let record_type_byte = data[4];
+        if record_type_byte != RecordType::MvccCommit.as_u8() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("Expected MvccCommit record type, got {}", record_type_byte),
+            ));
+        }
+
+        let sequence_number = u64::from_le_bytes([
+            data[5], data[6], data[7], data[8], data[9], data[10], data[11], data[12],
+        ]);
+
+        let payload_data = &data[13..checksum_offset];
+        let payload = MvccCommitPayload::deserialize(payload_data)?;
+
+        Ok((
+            MvccCommitRecord {
+                sequence_number,
+                payload,
+            },
+            record_length,
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -385,8 +570,17 @@ mod tests {
 
     #[test]
     fn test_invalid_record_type() {
-        assert!(RecordType::from_u8(3).is_none());
+        // 3 is now valid (MvccCommit), so test 4 and 255
+        assert!(RecordType::from_u8(4).is_none());
         assert!(RecordType::from_u8(255).is_none());
+    }
+
+    #[test]
+    fn test_mvcc_commit_record_type() {
+        assert_eq!(RecordType::MvccCommit.as_u8(), 3);
+        assert_eq!(RecordType::from_u8(3), Some(RecordType::MvccCommit));
+        assert!(RecordType::MvccCommit.is_mvcc_record());
+        assert!(!RecordType::Insert.is_mvcc_record());
     }
 
     #[test]
@@ -481,5 +675,56 @@ mod tests {
         // After replay, the final state should be the same document
         assert_eq!(record1.payload.document_body, record2.payload.document_body);
         assert_eq!(record1.payload.document_id, record2.payload.document_id);
+    }
+
+    // === MVCC Commit Record Tests ===
+
+    #[test]
+    fn test_mvcc_commit_payload_roundtrip() {
+        let payload = MvccCommitPayload::new(42);
+        let serialized = payload.serialize();
+        let deserialized = MvccCommitPayload::deserialize(&serialized).unwrap();
+        assert_eq!(payload, deserialized);
+    }
+
+    #[test]
+    fn test_mvcc_commit_record_roundtrip() {
+        let record = MvccCommitRecord::new(1, 100);
+        let serialized = record.serialize();
+        let (deserialized, bytes_consumed) = MvccCommitRecord::deserialize(&serialized).unwrap();
+
+        assert_eq!(record, deserialized);
+        assert_eq!(bytes_consumed, serialized.len());
+        assert_eq!(deserialized.commit_id(), 100);
+    }
+
+    #[test]
+    fn test_mvcc_commit_record_deterministic_serialization() {
+        let record = MvccCommitRecord::new(1, 42);
+        let serialized1 = record.serialize();
+        let serialized2 = record.serialize();
+        assert_eq!(serialized1, serialized2, "Serialization must be deterministic");
+    }
+
+    #[test]
+    fn test_mvcc_commit_checksum_detects_corruption() {
+        let record = MvccCommitRecord::new(1, 100);
+        let mut serialized = record.serialize();
+
+        // Corrupt a byte in the middle
+        let mid = serialized.len() / 2;
+        serialized[mid] ^= 0xFF;
+
+        let result = MvccCommitRecord::deserialize(&serialized);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_mvcc_commit_sequence_number_preserved() {
+        let record = MvccCommitRecord::new(42, 100);
+        let serialized = record.serialize();
+        let (deserialized, _) = MvccCommitRecord::deserialize(&serialized).unwrap();
+
+        assert_eq!(deserialized.sequence_number, 42);
     }
 }

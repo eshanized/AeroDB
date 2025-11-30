@@ -108,6 +108,11 @@ pub mod points {
     pub const RECOVERY_AFTER_WAL_REPLAY: &str = "recovery_after_wal_replay";
     pub const RECOVERY_AFTER_INDEX_REBUILD: &str = "recovery_after_index_rebuild";
 
+    // MVCC crash points per MVCC_FAILURE_MATRIX.md
+    pub const MVCC_BEFORE_COMMIT_RECORD: &str = "mvcc_before_commit_record";
+    pub const MVCC_AFTER_COMMIT_RECORD: &str = "mvcc_after_commit_record";
+    pub const MVCC_AFTER_COMMIT_FSYNC: &str = "mvcc_after_commit_fsync";
+
     /// Get all crash point names
     pub fn all() -> &'static [&'static str] {
         &[
@@ -140,6 +145,9 @@ pub mod points {
             RECOVERY_START,
             RECOVERY_AFTER_WAL_REPLAY,
             RECOVERY_AFTER_INDEX_REBUILD,
+            MVCC_BEFORE_COMMIT_RECORD,
+            MVCC_AFTER_COMMIT_RECORD,
+            MVCC_AFTER_COMMIT_FSYNC,
         ]
     }
 }
@@ -157,7 +165,7 @@ mod tests {
     #[test]
     fn test_all_crash_points_defined() {
         let all = points::all();
-        assert_eq!(all.len(), 29);
+        assert_eq!(all.len(), 32);
 
         // Verify WAL points
         assert!(all.contains(&"wal_before_append"));
