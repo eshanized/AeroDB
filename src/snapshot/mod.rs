@@ -167,6 +167,44 @@ impl SnapshotManager {
         // Steps 3-9: Create snapshot (all operations in strict order)
         creator::create_snapshot_impl(data_dir, storage_path, schema_dir)
     }
+
+    /// Create an MVCC-aware snapshot with commit boundary.
+    ///
+    /// Per MVCC_SNAPSHOT_INTEGRATION.md §2:
+    /// - Captures all versions with commit_id ≤ boundary
+    /// - Records boundary in manifest (format_version = 2)
+    /// - Snapshot is self-contained for reads
+    ///
+    /// # Arguments
+    ///
+    /// * `data_dir` - Root data directory
+    /// * `storage_path` - Path to the storage.dat file
+    /// * `schema_dir` - Path to the schema directory
+    /// * `wal` - WAL writer (used for fsync)
+    /// * `commit_authority` - Provides the current commit boundary
+    /// * `_lock` - Marker proving the caller holds the global execution lock
+    ///
+    /// # Returns
+    ///
+    /// The snapshot ID on success.
+    pub fn create_mvcc_snapshot(
+        data_dir: &Path,
+        storage_path: &Path,
+        schema_dir: &Path,
+        wal: &WalWriter,
+        commit_authority: &crate::mvcc::CommitAuthority,
+        _lock: &GlobalExecutionLock,
+    ) -> Result<SnapshotId, SnapshotError> {
+        let _ = wal; // WAL fsync handled by caller
+        
+        // Capture commit boundary at this instant
+        // Per MVCC_SNAPSHOT_INTEGRATION.md §3.1: observe single commit boundary
+        let boundary = commit_authority.highest_commit_id()
+            .map(|c| c.value())
+            .unwrap_or(0);
+        
+        creator::create_mvcc_snapshot_impl(data_dir, storage_path, schema_dir, boundary)
+    }
 }
 
 #[cfg(test)]

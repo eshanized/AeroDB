@@ -127,6 +127,41 @@ impl CheckpointManager {
     ) -> Result<CheckpointId, CheckpointError> {
         coordinator::create_checkpoint_impl(data_dir, storage_path, schema_dir, wal, lock)
     }
+
+    /// Create an MVCC-aware checkpoint with commit boundary.
+    ///
+    /// Per MVCC_SNAPSHOT_INTEGRATION.md §5:
+    /// - Produces a snapshot with MVCC boundary
+    /// - Establishes WAL truncation point
+    /// - Preserves MVCC correctness
+    ///
+    /// # Arguments
+    ///
+    /// * `data_dir` - Root data directory
+    /// * `storage_path` - Path to storage.dat file
+    /// * `schema_dir` - Path to schema directory
+    /// * `_snapshot_mgr` - Reference to SnapshotManager
+    /// * `wal` - Mutable reference to WAL writer
+    /// * `commit_authority` - Provides the current commit boundary
+    /// * `lock` - Marker proving the caller holds the global execution lock
+    pub fn create_mvcc_checkpoint(
+        data_dir: &Path,
+        storage_path: &Path,
+        schema_dir: &Path,
+        _snapshot_mgr: &SnapshotManager,
+        wal: &mut WalWriter,
+        commit_authority: &crate::mvcc::CommitAuthority,
+        lock: &GlobalExecutionLock,
+    ) -> Result<CheckpointId, CheckpointError> {
+        coordinator::create_mvcc_checkpoint_impl(
+            data_dir,
+            storage_path,
+            schema_dir,
+            wal,
+            commit_authority,
+            lock,
+        )
+    }
 }
 
 #[cfg(test)]

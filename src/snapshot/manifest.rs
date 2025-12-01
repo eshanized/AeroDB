@@ -32,6 +32,7 @@ use super::errors::{SnapshotError, SnapshotResult};
 /// - Creation timestamp
 /// - Integrity checksums for all files
 /// - Format version
+/// - MVCC commit boundary (Phase-2, format_version >= 2)
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SnapshotManifest {
     /// Snapshot ID in RFC3339 basic format (YYYYMMDDTHHMMSSZ)
@@ -46,12 +47,24 @@ pub struct SnapshotManifest {
     /// CRC32 checksums of schema files (filename -> checksum)
     pub schema_checksums: HashMap<String, String>,
 
-    /// Manifest format version (always 1 in Phase 1)
+    /// Manifest format version
+    /// - 1: Phase-1 (no MVCC)
+    /// - 2: Phase-2 (with MVCC commit boundary)
     pub format_version: u8,
+
+    /// MVCC commit boundary (Phase-2 only)
+    ///
+    /// Per MVCC_SNAPSHOT_INTEGRATION.md §2.1:
+    /// - All versions with commit_id ≤ boundary are included
+    /// - None for Phase-1 snapshots (format_version = 1)
+    /// - Required for Phase-2 snapshots (format_version = 2)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub commit_boundary: Option<u64>,
 }
 
 impl SnapshotManifest {
-    /// Creates a new snapshot manifest.
+    /// Creates a new Phase-1 snapshot manifest (no MVCC).
     ///
     /// # Arguments
     ///
@@ -71,7 +84,48 @@ impl SnapshotManifest {
             storage_checksum: storage_checksum.into(),
             schema_checksums,
             format_version: 1,
+            commit_boundary: None,
         }
+    }
+
+    /// Creates a new Phase-2 snapshot manifest with MVCC boundary.
+    ///
+    /// Per MVCC_SNAPSHOT_INTEGRATION.md §2.1:
+    /// - All versions with commit_id ≤ boundary are included
+    /// - No version beyond this boundary exists in the snapshot
+    ///
+    /// # Arguments
+    ///
+    /// * `snapshot_id` - Snapshot ID in RFC3339 basic format
+    /// * `created_at` - Creation timestamp in RFC3339 format
+    /// * `storage_checksum` - Formatted CRC32 checksum of storage.dat
+    /// * `schema_checksums` - Map of schema filename to formatted checksum
+    /// * `commit_boundary` - MVCC commit identity boundary
+    pub fn with_mvcc_boundary(
+        snapshot_id: impl Into<String>,
+        created_at: impl Into<String>,
+        storage_checksum: impl Into<String>,
+        schema_checksums: HashMap<String, String>,
+        commit_boundary: u64,
+    ) -> Self {
+        Self {
+            snapshot_id: snapshot_id.into(),
+            created_at: created_at.into(),
+            storage_checksum: storage_checksum.into(),
+            schema_checksums,
+            format_version: 2,
+            commit_boundary: Some(commit_boundary),
+        }
+    }
+
+    /// Returns the commit boundary if this is an MVCC-aware snapshot.
+    pub fn commit_boundary(&self) -> Option<u64> {
+        self.commit_boundary
+    }
+
+    /// Returns true if this is an MVCC-aware snapshot (Phase-2).
+    pub fn is_mvcc_snapshot(&self) -> bool {
+        self.format_version >= 2 && self.commit_boundary.is_some()
     }
 
     /// Serializes the manifest to pretty-printed JSON.
@@ -274,5 +328,125 @@ mod tests {
         assert_eq!(parsed["format_version"], 1);
         assert!(parsed["schema_checksums"].is_object());
         assert_eq!(parsed["schema_checksums"]["user_v1.json"], "crc32:abcd1234");
+    }
+
+    // === MVCC-05: MVCC-Aware Snapshots Tests ===
+
+    #[test]
+    fn test_mvcc_manifest_with_boundary() {
+        let manifest = SnapshotManifest::with_mvcc_boundary(
+            "20260205T120000Z",
+            "2026-02-05T12:00:00Z",
+            "crc32:cafebabe",
+            HashMap::new(),
+            100,
+        );
+
+        assert_eq!(manifest.format_version, 2);
+        assert_eq!(manifest.commit_boundary(), Some(100));
+        assert!(manifest.is_mvcc_snapshot());
+    }
+
+    #[test]
+    fn test_phase1_manifest_no_boundary() {
+        let manifest = SnapshotManifest::new(
+            "20260205T120000Z",
+            "2026-02-05T12:00:00Z",
+            "crc32:cafebabe",
+            HashMap::new(),
+        );
+
+        assert_eq!(manifest.format_version, 1);
+        assert_eq!(manifest.commit_boundary(), None);
+        assert!(!manifest.is_mvcc_snapshot());
+    }
+
+    #[test]
+    fn test_mvcc_manifest_json_roundtrip() {
+        let original = SnapshotManifest::with_mvcc_boundary(
+            "20260205T120000Z",
+            "2026-02-05T12:00:00Z",
+            "crc32:cafebabe",
+            HashMap::new(),
+            42,
+        );
+
+        let json = original.to_json().unwrap();
+        let parsed = SnapshotManifest::from_json(&json).unwrap();
+
+        assert_eq!(original, parsed);
+        assert_eq!(parsed.commit_boundary(), Some(42));
+    }
+
+    #[test]
+    fn test_mvcc_manifest_json_contains_boundary() {
+        let manifest = SnapshotManifest::with_mvcc_boundary(
+            "20260205T120000Z",
+            "2026-02-05T12:00:00Z",
+            "crc32:cafebabe",
+            HashMap::new(),
+            999,
+        );
+
+        let json = manifest.to_json().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed["format_version"], 2);
+        assert_eq!(parsed["commit_boundary"], 999);
+    }
+
+    #[test]
+    fn test_phase1_manifest_json_omits_boundary() {
+        let manifest = SnapshotManifest::new(
+            "20260205T120000Z",
+            "2026-02-05T12:00:00Z",
+            "crc32:cafebabe",
+            HashMap::new(),
+        );
+
+        let json = manifest.to_json().unwrap();
+        
+        // Phase-1 manifests should NOT contain commit_boundary
+        assert!(!json.contains("commit_boundary"));
+    }
+
+    #[test]
+    fn test_backward_compat_phase1_manifest_read() {
+        // Simulate reading a Phase-1 manifest (no commit_boundary field)
+        let phase1_json = r#"{
+            "snapshot_id": "20260205T120000Z",
+            "created_at": "2026-02-05T12:00:00Z",
+            "storage_checksum": "crc32:cafebabe",
+            "schema_checksums": {},
+            "format_version": 1
+        }"#;
+
+        let manifest = SnapshotManifest::from_json(phase1_json).unwrap();
+        
+        // Should parse successfully with None boundary
+        assert_eq!(manifest.format_version, 1);
+        assert_eq!(manifest.commit_boundary(), None);
+        assert!(!manifest.is_mvcc_snapshot());
+    }
+
+    #[test]
+    fn test_mvcc_manifest_file_roundtrip() {
+        let temp_dir = TempDir::new().unwrap();
+        let manifest_path = temp_dir.path().join("manifest.json");
+
+        let original = SnapshotManifest::with_mvcc_boundary(
+            "20260205T120000Z",
+            "2026-02-05T12:00:00Z",
+            "crc32:cafebabe",
+            HashMap::new(),
+            12345,
+        );
+
+        original.write_to_file(&manifest_path).unwrap();
+        let loaded = SnapshotManifest::read_from_file(&manifest_path).unwrap();
+
+        assert_eq!(original, loaded);
+        assert_eq!(loaded.commit_boundary(), Some(12345));
+        assert!(loaded.is_mvcc_snapshot());
     }
 }

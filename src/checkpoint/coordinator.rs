@@ -106,6 +106,60 @@ pub fn create_checkpoint_impl(
     Ok(checkpoint_id)
 }
 
+/// Create an MVCC-aware checkpoint.
+///
+/// Per MVCC_SNAPSHOT_INTEGRATION.md §5:
+/// - Produces a snapshot with MVCC boundary
+/// - Establishes WAL truncation point
+/// - Preserves MVCC correctness
+pub fn create_mvcc_checkpoint_impl(
+    data_dir: &Path,
+    storage_path: &Path,
+    schema_dir: &Path,
+    wal: &mut WalWriter,
+    commit_authority: &crate::mvcc::CommitAuthority,
+    lock: &GlobalExecutionLock,
+) -> CheckpointResult<CheckpointId> {
+    // Step 2: fsync WAL to ensure all pending writes are durable
+    wal.fsync()?;
+
+    // Step 3-4: Create MVCC snapshot (includes fsync and commit boundary)
+    let snapshot_id = SnapshotManager::create_mvcc_snapshot(
+        data_dir,
+        storage_path,
+        schema_dir,
+        wal,
+        commit_authority,
+        lock,
+    )?;
+
+    // Checkpoint ID equals snapshot ID
+    let checkpoint_id = snapshot_id.clone();
+    let created_at = generate_created_at();
+
+    // Step 5: Write checkpoint manifest (checkpoint.json)
+    // Written AFTER snapshot fsync, BEFORE WAL truncation
+    let marker = CheckpointMarker::new(&snapshot_id, &created_at);
+    let mp = marker_path(data_dir);
+    marker.write_to_file(&mp)?;
+
+    // Step 6: Truncate WAL to zero
+    // Per CHECKPOINT.md §6:
+    // - WAL file deleted or truncated
+    // - New WAL starts empty
+    // - Sequence numbers reset to 1
+    wal.truncate()?;
+
+    // Step 7: fsync WAL directory is handled by truncate()
+
+    // Update marker to reflect successful truncation
+    let final_marker = CheckpointMarker::with_truncation(&snapshot_id, &created_at, true);
+    final_marker.write_to_file(&mp)?;
+
+    // Step 9: Return checkpoint_id
+    Ok(checkpoint_id)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

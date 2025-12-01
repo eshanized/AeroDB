@@ -183,6 +183,7 @@ pub fn create_snapshot_impl(
         schema_dir,
         &snapshot_id,
         &created_at,
+        None, // Phase-1: no MVCC boundary
     );
 
     if result.is_err() {
@@ -201,6 +202,7 @@ fn create_snapshot_contents(
     schema_dir: &Path,
     snapshot_id: &str,
     created_at: &str,
+    commit_boundary: Option<u64>,
 ) -> SnapshotResult<SnapshotId> {
     // Step 3-4: Copy storage.dat and fsync
     let snapshot_storage = snapshot_dir.join("storage.dat");
@@ -229,12 +231,22 @@ fn create_snapshot_contents(
     let schema_checksums = compute_schema_checksums(&snapshot_schemas)?;
 
     // Step 7-8: Generate and write manifest with fsync
-    let manifest = SnapshotManifest::new(
-        snapshot_id,
-        created_at,
-        storage_checksum_str,
-        schema_checksums,
-    );
+    // Use Phase-2 manifest if commit_boundary is provided
+    let manifest = match commit_boundary {
+        Some(boundary) => SnapshotManifest::with_mvcc_boundary(
+            snapshot_id,
+            created_at,
+            storage_checksum_str,
+            schema_checksums,
+            boundary,
+        ),
+        None => SnapshotManifest::new(
+            snapshot_id,
+            created_at,
+            storage_checksum_str,
+            schema_checksums,
+        ),
+    };
 
     let manifest_path = snapshot_dir.join("manifest.json");
     manifest.write_to_file(&manifest_path)?;
@@ -243,6 +255,61 @@ fn create_snapshot_contents(
     fsync_dir(snapshot_dir)?;
 
     Ok(snapshot_id.to_string())
+}
+
+/// Create an MVCC-aware snapshot with commit boundary.
+///
+/// Per MVCC_SNAPSHOT_INTEGRATION.md:
+/// - Captures all versions with commit_id ≤ boundary
+/// - Records boundary in manifest (format_version = 2)
+///
+/// # Arguments
+///
+/// * `data_dir` - Root data directory (contains snapshots/)
+/// * `storage_path` - Path to storage.dat file
+/// * `schema_dir` - Path to schema directory
+/// * `commit_boundary` - The MVCC commit identity boundary
+///
+/// # Returns
+///
+/// The snapshot ID on success.
+pub fn create_mvcc_snapshot_impl(
+    data_dir: &Path,
+    storage_path: &Path,
+    schema_dir: &Path,
+    commit_boundary: u64,
+) -> SnapshotResult<SnapshotId> {
+    // Generate snapshot ID and timestamp
+    let snapshot_id = generate_snapshot_id();
+    let created_at = generate_created_at();
+
+    // Create snapshot directory path
+    let snapshots_dir = data_dir.join("snapshots");
+    let snapshot_dir = snapshots_dir.join(&snapshot_id);
+
+    // Create snapshot directory
+    fs::create_dir_all(&snapshot_dir).map_err(|e| {
+        SnapshotError::io_error(
+            format!("Failed to create snapshot directory: {}", snapshot_dir.display()),
+            e,
+        )
+    })?;
+
+    // From here on, any error must clean up the snapshot directory
+    let result = create_snapshot_contents(
+        &snapshot_dir,
+        storage_path,
+        schema_dir,
+        &snapshot_id,
+        &created_at,
+        Some(commit_boundary),
+    );
+
+    if result.is_err() {
+        cleanup_snapshot(&snapshot_dir);
+    }
+
+    result
 }
 
 /// Compute checksums for all schema files.
