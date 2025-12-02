@@ -12,9 +12,11 @@
 //! - `CommitAuthority` - WAL-based commit identity assignment
 //! - `VersionStorage` - Commit-bound version persistence
 //! - `Visibility` - Deterministic snapshot isolation
+//! - `GC` - Deterministic garbage collection
 
 mod commit_authority;
 mod commit_id;
+mod gc;
 mod read_view;
 mod version;
 mod version_chain;
@@ -23,6 +25,7 @@ mod visibility;
 
 pub use commit_authority::{CommitAuthority, CommitAuthorityError};
 pub use commit_id::CommitId;
+pub use gc::{GcEligibility, GcRecordPayload, VersionLifecycleState, VisibilityFloor};
 pub use read_view::ReadView;
 pub use version::{Version, VersionPayload};
 pub use version_chain::VersionChain;
@@ -30,3 +33,4 @@ pub use version_storage::{
     PersistedVersion, VersionExpectations, VersionStorageError, VersionStorageResult, VersionValidator,
 };
 pub use visibility::{Visibility, VisibilityResult};
+

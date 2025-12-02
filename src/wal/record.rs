@@ -32,6 +32,9 @@ pub enum RecordType {
     /// MVCC version record - binds version data to commit identity
     /// Per MVCC_WAL_INTERACTION.md: Versions exist only with durable commit
     MvccVersion = 4,
+    /// MVCC garbage collection record
+    /// Per MVCC_GC.md: GC events must be WAL-recorded for deterministic replay
+    MvccGc = 5,
 }
 
 impl RecordType {
@@ -43,13 +46,14 @@ impl RecordType {
             2 => Some(RecordType::Delete),
             3 => Some(RecordType::MvccCommit),
             4 => Some(RecordType::MvccVersion),
+            5 => Some(RecordType::MvccGc),
             _ => None,
         }
     }
 
     /// Returns true if this is an MVCC-specific record type
     pub fn is_mvcc_record(self) -> bool {
-        matches!(self, RecordType::MvccCommit | RecordType::MvccVersion)
+        matches!(self, RecordType::MvccCommit | RecordType::MvccVersion | RecordType::MvccGc)
     }
 
     /// Convert to u8
