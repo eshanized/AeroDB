@@ -47,24 +47,34 @@
 | `visible_version()` | Apply exact MVCC_VISIBILITY.md rules |
 | `current_snapshot()` | Create ReadView from CommitAuthority |
 
-### Visibility Rule (MVCC_VISIBILITY.md §3)
+---
 
-```
-1. Filter: V.commit_id ≤ R.read_upper_bound
-2. Select: Version with LARGEST commit_id
-3. If tombstone → invisible
-```
+## MVCC-05: MVCC-Aware Snapshots ✓
+
+| Component | Description |
+|-----------|-------------|
+| `SnapshotManifest.commit_boundary` | MVCC cut point in manifest |
+| `with_mvcc_boundary()` | Create Phase-2 manifest |
+| `create_mvcc_snapshot()` | Snapshot with MVCC boundary |
+| `create_mvcc_checkpoint()` | Checkpoint with MVCC boundary |
+
+### Manifest Format
+
+| Version | MVCC | Description |
+|---------|------|-------------|
+| 1 | No | Phase-1 (no commit_boundary) |
+| 2 | Yes | Phase-2 (with commit_boundary) |
 
 ---
 
 ## Test Results
 
 ```
-test result: ok. 461 passed; 0 failed
+test result: ok. 491 passed; 0 failed
 ```
 
 ---
 
 ## Next Steps
 
-- MVCC-05: Write-Write Conflict Detection
+- MVCC-06: Write-Write Conflict Detection
