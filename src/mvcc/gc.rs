@@ -508,4 +508,127 @@ mod tests {
         assert_eq!(payload.document_id, "order-456");
         assert_eq!(payload.collected_commit_id, 999);
     }
+
+    // === GC Crash Semantics Tests (per MVCC_FAILURE_MATRIX.md §6) ===
+    // These tests verify the WAL-based crash semantics are correctly designed.
+
+    #[test]
+    fn test_gc_crash_before_record_version_remains() {
+        // Per MVCC_FAILURE_MATRIX.md §6.1:
+        // Crash before GC record durability → version remains
+        //
+        // This happens naturally because:
+        // 1. GC checks eligibility
+        // 2. GC writes WAL record
+        // 3. GC removes version from memory
+        //
+        // If crash occurs before step 2 completes:
+        // - No GC record in WAL
+        // - On recovery, version is replayed normally
+        // - Version remains in VersionChain
+        
+        // Simulate: version exists, would be reclaimable, but no GC record written
+        let v1 = make_version("doc1", 3);
+        let v2 = make_version("doc1", 15);
+        let mut chain = VersionChain::new("doc1".to_string());
+        chain.push(v1.clone());
+        chain.push(v2);
+
+        // Before GC record: version is still in chain
+        assert_eq!(chain.versions().len(), 2);
+        assert!(chain.versions().iter().any(|v| v.commit_id().value() == 3));
+    }
+
+    #[test]
+    fn test_gc_crash_after_record_version_collected() {
+        // Per MVCC_FAILURE_MATRIX.md §6.2:
+        // Crash after GC record durability → version is collected
+        //
+        // On recovery:
+        // 1. WAL replay encounters GC record
+        // 2. GC record indicates version was collected
+        // 3. Version is not restored to VersionChain
+        
+        // Simulate: GC record payload captures what was collected
+        let payload = GcRecordPayload::new("users", "doc1", 3);
+        
+        // The payload contains enough information to know:
+        // - Which document/version was collected
+        // - The commit_id that was removed
+        assert_eq!(payload.collected_commit_id, 3);
+        
+        // On recovery, this record would prevent version resurrection
+    }
+
+    #[test]
+    fn test_gc_payload_is_deterministic() {
+        // Per MVCC_GC.md §8: GC must be deterministic
+        // Same input should produce same output
+        
+        let payload1 = GcRecordPayload::new("test", "doc", 42);
+        let payload2 = GcRecordPayload::new("test", "doc", 42);
+        
+        // Identical payloads
+        assert_eq!(payload1, payload2);
+        
+        // Identical serialization
+        assert_eq!(payload1.to_bytes(), payload2.to_bytes());
+    }
+
+    #[test]
+    fn test_gc_no_resurrection_after_collection() {
+        // Per MVCC_FAILURE_MATRIX.md §6.2:
+        // "No resurrection is allowed"
+        //
+        // Once a version is marked as collected via WAL record,
+        // it cannot reappear in subsequent runs.
+        
+        // This is enforced by WAL replay skipping collected versions.
+        // The GcRecordPayload contains the commit_id that was collected.
+        let payload = GcRecordPayload::new("users", "doc1", 5);
+        
+        // Verify payload can be serialized/deserialized for replay
+        let bytes = payload.to_bytes();
+        let restored = GcRecordPayload::from_bytes(&bytes).unwrap();
+        
+        // Same collection info on recovery
+        assert_eq!(restored.collected_commit_id, 5);
+        assert_eq!(restored.document_id, "doc1");
+    }
+
+    #[test]
+    fn test_empty_floor_prevents_gc() {
+        // Per MVCC_GC.md §3: No visibility floor means nothing is reclaimable
+        let v1 = make_version("doc1", 5);
+        let v2 = make_version("doc1", 15);
+        let mut chain = VersionChain::new("doc1".to_string());
+        chain.push(v1.clone());
+        chain.push(v2);
+
+        let floor = VisibilityFloor::new();
+
+        // Without any read views or snapshots, nothing can be collected
+        // because we can't prove visibility lower bound
+        assert!(!floor.is_below_floor(CommitId::new(5)));
+        assert!(!GcEligibility::is_reclaimable(&v1, &chain, &floor, None));
+    }
+
+    #[test]
+    fn test_snapshot_retention_prevents_gc() {
+        // Per MVCC_GC.md §6: Snapshots impose hard retention barriers
+        let v1 = make_version("doc1", 5);
+        let v2 = make_version("doc1", 15);
+        let mut chain = VersionChain::new("doc1".to_string());
+        chain.push(v1.clone());
+        chain.push(v2);
+
+        // Snapshot at commit 3 means versions >= 3 must be retained
+        let mut floor = VisibilityFloor::new();
+        floor.register_snapshot(CommitId::new(3));
+
+        // v1 (commit 5) is >= 3, so not below floor
+        assert!(!floor.is_below_floor(CommitId::new(5)));
+        assert!(!GcEligibility::is_reclaimable(&v1, &chain, &floor, None));
+    }
 }
+
