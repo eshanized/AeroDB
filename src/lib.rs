@@ -13,8 +13,10 @@ pub mod mvcc;
 pub mod observability;
 pub mod planner;
 pub mod recovery;
+pub mod replication;
 pub mod restore;
 pub mod schema;
 pub mod snapshot;
 pub mod storage;
 pub mod wal;
+
