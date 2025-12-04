@@ -825,8 +825,8 @@ mod tests {
 
     #[test]
     fn test_invalid_record_type() {
-        // 4 is now valid (MvccVersion), so test 5 and 255
-        assert!(RecordType::from_u8(5).is_none());
+        // 5 is now valid (MvccGc), so test 6 and 255
+        assert!(RecordType::from_u8(6).is_none());
         assert!(RecordType::from_u8(255).is_none());
     }
 
