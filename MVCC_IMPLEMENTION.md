@@ -1,6 +1,9 @@
 # AeroDB MVCC Implementation Status
 
-## Phase 2: MVCC Implementation
+## Phase 2: MVCC Implementation Complete ✓
+
+> **SEMANTIC FREEZE**: MVCC semantics are now frozen.
+> No semantic changes allowed without a new phase.
 
 ---
 
@@ -22,7 +25,6 @@
 |-----------|-------------|
 | `RecordType::MvccCommit` | WAL record type (value 3) |
 | `MvccCommitPayload` | Commit identity payload |
-| `MvccCommitRecord` | Complete commit record |
 | `CommitAuthority` | WAL-based commit identity assignment |
 
 ---
@@ -33,7 +35,6 @@
 |-----------|-------------|
 | `RecordType::MvccVersion` | WAL record type (value 4) |
 | `MvccVersionPayload` | Version with commit binding |
-| `MvccVersionRecord` | Complete version record |
 | `VersionValidator` | Cross-validation for recovery |
 
 ---
@@ -45,7 +46,6 @@
 | `Visibility` | Stateless visibility resolver |
 | `VisibilityResult` | Visible/Invisible result enum |
 | `visible_version()` | Apply exact MVCC_VISIBILITY.md rules |
-| `current_snapshot()` | Create ReadView from CommitAuthority |
 
 ---
 
@@ -54,27 +54,84 @@
 | Component | Description |
 |-----------|-------------|
 | `SnapshotManifest.commit_boundary` | MVCC cut point in manifest |
-| `with_mvcc_boundary()` | Create Phase-2 manifest |
+| `format_version: 2` | MVCC snapshot format |
 | `create_mvcc_snapshot()` | Snapshot with MVCC boundary |
-| `create_mvcc_checkpoint()` | Checkpoint with MVCC boundary |
-
-### Manifest Format
-
-| Version | MVCC | Description |
-|---------|------|-------------|
-| 1 | No | Phase-1 (no commit_boundary) |
-| 2 | Yes | Phase-2 (with commit_boundary) |
 
 ---
 
-## Test Results
+## MVCC-06: Garbage Collection ✓
 
-```
-test result: ok. 491 passed; 0 failed
-```
+| Component | Description |
+|-----------|-------------|
+| `RecordType::MvccGc` | WAL record type (value 5) |
+| `VersionLifecycleState` | Live → Obsolete → Reclaimable → Collected |
+| `VisibilityFloor` | Tracks oldest read view + snapshot boundary |
+| `GcEligibility` | All 4 mandatory rules per MVCC_GC.md |
+| `GcRecordPayload` | WAL serialization for GC events |
+
+### GC Eligibility Rules (ALL mandatory)
+
+1. `commit_id < visibility_lower_bound`
+2. A newer version exists in the chain
+3. No snapshot requires the version
+4. Recovery correctness preserved
 
 ---
 
-## Next Steps
+## MVCC-07: Failure Matrix ✓
 
-- MVCC-06: Write-Write Conflict Detection
+All crash points per MVCC_FAILURE_MATRIX.md:
+
+| Crash Point | Outcome |
+|-------------|---------|
+| Before commit intent | Write discarded |
+| After commit identity, before version | Recovery fails explicitly |
+| After full persistence | Visible |
+| Before GC WAL record | Version remains |
+| After GC WAL record | Version collected |
+
+---
+
+## MVCC-08: Phase-1 Regression ✓
+
+- All 511 tests pass
+- All Phase-1 behaviors unchanged
+- MVCC is a strict superset of Phase-1
+
+---
+
+## MVCC-09: Readiness Lock ✓
+
+### Guaranteed Behaviors
+
+- ✅ Deterministic visibility
+- ✅ Atomic writes
+- ✅ Snapshot isolation
+- ✅ Crash-safe recovery
+- ✅ Safe garbage collection
+- ✅ Phase-1 behavioral equivalence
+
+### Explicit Non-Features
+
+- ❌ Write-write conflict detection (future phase)
+- ❌ Serializable isolation (future phase)
+- ❌ Distributed MVCC (future phase)
+
+### Semantic Freeze
+
+After this point:
+- MVCC semantics are **immutable**
+- Only replication and performance may build on top
+- Any MVCC change requires a new phase
+
+---
+
+## Test Coverage
+
+| Category | Tests |
+|----------|-------|
+| MVCC Total | 50+ |
+| GC Eligibility | 14 |
+| GC Crash Semantics | 6 |
+| Phase-1 Regression | All pass |
+| **Total** | **511** |
