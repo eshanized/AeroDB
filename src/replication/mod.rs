@@ -16,10 +16,13 @@ mod authority;
 mod errors;
 mod wal_sender;
 mod wal_receiver;
+mod snapshot_transfer;
 
 pub use role::{ReplicationRole, ReplicationState, HaltReason};
 pub use authority::{AuthorityCheck, WriteAdmission, check_write_admission, check_commit_authority, check_dual_primary};
 pub use errors::{ReplicationError, ReplicationResult, ReplicationErrorKind};
 pub use wal_sender::{WalSender, WalPosition, WalRecordEnvelope};
 pub use wal_receiver::{WalReceiver, ReceiveResult};
+pub use snapshot_transfer::{SnapshotReceiver, SnapshotMetadata, SnapshotTransferState, SnapshotEligibility, SnapshotInstallResult, check_snapshot_eligibility};
+
 
