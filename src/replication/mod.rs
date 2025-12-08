@@ -20,6 +20,7 @@ mod snapshot_transfer;
 mod replica_reads;
 mod failure_matrix;
 mod recovery;
+mod compatibility;
 
 pub use role::{ReplicationRole, ReplicationState, HaltReason};
 pub use authority::{AuthorityCheck, WriteAdmission, check_write_admission, check_commit_authority, check_dual_primary};
@@ -30,6 +31,8 @@ pub use snapshot_transfer::{SnapshotReceiver, SnapshotMetadata, SnapshotTransfer
 pub use replica_reads::{ReplicaReadAdmission, ReadEligibility};
 pub use failure_matrix::{ReplicationCrashPoint, FailureOutcome, FailureState};
 pub use recovery::{PrimaryRecovery, ReplicaRecovery, RecoveryValidation, ReplicaResumeState};
+pub use compatibility::{CompatibilityCheck, CompatibilityAssertion, Phase1Compatibility, MvccCompatibility};
+
 
 
 
