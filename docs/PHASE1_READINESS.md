@@ -12,37 +12,37 @@ If any item is unchecked, Phase 1 is incomplete.
 
 ### Write-Ahead Log (WAL)
 
-- [ ] Every acknowledged write is fsynced before success
-- [ ] WAL append order is strictly monotonic
-- [ ] WAL corruption is detected via checksum
-- [ ] WAL corruption halts recovery (FATAL)
-- [ ] WAL replay is deterministic
-- [ ] WAL truncation occurs **only** during checkpoint
+- [x] Every acknowledged write is fsynced before success
+- [x] WAL append order is strictly monotonic
+- [x] WAL corruption is detected via checksum
+- [x] WAL corruption halts recovery (FATAL)
+- [x] WAL replay is deterministic
+- [x] WAL truncation occurs **only** during checkpoint
 
 ---
 
 ### Storage Engine
 
-- [ ] Storage is append-only
-- [ ] Full-document writes only (no deltas)
-- [ ] Every record is checksummed
-- [ ] Corruption is detected on read
-- [ ] Corruption is never silently repaired
-- [ ] Tombstones correctly represent deletes
-- [ ] Reads never observe partial records
+- [x] Storage is append-only
+- [x] Full-document writes only (no deltas)
+- [x] Every record is checksummed
+- [x] Corruption is detected on read
+- [x] Corruption is never silently repaired
+- [x] Tombstones correctly represent deletes
+- [x] Reads never observe partial records
 
 ---
 
 ## 2. Schema Enforcement
 
-- [ ] Schemas are mandatory for all writes
-- [ ] Schema ID and version must be explicit
-- [ ] Schema versions are immutable
-- [ ] No implicit fields or coercion
-- [ ] Extra fields are rejected
-- [ ] Missing required fields are rejected
-- [ ] `_id` is required and immutable
-- [ ] Recovery fails if referenced schema is missing
+- [x] Schemas are mandatory for all writes
+- [x] Schema ID and version must be explicit
+- [x] Schema versions are immutable
+- [x] No implicit fields or coercion
+- [x] Extra fields are rejected
+- [x] Missing required fields are rejected
+- [x] `_id` is required and immutable
+- [x] Recovery fails if referenced schema is missing
 
 ---
 
@@ -50,165 +50,165 @@ If any item is unchecked, Phase 1 is incomplete.
 
 ### Planner
 
-- [ ] All queries are proven bounded before execution
-- [ ] Queries without limit are rejected
-- [ ] Filters on non-indexed fields are rejected
-- [ ] Sorts on non-indexed fields are rejected
-- [ ] Planner output is deterministic
-- [ ] Tie-breaking rules are deterministic
-- [ ] Explain output is stable
+- [x] All queries are proven bounded before execution
+- [x] Queries without limit are rejected
+- [x] Filters on non-indexed fields are rejected
+- [x] Sorts on non-indexed fields are rejected
+- [x] Planner output is deterministic
+- [x] Tie-breaking rules are deterministic
+- [x] Explain output is stable
 
 ---
 
 ### Executor
 
-- [ ] Execution follows plan exactly
-- [ ] No runtime heuristics
-- [ ] Deterministic result ordering
-- [ ] Stable sort only
-- [ ] Limit enforced physically
-- [ ] Schema version filtering enforced
-- [ ] Checksum validated on every read
+- [x] Execution follows plan exactly
+- [x] No runtime heuristics
+- [x] Deterministic result ordering
+- [x] Stable sort only
+- [x] Limit enforced physically
+- [x] Schema version filtering enforced
+- [x] Checksum validated on every read
 
 ---
 
 ## 4. Index Integrity
 
-- [ ] Indexes are derived state only
-- [ ] Indexes are rebuilt on startup
-- [ ] Index rebuild halts on corruption
-- [ ] Index ordering is deterministic
-- [ ] Tombstoned documents are excluded
-- [ ] No index persistence to disk
+- [x] Indexes are derived state only
+- [x] Indexes are rebuilt on startup
+- [x] Index rebuild halts on corruption
+- [x] Index ordering is deterministic
+- [x] Tombstoned documents are excluded
+- [x] No index persistence to disk
 
 ---
 
 ## 5. Recovery Correctness
 
-- [ ] Recovery always runs on startup
-- [ ] WAL replay starts at correct position
-- [ ] Replay is sequential and deterministic
-- [ ] Index rebuild runs after replay
-- [ ] Storage checksums verified post-replay
-- [ ] Schema references verified
-- [ ] Recovery success/failure is explicit
-- [ ] No partial recovery allowed
+- [x] Recovery always runs on startup
+- [x] WAL replay starts at correct position
+- [x] Replay is sequential and deterministic
+- [x] Index rebuild runs after replay
+- [x] Storage checksums verified post-replay
+- [x] Schema references verified
+- [x] Recovery success/failure is explicit
+- [x] No partial recovery allowed
 
 ---
 
 ## 6. Snapshot
 
-- [ ] Snapshot is read-only
-- [ ] Snapshot fsyncs WAL before copy
-- [ ] Snapshot copies storage byte-for-byte
-- [ ] Snapshot copies schemas
-- [ ] Snapshot has a manifest
-- [ ] Manifest includes checksums
-- [ ] Partial snapshots are cleaned up
-- [ ] Snapshot does NOT truncate WAL
+- [x] Snapshot is read-only
+- [x] Snapshot fsyncs WAL before copy
+- [x] Snapshot copies storage byte-for-byte
+- [x] Snapshot copies schemas
+- [x] Snapshot has a manifest
+- [x] Manifest includes checksums
+- [x] Partial snapshots are cleaned up
+- [x] Snapshot does NOT truncate WAL
 
 ---
 
 ## 7. Checkpoint
 
-- [ ] Checkpoint acquires global execution lock
-- [ ] Checkpoint creates snapshot first
-- [ ] Checkpoint writes marker before truncation
-- [ ] WAL truncation is atomic
-- [ ] Crash before truncation preserves WAL
-- [ ] Crash after truncation recovers via snapshot
-- [ ] Checkpoint errors are non-fatal
-- [ ] Checkpoint ID equals snapshot ID
+- [x] Checkpoint acquires global execution lock
+- [x] Checkpoint creates snapshot first
+- [x] Checkpoint writes marker before truncation
+- [x] WAL truncation is atomic
+- [x] Crash before truncation preserves WAL
+- [x] Crash after truncation recovers via snapshot
+- [x] Checkpoint errors are non-fatal
+- [x] Checkpoint ID equals snapshot ID
 
 ---
 
 ## 8. Backup
 
-- [ ] Backup uses latest snapshot
-- [ ] Backup includes WAL tail
-- [ ] Backup is deterministic
-- [ ] Backup has a manifest
-- [ ] No compression used
-- [ ] Backup is read-only
-- [ ] Partial backups are cleaned up
-- [ ] Backup errors do not affect serving
+- [x] Backup uses latest snapshot
+- [x] Backup includes WAL tail
+- [x] Backup is deterministic
+- [x] Backup has a manifest
+- [x] No compression used
+- [x] Backup is read-only
+- [x] Partial backups are cleaned up
+- [x] Backup errors do not affect serving
 
 ---
 
 ## 9. Restore
 
-- [ ] Restore is offline-only
-- [ ] Restore validates backup structure
-- [ ] Restore validates snapshot checksums
-- [ ] Restore validates WAL integrity
-- [ ] Restore uses atomic directory replacement
-- [ ] Original data preserved on failure
-- [ ] Restore never rebuilds indexes
-- [ ] Restore errors are FATAL
+- [x] Restore is offline-only
+- [x] Restore validates backup structure
+- [x] Restore validates snapshot checksums
+- [x] Restore validates WAL integrity
+- [x] Restore uses atomic directory replacement
+- [x] Original data preserved on failure
+- [x] Restore never rebuilds indexes
+- [x] Restore errors are FATAL
 
 ---
 
 ## 10. Observability
 
-- [ ] Structured JSON logs
-- [ ] Deterministic key ordering
-- [ ] Lifecycle events logged
-- [ ] WAL events logged
-- [ ] Snapshot / checkpoint events logged
-- [ ] Backup / restore events logged
-- [ ] Recovery events logged
-- [ ] Query lifecycle logged
-- [ ] Metrics counters monotonic
-- [ ] Observability has zero behavioral impact
+- [x] Structured JSON logs
+- [x] Deterministic key ordering
+- [x] Lifecycle events logged
+- [x] WAL events logged
+- [x] Snapshot / checkpoint events logged
+- [x] Backup / restore events logged
+- [x] Recovery events logged
+- [x] Query lifecycle logged
+- [x] Metrics counters monotonic
+- [x] Observability has zero behavioral impact
 
 ---
 
 ## 11. Crash Testing
 
-- [ ] Crash injection via environment variable
-- [ ] Crash points implemented across subsystems
-- [ ] WAL crash scenarios tested
-- [ ] Storage mid-write crashes tested
-- [ ] Snapshot crashes tested
-- [ ] Checkpoint crashes tested
-- [ ] Backup crashes tested
-- [ ] Restore crashes tested
-- [ ] Recovery determinism verified
-- [ ] No flaky crash tests
+- [x] Crash injection via environment variable
+- [x] Crash points implemented across subsystems
+- [x] WAL crash scenarios tested
+- [x] Storage mid-write crashes tested
+- [x] Snapshot crashes tested
+- [x] Checkpoint crashes tested
+- [x] Backup crashes tested
+- [x] Restore crashes tested
+- [x] Recovery determinism verified
+- [x] No flaky crash tests
 
 ---
 
 ## 12. Configuration Safety
 
-- [ ] Unsafe configurations rejected
-- [ ] WAL fsync cannot be disabled
-- [ ] Checksums cannot be disabled
-- [ ] Schemas cannot be bypassed
-- [ ] Configuration validated at startup
-- [ ] Configuration is immutable post-start
+- [x] Unsafe configurations rejected
+- [x] WAL fsync cannot be disabled
+- [x] Checksums cannot be disabled
+- [x] Schemas cannot be bypassed
+- [x] Configuration validated at startup
+- [x] Configuration is immutable post-start
 
 ---
 
 ## 13. CLI & Boot
 
-- [ ] `init` creates correct layout
-- [ ] `start` runs full recovery before serving
-- [ ] `query` and `explain` require recovery
-- [ ] Clean shutdown marker handled correctly
-- [ ] Startup failure halts immediately
-- [ ] No background threads started implicitly
+- [x] `init` creates correct layout
+- [x] `start` runs full recovery before serving
+- [x] `query` and `explain` require recovery
+- [x] Clean shutdown marker handled correctly
+- [x] Startup failure halts immediately
+- [x] No background threads started implicitly
 
 ---
 
 ## 14. Tests & Discipline
 
-- [ ] All unit tests passing
-- [ ] All integration tests passing
-- [ ] All crash tests passing
-- [ ] No ignored tests
-- [ ] No flaky tests
-- [ ] Code matches governing docs
-- [ ] No undocumented behavior
+- [x] All unit tests passing
+- [x] All integration tests passing
+- [x] All crash tests passing
+- [x] No ignored tests
+- [x] No flaky tests
+- [x] Code matches governing docs
+- [x] No undocumented behavior
 
 ---
 
