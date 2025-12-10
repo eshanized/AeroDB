@@ -19,15 +19,22 @@
 //! - K1: Checksums on every record
 //! - K2: Halt-on-corruption policy
 //! - C1: Full-document atomicity
+//!
+//! # Phase 3 Optimizations
+//!
+//! - Group Commit: Multiple commits share fsync (optional, disabled by default)
 
 mod checksum;
 mod errors;
+mod group_commit;
 mod reader;
 mod record;
 mod writer;
 
 pub use checksum::compute_checksum;
 pub use errors::{WalError, WalResult};
+pub use group_commit::{CommitGroup, CommitPath, GroupCommitConfig, GroupCommitManager, GroupCommitResult, PendingCommit, PendingCommitState};
 pub use reader::WalReader;
 pub use record::{MvccCommitPayload, MvccCommitRecord, MvccVersionPayload, MvccVersionRecord, RecordType, WalPayload, WalRecord};
 pub use writer::WalWriter;
+
