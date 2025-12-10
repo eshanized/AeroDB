@@ -23,7 +23,9 @@
 //! # Phase 3 Optimizations
 //!
 //! - Group Commit: Multiple commits share fsync (optional, disabled by default)
+//! - WAL Batching: Multiple records in single write() (optional, disabled by default)
 
+mod batching;
 mod checksum;
 mod errors;
 mod group_commit;
@@ -31,10 +33,10 @@ mod reader;
 mod record;
 mod writer;
 
+pub use batching::{BatchWriteResult, WalBatch, WalBatchConfig, WalBatcher, WritePath};
 pub use checksum::compute_checksum;
 pub use errors::{WalError, WalResult};
 pub use group_commit::{CommitGroup, CommitPath, GroupCommitConfig, GroupCommitManager, GroupCommitResult, PendingCommit, PendingCommitState};
 pub use reader::WalReader;
 pub use record::{MvccCommitPayload, MvccCommitRecord, MvccVersionPayload, MvccVersionRecord, RecordType, WalPayload, WalRecord};
 pub use writer::WalWriter;
-
