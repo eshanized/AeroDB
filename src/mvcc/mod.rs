@@ -13,10 +13,15 @@
 //! - `VersionStorage` - Commit-bound version persistence
 //! - `Visibility` - Deterministic snapshot isolation
 //! - `GC` - Deterministic garbage collection
+//!
+//! # Phase 3 Optimizations
+//!
+//! - Read Cache: Snapshot-local visibility caching (optional, disabled by default)
 
 mod commit_authority;
 mod commit_id;
 mod gc;
+mod read_cache;
 mod read_view;
 mod version;
 mod version_chain;
@@ -26,6 +31,7 @@ mod visibility;
 pub use commit_authority::{CommitAuthority, CommitAuthorityError};
 pub use commit_id::CommitId;
 pub use gc::{GcEligibility, GcRecordPayload, VersionLifecycleState, VisibilityFloor};
+pub use read_cache::{CachedVisibility, CacheStats, ReadPath, ReadPathConfig, ShortCircuitTraversal, SnapshotVisibilityCache, TraversalDecision, VisibilityCacheKey};
 pub use read_view::ReadView;
 pub use version::{Version, VersionPayload};
 pub use version_chain::VersionChain;
@@ -33,4 +39,3 @@ pub use version_storage::{
     PersistedVersion, VersionExpectations, VersionStorageError, VersionStorageResult, VersionValidator,
 };
 pub use visibility::{Visibility, VisibilityResult};
-
