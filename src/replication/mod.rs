@@ -10,10 +10,15 @@
 //! - Authority is externally configured, never inferred
 //! - No leader election, no consensus, no timeouts
 //! - Fail-stop on ambiguity
+//!
+//! # Phase 3 Optimizations
+//!
+//! - Fast Read: Pre-validated snapshot reuse on replicas (optional, disabled by default)
 
 mod role;
 mod authority;
 mod errors;
+mod fast_read;
 mod wal_sender;
 mod wal_receiver;
 mod snapshot_transfer;
@@ -25,6 +30,7 @@ mod compatibility;
 pub use role::{ReplicationRole, ReplicationState, HaltReason};
 pub use authority::{AuthorityCheck, WriteAdmission, check_write_admission, check_commit_authority, check_dual_primary};
 pub use errors::{ReplicationError, ReplicationResult, ReplicationErrorKind};
+pub use fast_read::{FastReadConfig, FastReadManager, FastReadResult, FastReadStats, ReplicaReadPath, ReplicaSafetyState, SafetyCheck, SafetyValidator, SafetyViolation};
 pub use wal_sender::{WalSender, WalPosition, WalRecordEnvelope};
 pub use wal_receiver::{WalReceiver, ReceiveResult};
 pub use snapshot_transfer::{SnapshotReceiver, SnapshotMetadata, SnapshotTransferState, SnapshotEligibility, SnapshotInstallResult, check_snapshot_eligibility};
@@ -32,6 +38,7 @@ pub use replica_reads::{ReplicaReadAdmission, ReadEligibility};
 pub use failure_matrix::{ReplicationCrashPoint, FailureOutcome, FailureState};
 pub use recovery::{PrimaryRecovery, ReplicaRecovery, RecoveryValidation, ReplicaResumeState};
 pub use compatibility::{CompatibilityCheck, CompatibilityAssertion, Phase1Compatibility, MvccCompatibility};
+
 
 
 
