@@ -40,13 +40,20 @@
 //! Checkpoint is NOT recovery.
 //! Checkpoint does NOT rebuild indexes.
 //! Checkpoint orchestrates only.
+//!
+//! # Phase 3 Optimizations
+//!
+//! - Pipelining: Overlap Phase A (prep) work with normal operation (optional, disabled by default)
 
 mod coordinator;
 mod errors;
 mod marker;
+mod pipeline;
 
 pub use errors::{CheckpointError, CheckpointErrorCode, CheckpointResult, Severity};
 pub use marker::{marker_path, CheckpointMarker};
+pub use pipeline::{CheckpointPath, CheckpointPipeline, CheckpointPipelineError, PhaseA, PhaseAResult, PhaseB, PhaseBResult, PipelineConfig, PipelineState, PipelineStats};
+
 
 use std::path::Path;
 
