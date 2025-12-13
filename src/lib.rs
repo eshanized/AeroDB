@@ -11,6 +11,7 @@ pub mod executor;
 pub mod index;
 pub mod mvcc;
 pub mod observability;
+pub mod performance;
 pub mod planner;
 pub mod recovery;
 pub mod replication;
