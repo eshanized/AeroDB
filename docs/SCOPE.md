@@ -28,7 +28,10 @@ Everything else is deferred by design.
 
 ---
 
+
 ## Phase 0: Minimum Viable Infrastructure (MVI)
+
+> **Note on Terminology:** "Phase 0" and "Phase 1" refer to the same foundational phase in AeroDB's development. Current documentation (e.g., PHASE3_VISION.md) uses "Phase 1" terminology. This document preserves the original "Phase 0" naming for historical continuity.
 
 Phase 0 defines the first **production-credible** version of aerodb.
 This is not a demo phase.
@@ -201,18 +204,54 @@ Single-document atomicity only.
 
 ---
 
-## Deferred, Not Forgotten
+## Completed Phases
 
-The following areas may be considered **only after Phase 0 is complete and stable**:
+### Phase 1: Core Storage & Correctness
+- Single-node WAL-backed persistence
+- Deterministic query planning
+- Crash-safe recovery
+- Bounded query execution
+- **Status:** Frozen
 
-- Replication
-- Read replicas
-- Backup tooling
+### Phase 2A: MVCC (Multi-Version Concurrency Control)
+- Snapshot isolation
+- CommitId authority model
+- Version chain management
+- Deterministic visibility rules
+- **Status:** Frozen
+
+### Phase 2B: Replication
+- Single-writer replication model
+- WAL shipping semantics
+- Snapshot transfer
+- Replica read rules
+- Fail-stop semantics
+- **Status:** Frozen
+
+### Phase 3: Performance Optimizations (Current)
+- Group Commit (PERF-01)
+- WAL Batching (PERF-02)
+- Read Path Optimization (PERF-03)
+- Index Acceleration (PERF-04)
+- Checkpoint Pipelining (PERF-05)
+- Replica Read Fast Path (PERF-06)
+- Memory Layout Optimization (PERF-07)
+- **Status:** Implementation complete, correctness-preserving only
+
+---
+
+## Future Considerations (Post-Phase 3)
+
+The following may be considered after Phase 3 stabilizes:
+
+- Multi-document transactions
+- Backup and restore tooling enhancements
 - Schema migration automation
-- Secondary index types
+- Additional secondary index types
 - CLI and admin tooling improvements
+- Cross-shard operations (if sharding becomes in-scope)
 
-These are explicitly **not Phase 0 work**.
+These are explicitly deferred.
 
 ---
 
