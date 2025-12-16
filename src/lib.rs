@@ -7,6 +7,7 @@ pub mod backup;
 pub mod checkpoint;
 pub mod cli;
 pub mod crash_point;
+pub mod dx;
 pub mod executor;
 pub mod index;
 pub mod mvcc;
