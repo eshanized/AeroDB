@@ -10,9 +10,11 @@
 //!
 //! Read-only, Phase 4, no semantic authority.
 
+pub mod checkpoint;
 pub mod model;
 pub mod query;
 pub mod recovery;
+pub mod replication;
 pub mod rules;
 pub mod visibility;
 

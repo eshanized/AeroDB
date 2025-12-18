@@ -4,8 +4,7 @@
 
 Implemented Phase 4 (Developer Experience & Visibility) per DX_VISION.md, DX_INVARIANTS.md, DX_OBSERVABILITY_API.md, and DX_EXPLANATION_MODEL.md.
 
-> [!IMPORTANT]
-> Phase 4 may explain everything — but it may change nothing.  
+> **Phase 4 may explain everything — but it may change nothing.**
 > All components are strictly read-only and disableable.
 
 ---
@@ -16,17 +15,21 @@ Implemented Phase 4 (Developer Experience & Visibility) per DX_VISION.md, DX_INV
 
 | File | Purpose |
 |------|---------|
-| [mod.rs](src/dx/mod.rs) | Module root |
-| [config.rs](src/dx/config.rs) | DX configuration (disabled by default, localhost-only) |
-| [api/mod.rs](src/dx/api/mod.rs) | API module |
-| [api/response.rs](src/dx/api/response.rs) | Response envelope per §4 |
-| [api/handlers.rs](src/dx/api/handlers.rs) | All endpoint data types (status, wal, mvcc, etc.) |
-| [api/server.rs](src/dx/api/server.rs) | Server with handler methods |
+| `src/dx/mod.rs` | Module root |
+| `src/dx/config.rs` | DX configuration (disabled by default, localhost-only) |
+| `src/dx/api/mod.rs` | API module |
+| `src/dx/api/response.rs` | Response envelope per §4 |
+| `src/dx/api/handlers.rs` | All endpoint data types |
+| `src/dx/api/server.rs` | Server with handler methods |
 
-**Key Invariants Enforced:**
-- P4-2: All endpoints are read-only
-- P4-6: Deterministic output
-- P4-7: Snapshot-explicit responses (observed_at with commit_id)
+**Endpoints:**
+- `/v1/status` — Lifecycle, CommitId, WAL durability
+- `/v1/wal` — WAL state inspection
+- `/v1/mvcc` — MVCC state inspection
+- `/v1/snapshots` — Active snapshots
+- `/v1/checkpoints` — Checkpoint state
+- `/v1/indexes` — Index health
+- `/v1/replication` — Replication state
 
 ---
 
@@ -34,75 +37,52 @@ Implemented Phase 4 (Developer Experience & Visibility) per DX_VISION.md, DX_INV
 
 | File | Purpose |
 |------|---------|
-| [explain/mod.rs](src/dx/explain/mod.rs) | Module root |
-| [explain/model.rs](src/dx/explain/model.rs) | Explanation object model per §4 |
-| [explain/rules.rs](src/dx/explain/rules.rs) | Rule registry mapping to invariant docs |
-| [explain/visibility.rs](src/dx/explain/visibility.rs) | MVCC read visibility explainer |
-| [explain/query.rs](src/dx/explain/query.rs) | Query execution explainer |
-| [explain/recovery.rs](src/dx/explain/recovery.rs) | Recovery process explainer |
+| `src/dx/explain/mod.rs` | Module root |
+| `src/dx/explain/model.rs` | Explanation object model |
+| `src/dx/explain/rules.rs` | Rule registry (20+ invariants) |
+| `src/dx/explain/visibility.rs` | MVCC read visibility |
+| `src/dx/explain/query.rs` | Query execution |
+| `src/dx/explain/recovery.rs` | Recovery process |
+| `src/dx/explain/checkpoint.rs` | Checkpoint safety |
+| `src/dx/explain/replication.rs` | Replication safety |
 
-**Key Invariants Enforced:**
-- P4-8: No heuristic explanations
-- P4-9: Explanation = Evidence (references real identifiers)
+**Explanation Types:**
+- `mvcc.read_visibility` — Why a version is visible/invisible
+- `query.execution` — How a query was executed
+- `recovery.process` — How recovery proceeded
+- `checkpoint.safety` — Why a checkpoint is valid
+- `replication.safety` — Why a replica is safe to read
+
+---
+
+## Key Invariants Enforced
+
+| Invariant | Description |
+|-----------|-------------|
+| P4-1 | Zero semantic authority |
+| P4-2 | Strict read-only surfaces |
+| P4-6 | Deterministic observation |
+| P4-7 | Snapshot-bound observation |
+| P4-8 | No heuristic explanations |
+| P4-9 | Explanation = Evidence |
+| P4-16 | Complete removability |
 
 ---
 
 ## Test Results
 
 ```
-test result: ok. 735 passed; 0 failed; 0 ignored
+test result: ok. 742 passed; 0 failed; 0 ignored
 ```
 
-**New DX tests:** 35  
-**Total project tests:** 735 (up from 700)
+**New DX tests:** 42
+**Total project tests:** 742
 
 ---
 
-## Example API Response
+## DX-03: Admin UI (Deferred)
 
-```json
-{
-  "api_version": "v1",
-  "observed_at": {
-    "snapshot": "live",
-    "commit_id": 100
-  },
-  "data": {
-    "lifecycle_state": "running",
-    "commit_id_high_water": 100,
-    "wal_durability_boundary": 95
-  }
-}
-```
-
----
-
-## Example Explanation
-
-```json
-{
-  "explanation_type": "mvcc.read_visibility",
-  "observed_snapshot": {
-    "snapshot_id": "snap-100",
-    "commit_id": 100
-  },
-  "rules_applied": [
-    {
-      "rule_id": "MVCC-VIS-1",
-      "description": "Version is visible if CommitId <= snapshot CommitId",
-      "evaluation": "true",
-      "evidence": {
-        "version_commit_id": 50,
-        "snapshot_commit_id": 100
-      }
-    }
-  ],
-  "conclusion": {
-    "status": "determined",
-    "result": { "visible_version_id": 1 }
-  }
-}
-```
+Per DX_ADMIN_UI_ARCH.md §3 (UI-3: Removability), the UI is optional. Core API and explanation functionality is complete without UI.
 
 ---
 
@@ -110,8 +90,8 @@ test result: ok. 735 passed; 0 failed; 0 ignored
 
 | Check | Result |
 |-------|--------|
-| Read-only enforcement | ✅ No mutation APIs exist |
-| Deterministic output | ✅ Tested via repeated calls |
-| Snapshot correctness | ✅ CommitId included in all responses |
-| Disablement safety | ✅ `DxConfig::default()` disables all |
-| All tests pass | ✅ 735/735 |
+| Read-only enforcement | ✅ |
+| Deterministic output | ✅ |
+| Snapshot correctness | ✅ |
+| Disablement safety | ✅ |
+| All tests pass | ✅ 742/742 |
