@@ -1,10 +1,10 @@
 ## aerodb — Project Vision
 
 aerodb is a production-grade database system designed to outperform
-:contentReference[oaicite:0]{index=0} in correctness,
+MongoDB in correctness,
 predictability, and operational clarity, while meeting the reliability
 expectations associated with platforms like
-:contentReference[oaicite:1]{index=1}.
+PostgreSQL.
 
 aerodb is infrastructure software.
 

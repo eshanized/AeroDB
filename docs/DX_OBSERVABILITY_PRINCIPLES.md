@@ -1,4 +1,4 @@
-# OBSERVABILITY.md — AeroDB Observability & Operational Visibility (Phase 1)
+# DX_OBSERVABILITY_PRINCIPLES.md — Phase 4 Observability Principles
 
 This document defines the authoritative observability surface of AeroDB Phase 1.
 
