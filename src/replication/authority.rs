@@ -69,10 +69,13 @@ impl WriteAdmission {
 /// - May be accepted only if node is PrimaryActive
 /// - Must be rejected if node is Replica
 /// - Must be rejected if node is ReplicationHalted
+///
+/// Per P5-I16: Disabled mode behaves like standalone primary
 pub fn check_write_admission(state: &ReplicationState) -> WriteAdmission {
     match state {
+        ReplicationState::Disabled => WriteAdmission::Admitted,
         ReplicationState::PrimaryActive => WriteAdmission::Admitted,
-        ReplicationState::ReplicaActive => WriteAdmission::RejectedReplica,
+        ReplicationState::ReplicaActive { .. } => WriteAdmission::RejectedReplica,
         ReplicationState::ReplicationHalted { .. } => WriteAdmission::RejectedHalted,
         ReplicationState::Uninitialized => WriteAdmission::RejectedUninitialized,
     }
@@ -83,10 +86,13 @@ pub fn check_write_admission(state: &ReplicationState) -> WriteAdmission {
 /// Per PHASE2_REPLICATION_INVARIANTS.md §2.2:
 /// - CommitIds are assigned only by the Primary
 /// - Replicas must never generate CommitIds
+///
+/// Per P5-I16: Disabled mode behaves like standalone primary
 pub fn check_commit_authority(state: &ReplicationState) -> ReplicationResult<()> {
     match state {
+        ReplicationState::Disabled => Ok(()),
         ReplicationState::PrimaryActive => Ok(()),
-        ReplicationState::ReplicaActive => Err(ReplicationError::commit_authority_violation(
+        ReplicationState::ReplicaActive { .. } => Err(ReplicationError::commit_authority_violation(
             "Replicas must never assign CommitIds"
         )),
         ReplicationState::ReplicationHalted { .. } => Err(ReplicationError::halted(
@@ -104,6 +110,9 @@ pub fn check_commit_authority(state: &ReplicationState) -> ReplicationResult<()>
 /// - Dual Primary is forbidden
 /// - If two nodes believe they are Primary, system must halt writes
 ///
+/// Per P5-I16: Disabled mode is treated as not having authority claim
+/// (since it's standalone, not participating in replication).
+///
 /// This function would be called with external information about other nodes.
 /// Returns AuthorityAmbiguity if another Primary is detected.
 pub fn check_dual_primary(
@@ -111,6 +120,10 @@ pub fn check_dual_primary(
     other_node_claims_primary: bool,
 ) -> AuthorityCheck {
     match local_state {
+        ReplicationState::Disabled => {
+            // Disabled mode is standalone, no replication authority claim
+            AuthorityCheck::NotAuthorized
+        }
         ReplicationState::PrimaryActive => {
             if other_node_claims_primary {
                 // Per PHASE2_REPLICATION_INVARIANTS.md §2.1:
@@ -120,7 +133,7 @@ pub fn check_dual_primary(
                 AuthorityCheck::Authorized
             }
         }
-        ReplicationState::ReplicaActive => AuthorityCheck::NotAuthorized,
+        ReplicationState::ReplicaActive { .. } => AuthorityCheck::NotAuthorized,
         ReplicationState::Uninitialized => AuthorityCheck::NotAuthorized,
         ReplicationState::ReplicationHalted { .. } => AuthorityCheck::NotAuthorized,
     }

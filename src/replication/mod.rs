@@ -11,10 +11,17 @@
 //! - No leader election, no consensus, no timeouts
 //! - Fail-stop on ambiguity
 //!
+//! # Phase 5 Implementation
+//!
+//! Per PHASE5_INVARIANTS.md §P5-I16:
+//! - Replication MUST be disableable at startup
+//! - Disabling MUST NOT affect primary behavior
+//!
 //! # Phase 3 Optimizations
 //!
 //! - Fast Read: Pre-validated snapshot reuse on replicas (optional, disabled by default)
 
+mod config;
 mod role;
 mod authority;
 mod errors;
@@ -27,6 +34,7 @@ mod failure_matrix;
 mod recovery;
 mod compatibility;
 
+pub use config::ReplicationConfig;
 pub use role::{ReplicationRole, ReplicationState, HaltReason};
 pub use authority::{AuthorityCheck, WriteAdmission, check_write_admission, check_commit_authority, check_dual_primary};
 pub use errors::{ReplicationError, ReplicationResult, ReplicationErrorKind};
