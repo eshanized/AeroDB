@@ -214,7 +214,8 @@ mod tests {
     fn test_eligible_when_boundary_within_applied() {
         // Per §4: R.read_upper_bound ≤ C_replica → eligible
         let admission = ReplicaReadAdmission::new(CommitId::new(100));
-        let state = ReplicationState::ReplicaActive;
+        let replica_id = uuid::Uuid::new_v4();
+        let state = ReplicationState::ReplicaActive { replica_id };
         
         let result = admission.check_eligibility(&state, CommitId::new(50));
         assert!(result.is_eligible());
@@ -224,7 +225,8 @@ mod tests {
     fn test_eligible_at_exact_boundary() {
         // Per §4: R.read_upper_bound ≤ C_replica → eligible (equality case)
         let admission = ReplicaReadAdmission::new(CommitId::new(100));
-        let state = ReplicationState::ReplicaActive;
+        let replica_id = uuid::Uuid::new_v4();
+        let state = ReplicationState::ReplicaActive { replica_id };
         
         let result = admission.check_eligibility(&state, CommitId::new(100));
         assert!(result.is_eligible());
@@ -234,7 +236,8 @@ mod tests {
     fn test_ineligible_beyond_boundary() {
         // Per §4: R.read_upper_bound > C_replica → ineligible
         let admission = ReplicaReadAdmission::new(CommitId::new(100));
-        let state = ReplicationState::ReplicaActive;
+        let replica_id = uuid::Uuid::new_v4();
+        let state = ReplicationState::ReplicaActive { replica_id };
         
         let result = admission.check_eligibility(&state, CommitId::new(150));
         assert!(!result.is_eligible());
@@ -282,7 +285,8 @@ mod tests {
         let mut admission = ReplicaReadAdmission::new(CommitId::new(100));
         admission.mark_wal_gap();
         
-        let state = ReplicationState::ReplicaActive;
+        let replica_id = uuid::Uuid::new_v4();
+        let state = ReplicationState::ReplicaActive { replica_id };
         let result = admission.check_eligibility(&state, CommitId::new(50));
         assert_eq!(result, ReadEligibility::WalGapDetected);
     }
@@ -293,7 +297,8 @@ mod tests {
         let mut admission = ReplicaReadAdmission::new(CommitId::new(100));
         admission.mark_snapshot_incomplete();
         
-        let state = ReplicationState::ReplicaActive;
+        let replica_id = uuid::Uuid::new_v4();
+        let state = ReplicationState::ReplicaActive { replica_id };
         let result = admission.check_eligibility(&state, CommitId::new(50));
         assert_eq!(result, ReadEligibility::SnapshotIncomplete);
     }
@@ -304,7 +309,8 @@ mod tests {
         let mut admission = ReplicaReadAdmission::new(CommitId::new(100));
         admission.mark_recovery_in_progress();
         
-        let state = ReplicationState::ReplicaActive;
+        let replica_id = uuid::Uuid::new_v4();
+        let state = ReplicationState::ReplicaActive { replica_id };
         let result = admission.check_eligibility(&state, CommitId::new(50));
         assert_eq!(result, ReadEligibility::MidRecovery);
     }
@@ -319,7 +325,8 @@ mod tests {
     #[test]
     fn test_update_boundary_extends_eligibility() {
         let mut admission = ReplicaReadAdmission::new(CommitId::new(100));
-        let state = ReplicationState::ReplicaActive;
+        let replica_id = uuid::Uuid::new_v4();
+        let state = ReplicationState::ReplicaActive { replica_id };
         
         // Initially, 150 is beyond boundary
         assert!(!admission.check_eligibility(&state, CommitId::new(150)).is_eligible());

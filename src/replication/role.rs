@@ -342,7 +342,7 @@ mod tests {
             reason: HaltReason::WalGapDetected,
         };
         
-        assert!(state.become_primary().is_err());
+        assert!(state.clone().become_primary().is_err());
         assert!(state.become_replica(Uuid::new_v4()).is_err());
     }
 

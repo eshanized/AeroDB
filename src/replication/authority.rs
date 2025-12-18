@@ -143,6 +143,16 @@ pub fn check_dual_primary(
 mod tests {
     use super::*;
     use super::super::role::HaltReason;
+    use uuid::Uuid;
+
+    #[test]
+    fn test_write_admission_disabled_allowed() {
+        // Per P5-I16: Disabled behaves like standalone primary
+        let state = ReplicationState::Disabled;
+        let admission = check_write_admission(&state);
+        assert_eq!(admission, WriteAdmission::Admitted);
+        assert!(admission.to_result().is_ok());
+    }
 
     #[test]
     fn test_write_admission_primary_allowed() {
@@ -156,7 +166,8 @@ mod tests {
     #[test]
     fn test_write_admission_replica_rejected() {
         // Per PHASE2_REPLICATION_INVARIANTS.md §2.1
-        let state = ReplicationState::ReplicaActive;
+        let replica_id = Uuid::new_v4();
+        let state = ReplicationState::ReplicaActive { replica_id };
         let admission = check_write_admission(&state);
         assert_eq!(admission, WriteAdmission::RejectedReplica);
         assert!(admission.to_result().is_err());
@@ -180,6 +191,13 @@ mod tests {
     }
 
     #[test]
+    fn test_commit_authority_disabled_allowed() {
+        // Per P5-I16: Disabled behaves like standalone primary
+        let state = ReplicationState::Disabled;
+        assert!(check_commit_authority(&state).is_ok());
+    }
+
+    #[test]
     fn test_commit_authority_primary_allowed() {
         // Per PHASE2_REPLICATION_INVARIANTS.md §2.2
         let state = ReplicationState::PrimaryActive;
@@ -189,7 +207,8 @@ mod tests {
     #[test]
     fn test_commit_authority_replica_forbidden() {
         // Per PHASE2_REPLICATION_INVARIANTS.md §2.2
-        let state = ReplicationState::ReplicaActive;
+        let replica_id = Uuid::new_v4();
+        let state = ReplicationState::ReplicaActive { replica_id };
         let result = check_commit_authority(&state);
         assert!(result.is_err());
     }
@@ -213,8 +232,19 @@ mod tests {
     }
 
     #[test]
+    fn test_disabled_not_authorized_for_dual_primary() {
+        // Per P5-I16: Disabled is standalone, not participating in replication
+        let state = ReplicationState::Disabled;
+        assert_eq!(
+            check_dual_primary(&state, false),
+            AuthorityCheck::NotAuthorized
+        );
+    }
+
+    #[test]
     fn test_replica_never_authorized_for_writes() {
-        let state = ReplicationState::ReplicaActive;
+        let replica_id = Uuid::new_v4();
+        let state = ReplicationState::ReplicaActive { replica_id };
         
         // Even if no other primary exists, replica is not authorized
         assert_eq!(
