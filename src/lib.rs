@@ -14,6 +14,7 @@ pub mod mvcc;
 pub mod observability;
 pub mod performance;
 pub mod planner;
+pub mod promotion;
 pub mod recovery;
 pub mod replication;
 pub mod restore;
