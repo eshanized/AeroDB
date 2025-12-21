@@ -12,6 +12,7 @@ use serde_json::{json, Value};
 use crate::api::{ApiHandler, Subsystems};
 use crate::index::IndexManager;
 use crate::recovery::RecoveryManager;
+use crate::replication::{ReplicationConfig, ReplicationRole, ReplicationState};
 use crate::schema::SchemaLoader;
 use crate::storage::{StorageReader, StorageWriter};
 use crate::wal::{WalReader, WalWriter};
@@ -37,11 +38,31 @@ pub struct Config {
     /// WAL sync mode (optional, default "fsync")
     #[serde(default = "default_wal_sync_mode")]
     pub wal_sync_mode: String,
+    
+    // --- Replication Configuration (Phase 5 Stage 1) ---
+    // Per P5-I16: All fields default to disabled.
+    
+    /// Whether replication is enabled (default: false per P5-I16)
+    #[serde(default)]
+    pub replication_enabled: bool,
+    
+    /// Replication role: "primary" or "replica" (default: "primary")
+    #[serde(default = "default_replication_role")]
+    pub replication_role: String,
+    
+    /// Replica ID (UUID, auto-generated if not provided for replicas)
+    #[serde(default)]
+    pub replica_id: Option<String>,
+    
+    /// Primary node address (required for replicas, forbidden for primaries)
+    #[serde(default)]
+    pub primary_address: Option<String>,
 }
 
 fn default_max_wal_size() -> u64 { 1073741824 } // 1GB
 fn default_max_memory() -> u64 { 536870912 } // 512MB
 fn default_wal_sync_mode() -> String { "fsync".to_string() }
+fn default_replication_role() -> String { "primary".to_string() }
 
 impl Config {
     /// Load configuration from file
@@ -76,12 +97,80 @@ impl Config {
             return Err(CliError::config_error("max_memory_bytes must be > 0"));
         }
         
+        // Validate replication config (Phase 5 Stage 1)
+        self.to_replication_config()?.validate()
+            .map_err(|e| CliError::config_error(format!("Replication config error: {}", e.message)))?;
+        
         Ok(())
     }
     
     /// Get data directory as Path
     pub fn data_path(&self) -> &Path {
         Path::new(&self.data_dir)
+    }
+    
+    /// Convert to ReplicationConfig for use during boot.
+    ///
+    /// Per PHASE5_IMPLEMENTATION_ORDER.md §Stage 1:
+    /// - Validates role is "primary" or "replica"
+    /// - Auto-generates replica_id if needed
+    pub fn to_replication_config(&self) -> CliResult<ReplicationConfig> {
+        if !self.replication_enabled {
+            return Ok(ReplicationConfig::disabled());
+        }
+        
+        let role = match self.replication_role.as_str() {
+            "primary" => ReplicationRole::Primary,
+            "replica" => ReplicationRole::Replica,
+            other => return Err(CliError::config_error(
+                format!("Invalid replication_role: '{}'. Must be 'primary' or 'replica'.", other)
+            )),
+        };
+        
+        match role {
+            ReplicationRole::Primary => Ok(ReplicationConfig::primary()),
+            ReplicationRole::Replica => {
+                let primary_addr = self.primary_address.clone()
+                    .ok_or_else(|| CliError::config_error(
+                        "primary_address is required when replication_role is 'replica'"
+                    ))?;
+                
+                let replica_id = self.replica_id.as_ref()
+                    .map(|s| uuid::Uuid::parse_str(s))
+                    .transpose()
+                    .map_err(|e| CliError::config_error(
+                        format!("Invalid replica_id UUID: {}", e)
+                    ))?;
+                
+                Ok(ReplicationConfig::replica(primary_addr, replica_id))
+            }
+        }
+    }
+    
+    /// Initialize ReplicationState based on config.
+    ///
+    /// Per PHASE5_IMPLEMENTATION_ORDER.md §Stage 1:
+    /// - If disabled: return Disabled state
+    /// - If primary: transition to PrimaryActive
+    /// - If replica: transition to ReplicaActive with UUID
+    pub fn init_replication_state(&self) -> CliResult<ReplicationState> {
+        let repl_config = self.to_replication_config()?;
+        
+        if !repl_config.is_enabled() {
+            return Ok(ReplicationState::new()); // Disabled
+        }
+        
+        let state = ReplicationState::uninitialized();
+        
+        if repl_config.is_primary() {
+            state.become_primary()
+                .map_err(|e| CliError::config_error(format!("Failed to init primary: {}", e.message)))
+        } else {
+            let replica_id = repl_config.get_replica_id()
+                .expect("Replica must have replica_id after validation");
+            state.become_replica(replica_id)
+                .map_err(|e| CliError::config_error(format!("Failed to init replica: {}", e.message)))
+        }
     }
 }
 

@@ -8,6 +8,7 @@
 //! Read-only, Phase 4, no semantic authority.
 
 use super::response::{ApiError, ApiResponse, ObservedAt};
+use crate::replication::ReplicationState;
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -203,7 +204,7 @@ pub struct IndexesData {
 // Replication Endpoint Data (§5.7)
 // ============================================================================
 
-/// Replication role.
+/// Replication role for DX observability.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ReplicationRole {
@@ -211,25 +212,51 @@ pub enum ReplicationRole {
     Primary,
     /// Replica (read-only) node.
     Replica,
-    /// Standalone (no replication).
+    /// Standalone (no replication) - when replication is disabled.
     Standalone,
 }
 
-/// Replication state response per §5.7.
+/// Read safety status for replicas.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ReadSafetyStatus {
+    /// Reads are safe (replica is caught up).
+    Safe,
+    /// Reads may be stale.
+    Unsafe,
+    /// Read safety is disabled (standalone or primary).
+    Disabled,
+}
+
+/// Replication state response per §5.7 and PHASE5_OBSERVABILITY_MAPPING.md §3.1.
 ///
-/// Conditional: only returned if replication is enabled.
+/// Per PHASE5_IMPLEMENTATION_ORDER.md Stage 1:
+/// - role: Primary/Replica/Standalone
+/// - replica_state: State machine state name
+/// - replica_id: UUID if replica
+/// - read_safety: Safe/Unsafe/Disabled
+/// - blocking_reason: Why blocked (if any)
+/// - replication_enabled: Whether replication is on
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReplicationData {
     /// Node role.
     pub role: ReplicationRole,
-    /// WAL prefix position (replica's applied CommitId).
-    pub wal_prefix_commit_id: Option<u64>,
-    /// Replica lag in CommitIds.
-    pub replica_lag: Option<u64>,
-    /// Whether snapshot bootstrap is in progress.
-    pub snapshot_bootstrap_active: bool,
+    /// State machine state name per PHASE5_OBSERVABILITY_MAPPING.md.
+    pub replica_state: String,
+    /// Replica UUID (None for primary/standalone).
+    pub replica_id: Option<String>,
+    /// Read safety status.
+    pub read_safety: ReadSafetyStatus,
+    /// Blocking reason if any operation is blocked.
+    pub blocking_reason: Option<String>,
     /// Whether replication is enabled.
     pub replication_enabled: bool,
+    /// WAL prefix position (replica's applied CommitId) - Phase 2+.
+    pub wal_prefix_commit_id: Option<u64>,
+    /// Replica lag in CommitIds - Phase 2+.
+    pub replica_lag: Option<u64>,
+    /// Whether snapshot bootstrap is in progress - Phase 5+.
+    pub snapshot_bootstrap_active: bool,
 }
 
 // ============================================================================
@@ -273,6 +300,65 @@ pub fn handle_mvcc(commit_id: u64, mvcc_data: MvccData) -> ApiResponse<MvccData>
     ApiResponse::new(ObservedAt::live(commit_id), mvcc_data)
 }
 
+/// Get replication state.
+///
+/// Per PHASE5_OBSERVABILITY_MAPPING.md §3.1:
+/// - Role, state machine state, replica ID
+/// - Read safety status
+/// - Blocking reason if any
+///
+/// Read-only, Phase 4-5, no semantic authority.
+#[allow(dead_code)]
+pub fn handle_replication(commit_id: u64, state: &ReplicationState) -> ApiResponse<ReplicationData> {
+    let (role, replica_id, read_safety, blocking_reason) = match state {
+        ReplicationState::Disabled => (
+            ReplicationRole::Standalone,
+            None,
+            ReadSafetyStatus::Disabled,
+            None,
+        ),
+        ReplicationState::Uninitialized => (
+            ReplicationRole::Standalone,
+            None,
+            ReadSafetyStatus::Disabled,
+            Some("replication not initialized".to_string()),
+        ),
+        ReplicationState::PrimaryActive => (
+            ReplicationRole::Primary,
+            None,
+            ReadSafetyStatus::Disabled, // Primary doesn't have read safety concern
+            None,
+        ),
+        ReplicationState::ReplicaActive { replica_id } => (
+            ReplicationRole::Replica,
+            Some(replica_id.to_string()),
+            ReadSafetyStatus::Unsafe, // Stage 1: no read safety gate yet
+            None,
+        ),
+        ReplicationState::ReplicationHalted { reason } => (
+            ReplicationRole::Standalone,
+            None,
+            ReadSafetyStatus::Disabled,
+            Some(format!("halted: {:?}", reason)),
+        ),
+    };
+    
+    let data = ReplicationData {
+        role,
+        replica_state: state.state_name().to_string(),
+        replica_id,
+        read_safety,
+        blocking_reason,
+        replication_enabled: !state.is_disabled(),
+        // Phase 2+ fields - not implemented in Stage 1
+        wal_prefix_commit_id: None,
+        replica_lag: None,
+        snapshot_bootstrap_active: false,
+    };
+    
+    ApiResponse::new(ObservedAt::live(commit_id), data)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -305,5 +391,70 @@ mod tests {
             serde_json::to_string(&LifecycleState::Recovering).unwrap(),
             "\"recovering\""
         );
+    }
+
+    // ===== Stage 1: DX Replication Endpoint Tests =====
+    
+    #[test]
+    fn test_replication_disabled_returns_standalone() {
+        // Per P5-I16: Disabled replication returns standalone role
+        let state = ReplicationState::Disabled;
+        let resp = handle_replication(100, &state);
+        
+        assert_eq!(resp.data.role, ReplicationRole::Standalone);
+        assert_eq!(resp.data.replica_state, "disabled");
+        assert!(!resp.data.replication_enabled);
+        assert!(resp.data.replica_id.is_none());
+        assert_eq!(resp.data.read_safety, ReadSafetyStatus::Disabled);
+    }
+
+    #[test]
+    fn test_replication_primary_returns_correct_role() {
+        let state = ReplicationState::PrimaryActive;
+        let resp = handle_replication(100, &state);
+        
+        assert_eq!(resp.data.role, ReplicationRole::Primary);
+        assert_eq!(resp.data.replica_state, "primary_active");
+        assert!(resp.data.replication_enabled);
+        assert!(resp.data.replica_id.is_none());
+    }
+
+    #[test]
+    fn test_replication_replica_returns_correct_role_and_uuid() {
+        let replica_id = uuid::Uuid::new_v4();
+        let state = ReplicationState::ReplicaActive { replica_id };
+        let resp = handle_replication(100, &state);
+        
+        assert_eq!(resp.data.role, ReplicationRole::Replica);
+        assert_eq!(resp.data.replica_state, "replica_active");
+        assert!(resp.data.replication_enabled);
+        assert_eq!(resp.data.replica_id, Some(replica_id.to_string()));
+        assert_eq!(resp.data.read_safety, ReadSafetyStatus::Unsafe);
+    }
+
+    #[test]
+    fn test_replication_halted_returns_blocking_reason() {
+        use crate::replication::HaltReason;
+        
+        let state = ReplicationState::ReplicationHalted {
+            reason: HaltReason::WalGapDetected,
+        };
+        let resp = handle_replication(100, &state);
+        
+        assert_eq!(resp.data.role, ReplicationRole::Standalone);
+        assert!(resp.data.blocking_reason.is_some());
+        assert!(resp.data.blocking_reason.as_ref().unwrap().contains("halted"));
+    }
+
+    #[test]
+    fn test_replication_response_deterministic() {
+        // Per OAPI-3: Given identical state, outputs MUST be identical
+        let state = ReplicationState::PrimaryActive;
+        let resp1 = handle_replication(100, &state);
+        let resp2 = handle_replication(100, &state);
+        
+        assert_eq!(resp1.data.role, resp2.data.role);
+        assert_eq!(resp1.data.replica_state, resp2.data.replica_state);
+        assert_eq!(resp1.data.replication_enabled, resp2.data.replication_enabled);
     }
 }

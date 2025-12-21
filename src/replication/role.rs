@@ -431,4 +431,50 @@ mod tests {
         assert!(ReplicationState::PrimaryActive.replica_id().is_none());
         assert_eq!(ReplicationState::ReplicaActive { replica_id }.replica_id(), Some(replica_id));
     }
+
+    // ===== Stage 1 Integration Tests =====
+
+    #[test]
+    fn test_primary_behavior_identical_enabled_vs_disabled() {
+        // Per Stage 1 completion criteria: Primary runs identically with replication enabled vs disabled
+        // Both Disabled and PrimaryActive should have the same write/read behavior
+        
+        let disabled = ReplicationState::Disabled;
+        let primary = ReplicationState::PrimaryActive;
+        
+        // Same write behavior
+        assert_eq!(disabled.can_write(), primary.can_write());
+        assert!(disabled.can_write());
+        assert!(primary.can_write());
+        
+        // Same read behavior
+        assert_eq!(disabled.can_read(), primary.can_read());
+        assert!(disabled.can_read());
+        assert!(primary.can_read());
+    }
+
+    #[test]
+    fn test_replica_refuses_all_writes() {
+        // Per Stage 1 completion criteria: Replica mode refuses all writes
+        let replica_id = Uuid::new_v4();
+        let replica = ReplicationState::ReplicaActive { replica_id };
+        
+        // Replica MUST NOT be able to write
+        assert!(!replica.can_write());
+        
+        // Replica CAN read (that's its purpose)
+        assert!(replica.can_read());
+    }
+
+    #[test]
+    fn test_disabled_state_is_default_safe_path() {
+        // Per P5-I16: Replication must be removable
+        // Default state MUST be Disabled
+        let default_state = ReplicationState::new();
+        assert!(default_state.is_disabled());
+        
+        // Disabled state MUST allow all normal operations
+        assert!(default_state.can_write());
+        assert!(default_state.can_read());
+    }
 }

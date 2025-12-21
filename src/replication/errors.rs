@@ -40,6 +40,9 @@ pub enum ReplicationErrorKind {
     /// WAL gap detected
     WalGap,
     
+    /// WAL integrity check failed
+    WalIntegrity,
+    
     /// History divergence detected
     HistoryDivergence,
     
@@ -89,6 +92,11 @@ impl ReplicationError {
     /// Create a WAL gap error.
     pub fn wal_gap(message: impl Into<String>) -> Self {
         Self::new(ReplicationErrorKind::WalGap, message)
+    }
+    
+    /// Create a WAL integrity error.
+    pub fn wal_integrity_failed(message: impl Into<String>) -> Self {
+        Self::new(ReplicationErrorKind::WalIntegrity, message)
     }
     
     /// Create a history divergence error.

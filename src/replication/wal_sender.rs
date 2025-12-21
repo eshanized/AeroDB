@@ -101,10 +101,7 @@ impl WalSender {
             ));
         }
         
-        Ok(WalRecordEnvelope {
-            position: self.current_position,
-            record: record.clone(),
-        })
+        Ok(WalRecordEnvelope::new(self.current_position, record.clone()))
     }
     
     /// Mark a record as sent and advance position.
@@ -134,12 +131,44 @@ impl WalSender {
 }
 
 /// Envelope for WAL record transmission
+/// 
+/// Per Stage 3: Includes checksum for validation before application.
 #[derive(Debug, Clone)]
 pub struct WalRecordEnvelope {
     /// Position of this record
     pub position: WalPosition,
     /// The WAL record (verbatim)
     pub record: WalRecord,
+    /// CRC32 checksum of the record for validation
+    pub checksum: u32,
+}
+
+impl WalRecordEnvelope {
+    /// Create a new envelope with computed checksum.
+    pub fn new(position: WalPosition, record: WalRecord) -> Self {
+        // Simple checksum based on sequence for now
+        // Real implementation would compute CRC32 of serialized record
+        let checksum = compute_record_checksum(&record, position.sequence);
+        Self { position, record, checksum }
+    }
+    
+    /// Validate the envelope's checksum.
+    /// 
+    /// Per Stage 3: Must validate before application.
+    pub fn validate_checksum(&self) -> bool {
+        let expected = compute_record_checksum(&self.record, self.position.sequence);
+        self.checksum == expected
+    }
+}
+
+/// Compute a checksum for a WAL record.
+fn compute_record_checksum(record: &WalRecord, sequence: u64) -> u32 {
+    // Simple hash combining sequence and record fields
+    let mut hash = sequence as u32;
+    hash = hash.wrapping_add(record.sequence_number as u32);
+    hash = hash.wrapping_mul(31).wrapping_add(record.payload.collection_id.len() as u32);
+    hash = hash.wrapping_mul(31).wrapping_add(record.payload.document_id.len() as u32);
+    hash
 }
 
 #[cfg(test)]

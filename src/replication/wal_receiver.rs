@@ -109,6 +109,11 @@ impl WalReceiver {
         }
         
         // Sequence matches expected - this is the happy path
+        // Per Stage 3: Validate checksum before accepting
+        if !envelope.validate_checksum() {
+            return ReceiveResult::ChecksumInvalid;
+        }
+        
         ReceiveResult::Accepted
     }
     
@@ -149,6 +154,9 @@ pub enum ReceiveResult {
         expected: u64,
         received: u64,
     },
+    
+    /// Checksum validation failed - fatal per Stage 3
+    ChecksumInvalid,
 }
 
 impl ReceiveResult {
@@ -162,10 +170,21 @@ impl ReceiveResult {
         matches!(self, Self::GapDetected { .. })
     }
     
-    /// Convert gap to halt reason.
+    /// Check if result is a checksum failure (fatal).
+    pub fn is_checksum_invalid(&self) -> bool {
+        matches!(self, Self::ChecksumInvalid)
+    }
+    
+    /// Check if result is fatal (gap or checksum failure).
+    pub fn is_fatal(&self) -> bool {
+        self.is_gap() || self.is_checksum_invalid()
+    }
+    
+    /// Convert to halt reason.
     pub fn to_halt_reason(&self) -> Option<HaltReason> {
         match self {
             Self::GapDetected { .. } => Some(HaltReason::WalGapDetected),
+            Self::ChecksumInvalid => Some(HaltReason::WalCorruption),
             _ => None,
         }
     }
@@ -180,6 +199,9 @@ impl ReceiveResult {
             Self::Duplicate => Ok(()), // Duplicates are idempotent
             Self::GapDetected { expected, received } => Err(ReplicationError::wal_gap(
                 format!("WAL gap detected: expected sequence {}, received {}", expected, received)
+            )),
+            Self::ChecksumInvalid => Err(ReplicationError::wal_integrity_failed(
+                "WAL record checksum validation failed"
             )),
         }
     }
@@ -198,10 +220,10 @@ mod tests {
     #[test]
     fn test_receiver_rejects_when_inactive() {
         let mut receiver = WalReceiver::from_genesis();
-        let envelope = WalRecordEnvelope {
-            position: WalPosition::genesis(),
-            record: create_test_record(),
-        };
+        let envelope = WalRecordEnvelope::new(
+            WalPosition::genesis(),
+            create_test_record(),
+        );
         
         assert_eq!(receiver.receive(&envelope), ReceiveResult::NotActive);
     }
@@ -211,10 +233,10 @@ mod tests {
         let mut receiver = WalReceiver::from_genesis();
         receiver.start();
         
-        let envelope = WalRecordEnvelope {
-            position: WalPosition::genesis(),
-            record: create_test_record(),
-        };
+        let envelope = WalRecordEnvelope::new(
+            WalPosition::genesis(),
+            create_test_record(),
+        );
         
         assert_eq!(receiver.receive(&envelope), ReceiveResult::Accepted);
     }
@@ -226,10 +248,10 @@ mod tests {
         receiver.start();
         
         // Skip sequence 0, send sequence 2
-        let envelope = WalRecordEnvelope {
-            position: WalPosition::new(2, 200),
-            record: create_test_record(),
-        };
+        let envelope = WalRecordEnvelope::new(
+            WalPosition::new(2, 200),
+            create_test_record(),
+        );
         
         let result = receiver.receive(&envelope);
         assert!(result.is_gap());
@@ -249,10 +271,10 @@ mod tests {
         receiver.start();
         
         // Send sequence 3 (already applied)
-        let envelope = WalRecordEnvelope {
-            position: WalPosition::new(3, 300),
-            record: create_test_record(),
-        };
+        let envelope = WalRecordEnvelope::new(
+            WalPosition::new(3, 300),
+            create_test_record(),
+        );
         
         assert_eq!(receiver.receive(&envelope), ReceiveResult::Duplicate);
     }
@@ -262,10 +284,10 @@ mod tests {
         let mut receiver = WalReceiver::from_genesis();
         receiver.start();
         
-        let envelope = WalRecordEnvelope {
-            position: WalPosition::genesis(),
-            record: create_test_record(),
-        };
+        let envelope = WalRecordEnvelope::new(
+            WalPosition::genesis(),
+            create_test_record(),
+        );
         
         assert!(receiver.receive(&envelope).is_accepted());
         receiver.apply(&envelope, 50);

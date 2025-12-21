@@ -169,10 +169,14 @@ mod tests {
         let server = ObservabilityServer::new(DxConfig::enabled());
         let repl_data = ReplicationData {
             role: ReplicationRole::Primary,
+            replica_state: "primary_active".to_string(),
+            replica_id: None,
+            read_safety: ReadSafetyStatus::Disabled,
+            blocking_reason: None,
+            replication_enabled: true,
             wal_prefix_commit_id: None,
             replica_lag: None,
             snapshot_bootstrap_active: false,
-            replication_enabled: true,
         };
         let resp = server.get_replication(100, repl_data);
         
