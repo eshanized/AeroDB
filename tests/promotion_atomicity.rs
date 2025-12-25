@@ -195,3 +195,62 @@ fn test_cannot_request_when_in_progress() {
     let state = state.request_promotion(replica_id).unwrap();
     assert!(state.request_promotion(Uuid::new_v4()).is_err());
 }
+
+// =============================================================================
+// P6-S3: MVCC Visibility Preservation Tests
+// =============================================================================
+
+/// P6-S3: MVCC visibility violation is a valid denial reason.
+///
+/// Per PHASE6_INVARIANTS.md §P6-S3:
+/// After promotion, all MVCC visibility rules MUST remain valid.
+#[test]
+fn test_mvcc_visibility_violation_denies_promotion() {
+    let state = PromotionState::new();
+    let replica_id = Uuid::new_v4();
+    
+    let state = state.request_promotion(replica_id).unwrap();
+    let state = state.begin_validation().unwrap();
+    
+    // Deny due to MVCC visibility violation
+    let state = state.deny_promotion(DenialReason::MvccVisibilityViolation).unwrap();
+    
+    assert_eq!(state.state_name(), "PromotionDenied");
+}
+
+/// P6-S3: MvccVisibilityViolation references correct invariant.
+#[test]
+fn test_mvcc_denial_reason_references_invariant() {
+    let reason = DenialReason::MvccVisibilityViolation;
+    
+    // Per PHASE6_INVARIANTS.md §P6-O2:
+    // System MUST be able to explain which invariant blocked promotion
+    assert!(reason.invariant_reference().contains("P6-S3"));
+}
+
+// =============================================================================
+// P6-A1a: Force Flag Tests
+// =============================================================================
+
+/// Force flag usage should be traceable.
+/// (Note: actual force flag behavior tested in validator module)
+#[test]
+fn test_promotion_denial_reasons_complete() {
+    // Verify all expected denial reasons exist
+    let reasons = vec![
+        DenialReason::ReplicaBehindWal,
+        DenialReason::ReplicationDisabled,
+        DenialReason::ReplicaNotActive,
+        DenialReason::MvccVisibilityViolation,
+        DenialReason::PrimaryStillActive,
+        DenialReason::AuthorityAmbiguous,
+        DenialReason::InvalidRequest,
+        DenialReason::InvalidReplicationState,
+    ];
+    
+    for reason in reasons {
+        // Each reason should have an invariant reference
+        assert!(!reason.invariant_reference().is_empty());
+    }
+}
+

@@ -46,6 +46,23 @@ No promotion may result in overlapping write authority.
 
 ---
 
+### P6-A1a — Force Override Semantics
+
+The `force` flag allows promotion when:
+- Operator has external confirmation that primary is unavailable
+- Normal detection mechanisms have failed
+
+When `force = true`:
+- P6-A1 (single-writer) is NOT bypassed
+- Operator EXPLICITLY ASSERTS that primary is down
+- System trusts operator assertion over detection failure
+- This is NOT an invariant violation but an operator override
+
+Misuse of `force` is an **operator error**, not a system defect.
+Audit logs MUST record force flag usage.
+
+---
+
 ### P6-A2 — Authority Transfer Is Atomic
 
 Promotion MUST be:

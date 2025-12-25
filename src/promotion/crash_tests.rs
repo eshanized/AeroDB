@@ -21,9 +21,16 @@ mod tests {
     use crate::promotion::*;
     use crate::replication::{ReplicationState, WalPosition};
     use uuid::Uuid;
+    use tempfile::TempDir;
     
     fn test_uuid() -> Uuid {
         Uuid::new_v4()
+    }
+    
+    fn make_manager() -> (TempDir, AuthorityTransitionManager) {
+        let tmp = TempDir::new().unwrap();
+        let manager = AuthorityTransitionManager::new(tmp.path());
+        (tmp, manager)
     }
     
     // =========================================================================
@@ -147,7 +154,7 @@ mod tests {
     
     #[test]
     fn test_transition_manager_abort_before_atomic() {
-        let mut manager = AuthorityTransitionManager::new();
+        let (_tmp, mut manager) = make_manager();
         let replica_id = test_uuid();
         let state = ReplicationState::ReplicaActive { replica_id };
         
@@ -156,13 +163,13 @@ mod tests {
         // Abort is allowed before atomic marker
         assert!(manager.abort_transition().is_ok());
         
-        let (was_atomic, _) = manager.recover_after_crash();
+        let (was_atomic, _) = manager.recover_after_crash().unwrap();
         assert!(!was_atomic);
     }
     
     #[test]
     fn test_transition_manager_cannot_abort_after_atomic() {
-        let mut manager = AuthorityTransitionManager::new();
+        let (_tmp, mut manager) = make_manager();
         let replica_id = test_uuid();
         let state = ReplicationState::ReplicaActive { replica_id };
         
@@ -184,7 +191,7 @@ mod tests {
         
         let replica_id = test_uuid();
         let mut controller = PromotionController::new();
-        let mut manager = AuthorityTransitionManager::new();
+        let (_tmp, mut manager) = make_manager();
         let mut observer = PromotionObserver::new();
         
         // Step 1: Request

@@ -129,9 +129,17 @@ Phase 6:
 - Uses WAL metadata to validate safety
 - Relies on existing recovery semantics
 
-Phase 6 MUST NOT:
+Phase 6 MUST NOT modify WAL:
 - Add WAL records
 - Change WAL formats
+
+Phase 6 MAY use non-WAL durability for authority transition:
+- A single fsynced marker file (`metadata/authority_transition.marker`)
+- This marker is atomic: present = new authority, absent = old authority
+- The marker file is the SOLE authority state durability mechanism
+- This does NOT constitute a new WAL record or format change
+
+Phase 6 MUST NOT:
 - Add recovery-time heuristics
 
 ---

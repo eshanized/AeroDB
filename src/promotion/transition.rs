@@ -13,9 +13,14 @@
 //! Per PHASE6_INVARIANTS.md §P6-A2:
 //! Promotion MUST be atomic with respect to authority.
 //! All-or-nothing. No intermediate state where two nodes are writable.
+//!
+//! Per PHASE6_ARCHITECTURE.md §4.2 (amended):
+//! Uses fsynced marker file for durable authority transition.
 
-use crate::replication::{ReplicationState, HaltReason};
+use crate::replication::ReplicationState;
 use super::errors::{PromotionError, PromotionResult, PromotionErrorKind};
+use super::marker::{DurableMarker, AuthorityMarker};
+use std::path::Path;
 use uuid::Uuid;
 
 /// Result of an authority transition.
@@ -55,6 +60,9 @@ pub enum TransitionFailureReason {
     
     /// Transition was interrupted (crash recovery).
     Interrupted,
+    
+    /// Durable marker write failed.
+    MarkerWriteFailed,
 }
 
 /// Authority Transition Manager
@@ -64,6 +72,9 @@ pub enum TransitionFailureReason {
 /// - Ensures atomicity of authority change
 /// - Integrates with existing replication state
 /// 
+/// Per PHASE6_INVARIANTS.md §P6-F2:
+/// Crash-safe via durable marker file.
+/// 
 /// This component performs state transition ONLY after validation succeeds.
 pub struct AuthorityTransitionManager {
     /// Whether a transition is currently in progress
@@ -72,25 +83,27 @@ pub struct AuthorityTransitionManager {
     /// ID of replica being promoted (if transition in progress)
     promoting_replica_id: Option<Uuid>,
     
-    /// Marker for atomic commit (simulated)
-    /// In real implementation, this would be a durable marker
-    atomic_marker_set: bool,
-}
-
-impl Default for AuthorityTransitionManager {
-    fn default() -> Self {
-        Self::new()
-    }
+    /// Durable marker for crash-safe atomicity
+    durable_marker: DurableMarker,
 }
 
 impl AuthorityTransitionManager {
     /// Create a new authority transition manager.
-    pub fn new() -> Self {
+    ///
+    /// # Arguments
+    /// * `data_dir` - Base data directory for marker file storage
+    pub fn new(data_dir: &Path) -> Self {
         Self {
             transition_in_progress: false,
             promoting_replica_id: None,
-            atomic_marker_set: false,
+            durable_marker: DurableMarker::new(data_dir),
         }
+    }
+    
+    /// Create for testing with a temp directory.
+    #[cfg(test)]
+    pub fn new_for_testing(data_dir: &Path) -> Self {
+        Self::new(data_dir)
     }
     
     /// Check if a transition is in progress.
@@ -151,6 +164,9 @@ impl AuthorityTransitionManager {
     /// Per PHASE6_INVARIANTS.md §P6-F2:
     /// After promotion completes → new authority is authoritative.
     /// 
+    /// Per PHASE6_ARCHITECTURE.md §4.2:
+    /// Uses durable marker file for crash-safe atomicity.
+    /// 
     /// Returns the new ReplicationState for the promoted replica.
     pub fn apply_transition(&mut self) -> PromotionResult<ReplicationState> {
         if !self.transition_in_progress {
@@ -160,15 +176,22 @@ impl AuthorityTransitionManager {
             ));
         }
         
-        // Set atomic marker (in real implementation, this would be durable)
-        // Per P6-A2: This is the point of no return
-        self.atomic_marker_set = true;
+        let replica_id = self.promoting_replica_id
+            .ok_or_else(|| PromotionError::new(
+                PromotionErrorKind::AuthorityTransitionFailed,
+                "no replica ID for transition"
+            ))?;
+        
+        // Write durable marker - CRITICAL per P6-F2
+        // This is the point of no return
+        let marker = AuthorityMarker::new(replica_id, "ReplicaActive");
+        self.durable_marker.write_atomic(&marker)?;
         
         // Authority rebinding complete
         // The replica is now PrimaryActive
         let new_state = ReplicationState::PrimaryActive;
         
-        // Clear transition state
+        // Clear in-memory transition state
         self.transition_in_progress = false;
         
         Ok(new_state)
@@ -183,8 +206,9 @@ impl AuthorityTransitionManager {
                 "no replica ID for transition"
             ))?;
         
-        // Clear atomic marker
-        self.atomic_marker_set = false;
+        // Remove marker after successful completion
+        // The node is now operating as Primary
+        self.durable_marker.remove()?;
         
         Ok(replica_id)
     }
@@ -194,11 +218,12 @@ impl AuthorityTransitionManager {
     /// Per PHASE6_FAILURE_MODEL.md §3.3:
     /// Failure before authority transition → Promotion is NOT applied.
     pub fn abort_transition(&mut self) -> PromotionResult<()> {
-        if self.atomic_marker_set {
-            // Cannot abort after atomic marker is set
+        // Check if marker exists - if so, cannot abort
+        if self.durable_marker.exists() {
+            // Cannot abort after durable marker is written
             return Err(PromotionError::new(
                 PromotionErrorKind::AuthorityTransitionFailed,
-                "cannot abort after atomic marker is set"
+                "cannot abort after durable marker is committed"
             ));
         }
         
@@ -216,34 +241,55 @@ impl AuthorityTransitionManager {
     /// 
     /// Per PHASE6_STATE_MACHINE.md §8:
     /// AuthorityTransitioning → Atomic outcome enforced.
-    pub fn recover_after_crash(&self) -> (bool, Option<Uuid>) {
-        // If atomic marker was set, the transition was committed
-        if self.atomic_marker_set {
-            (true, self.promoting_replica_id)
-        } else {
-            // Transition was not committed, authority unchanged
-            (false, None)
+    /// 
+    /// Per PHASE6_INVARIANTS.md §P6-D2:
+    /// Recovery reads ONLY durable state (marker file).
+    pub fn recover_after_crash(&self) -> PromotionResult<(bool, Option<Uuid>)> {
+        // Read marker from disk - the SOLE source of truth
+        match self.durable_marker.read()? {
+            Some(marker) => {
+                // Marker exists → transition was committed
+                // New authority is authoritative
+                Ok((true, marker.get_primary_id()))
+            }
+            None => {
+                // Marker absent → transition was not committed
+                // Old authority remains
+                Ok((false, None))
+            }
         }
+    }
+    
+    /// Check if durable marker exists (for recovery logic).
+    pub fn has_durable_marker(&self) -> bool {
+        self.durable_marker.exists()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::TempDir;
     
     fn test_uuid() -> Uuid {
         Uuid::new_v4()
     }
     
+    fn make_manager() -> (TempDir, AuthorityTransitionManager) {
+        let tmp = TempDir::new().unwrap();
+        let manager = AuthorityTransitionManager::new(tmp.path());
+        (tmp, manager)
+    }
+    
     #[test]
     fn test_manager_starts_idle() {
-        let manager = AuthorityTransitionManager::new();
+        let (_tmp, manager) = make_manager();
         assert!(!manager.is_transition_in_progress());
     }
     
     #[test]
     fn test_begin_transition_valid_replica() {
-        let mut manager = AuthorityTransitionManager::new();
+        let (_tmp, mut manager) = make_manager();
         let replica_id = test_uuid();
         let state = ReplicationState::ReplicaActive { replica_id };
         
@@ -254,7 +300,7 @@ mod tests {
     
     #[test]
     fn test_begin_transition_wrong_replica_id() {
-        let mut manager = AuthorityTransitionManager::new();
+        let (_tmp, mut manager) = make_manager();
         let replica_id = test_uuid();
         let other_id = test_uuid();
         let state = ReplicationState::ReplicaActive { replica_id: other_id };
@@ -265,7 +311,7 @@ mod tests {
     
     #[test]
     fn test_begin_transition_invalid_state() {
-        let mut manager = AuthorityTransitionManager::new();
+        let (_tmp, mut manager) = make_manager();
         let replica_id = test_uuid();
         let state = ReplicationState::Disabled;
         
@@ -275,7 +321,7 @@ mod tests {
     
     #[test]
     fn test_apply_transition_returns_primary_active() {
-        let mut manager = AuthorityTransitionManager::new();
+        let (_tmp, mut manager) = make_manager();
         let replica_id = test_uuid();
         let state = ReplicationState::ReplicaActive { replica_id };
         
@@ -283,11 +329,14 @@ mod tests {
         
         let new_state = manager.apply_transition().unwrap();
         assert_eq!(new_state, ReplicationState::PrimaryActive);
+        
+        // Marker should exist after apply
+        assert!(manager.has_durable_marker());
     }
     
     #[test]
     fn test_complete_transition_returns_replica_id() {
-        let mut manager = AuthorityTransitionManager::new();
+        let (_tmp, mut manager) = make_manager();
         let replica_id = test_uuid();
         let state = ReplicationState::ReplicaActive { replica_id };
         
@@ -296,11 +345,14 @@ mod tests {
         
         let new_primary_id = manager.complete_transition().unwrap();
         assert_eq!(new_primary_id, replica_id);
+        
+        // Marker should be removed after complete
+        assert!(!manager.has_durable_marker());
     }
     
     #[test]
     fn test_abort_transition_before_apply() {
-        let mut manager = AuthorityTransitionManager::new();
+        let (_tmp, mut manager) = make_manager();
         let replica_id = test_uuid();
         let state = ReplicationState::ReplicaActive { replica_id };
         
@@ -313,7 +365,7 @@ mod tests {
     
     #[test]
     fn test_cannot_abort_after_apply() {
-        let mut manager = AuthorityTransitionManager::new();
+        let (_tmp, mut manager) = make_manager();
         let replica_id = test_uuid();
         let state = ReplicationState::ReplicaActive { replica_id };
         
@@ -325,17 +377,34 @@ mod tests {
     }
     
     #[test]
-    fn test_recovery_before_atomic_marker() {
-        let manager = AuthorityTransitionManager::new();
+    fn test_recovery_before_marker() {
+        let (_tmp, manager) = make_manager();
         
-        let (was_atomic, id) = manager.recover_after_crash();
-        assert!(!was_atomic);
+        let (was_committed, id) = manager.recover_after_crash().unwrap();
+        assert!(!was_committed);
         assert!(id.is_none());
     }
     
     #[test]
+    fn test_recovery_after_marker() {
+        let (tmp, mut manager) = make_manager();
+        let replica_id = test_uuid();
+        let state = ReplicationState::ReplicaActive { replica_id };
+        
+        manager.begin_transition(replica_id, &state).unwrap();
+        manager.apply_transition().unwrap();
+        
+        // Simulate crash and restart with new manager
+        let new_manager = AuthorityTransitionManager::new(tmp.path());
+        
+        let (was_committed, id) = new_manager.recover_after_crash().unwrap();
+        assert!(was_committed);
+        assert_eq!(id, Some(replica_id));
+    }
+    
+    #[test]
     fn test_full_transition_lifecycle() {
-        let mut manager = AuthorityTransitionManager::new();
+        let (_tmp, mut manager) = make_manager();
         let replica_id = test_uuid();
         let state = ReplicationState::ReplicaActive { replica_id };
         
@@ -346,12 +415,36 @@ mod tests {
         // Apply (atomic)
         let new_state = manager.apply_transition().unwrap();
         assert_eq!(new_state, ReplicationState::PrimaryActive);
+        assert!(manager.has_durable_marker());
         
         // Complete
         let new_primary_id = manager.complete_transition().unwrap();
         assert_eq!(new_primary_id, replica_id);
         
-        // Manager is now idle
+        // Manager is now idle, marker removed
         assert!(!manager.is_transition_in_progress());
+        assert!(!manager.has_durable_marker());
+    }
+    
+    #[test]
+    fn test_recovery_determinism() {
+        // Per P6-D2: Same disk state → same recovery outcome
+        let (tmp, mut manager) = make_manager();
+        let replica_id = test_uuid();
+        let state = ReplicationState::ReplicaActive { replica_id };
+        
+        manager.begin_transition(replica_id, &state).unwrap();
+        manager.apply_transition().unwrap();
+        
+        // Multiple recoveries should return identical results
+        let mgr1 = AuthorityTransitionManager::new(tmp.path());
+        let mgr2 = AuthorityTransitionManager::new(tmp.path());
+        
+        let result1 = mgr1.recover_after_crash().unwrap();
+        let result2 = mgr2.recover_after_crash().unwrap();
+        
+        assert_eq!(result1, result2);
+        assert!(result1.0); // Both should see committed
+        assert_eq!(result1.1, Some(replica_id));
     }
 }

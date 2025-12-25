@@ -25,6 +25,7 @@ mod request;
 mod controller;
 mod validator;
 mod transition;
+mod marker;
 mod integration;
 mod observability;
 #[cfg(test)]
@@ -36,5 +37,6 @@ pub use request::{PromotionRequest, PromotionRequestResult};
 pub use controller::PromotionController;
 pub use validator::{PromotionValidator, ValidationResult, ValidationContext};
 pub use transition::{AuthorityTransitionManager, TransitionResult, TransitionFailureReason};
+pub use marker::{DurableMarker, AuthorityMarker};
 pub use integration::{ReplicationIntegration, RebindResult};
 pub use observability::{PromotionEvent, PromotionExplanation, PromotionOutcome, InvariantCheck, PromotionObserver};
