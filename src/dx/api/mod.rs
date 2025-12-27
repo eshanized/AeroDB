@@ -6,10 +6,18 @@
 //! - Deterministic output
 //!
 //! Read-only, Phase 4, no semantic authority.
+//!
+//! # Phase 7 Control Plane
+//!
+//! Per PHASE7_CONTROL_PLANE_ARCHITECTURE.md:
+//! - Control plane API for operator control surfaces
+//! - Confirmation-gated mutating commands
+//! - Audit logging and observability
 
 pub mod handlers;
 pub mod response;
 pub mod server;
+pub mod control_plane;
 
 pub use response::{ApiResponse, ObservedAt, SnapshotType};
 pub use server::ObservabilityServer;

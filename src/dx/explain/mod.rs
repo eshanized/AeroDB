@@ -9,6 +9,12 @@
 //! - An explanation IS NOT: human-friendly story, heuristic guess
 //!
 //! Read-only, Phase 4, no semantic authority.
+//!
+//! # Phase 7 Control Plane
+//!
+//! Per PHASE7_OBSERVABILITY_MODEL.md:
+//! - Pre-execution explanations for operator confirmation
+//! - Post-execution explanations for audit
 
 pub mod checkpoint;
 pub mod model;
@@ -17,6 +23,7 @@ pub mod recovery;
 pub mod replication;
 pub mod rules;
 pub mod visibility;
+pub mod control_plane;
 
 pub use model::{
     Conclusion, Evidence, Explanation, ExplanationType, RuleApplication, RuleEvaluation,

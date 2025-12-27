@@ -35,11 +35,13 @@ mod events;
 mod logger;
 mod metrics;
 mod scope;
+pub mod audit;
 
 pub use events::Event;
 pub use logger::{Logger, Severity};
 pub use metrics::{MetricsRegistry, MetricsSnapshot};
 pub use scope::{ObservationScope, Timer};
+pub use audit::{AuditRecord, AuditAction, AuditOutcome, AuditLog, FileAuditLog, MemoryAuditLog};
 
 use std::fmt;
 use std::io;

@@ -1,6 +1,12 @@
 //! CLI command implementations
 //!
 //! Per LIFECYCLE.md and BOOT.md, these commands follow strict boot sequence.
+//!
+//! # Phase 7 Control Plane
+//!
+//! Per PHASE7_COMMAND_MODEL.md:
+//! Control plane commands are thin clients with no authority.
+//! Safety is enforced server-side.
 
 use std::collections::HashSet;
 use std::fs;
@@ -8,6 +14,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use uuid::Uuid;
 
 use crate::api::{ApiHandler, Subsystems};
 use crate::index::IndexManager;
@@ -16,8 +23,14 @@ use crate::replication::{ReplicationConfig, ReplicationRole, ReplicationState};
 use crate::schema::SchemaLoader;
 use crate::storage::{StorageReader, StorageWriter};
 use crate::wal::{WalReader, WalWriter};
+use crate::dx::api::control_plane::{
+    ControlPlaneHandler, ControlPlaneCommand, AuthorityContext,
+    InspectionCommand, DiagnosticCommand, ControlCommand,
+    CommandRequest,
+};
+use crate::observability::{AuditRecord, AuditAction, AuditOutcome, AuditLog, MemoryAuditLog};
 
-use super::args::Command;
+use super::args::{Command, ControlAction, InspectTarget, DiagTarget};
 use super::errors::{CliError, CliResult};
 use super::io::{read_request, read_requests, write_error, write_response, write_json};
 
@@ -190,6 +203,7 @@ pub fn run_command(cmd: Command) -> CliResult<()> {
         Command::Start { config } => start(&config),
         Command::Query { config } => query(&config),
         Command::Explain { config } => explain(&config),
+        Command::Control { config, action } => control(&config, action),
     }
 }
 
@@ -378,6 +392,129 @@ pub fn explain(config_path: &Path) -> CliResult<()> {
     write_json(&response.to_json())?;
     
     Ok(())
+}
+
+/// Execute a Phase 7 control plane command.
+///
+/// Per PHASE7_COMMAND_MODEL.md:
+/// - CLI is a thin client with no authority
+/// - No retries, no defaults
+/// - Safety enforced server-side
+pub fn control(config_path: &Path, action: ControlAction) -> CliResult<()> {
+    let _config = Config::load(config_path)?;
+    
+    // Create in-memory audit log for this session
+    let audit_log = MemoryAuditLog::new();
+    
+    // Create control plane handler
+    let mut handler = ControlPlaneHandler::new();
+    
+    // Convert CLI action to control plane command
+    let (command, authority) = build_command(action)?;
+    
+    // Log command request
+    let request_audit = AuditRecord::new(AuditAction::CommandRequested, AuditOutcome::Pending)
+        .with_command(command.command_name())
+        .with_authority(&authority.level.to_string());
+    audit_log.append(&request_audit).ok();
+    
+    // Create request
+    let request = CommandRequest::new(command.clone(), authority);
+    
+    // Handle command
+    match handler.handle_command(request) {
+        Ok(response) => {
+            // Log success
+            let outcome_audit = AuditRecord::new(
+                AuditAction::CommandExecuted,
+                AuditOutcome::Success,
+            ).with_command(response.command_name.clone());
+            audit_log.append(&outcome_audit).ok();
+            
+            // Output response
+            write_response(json!({
+                "request_id": response.request_id.to_string(),
+                "command": response.command_name,
+                "outcome": format!("{:?}", response.outcome),
+                "confirmation_token": response.confirmation_token.map(|t| t.to_string()),
+            }))?;
+        }
+        Err(e) => {
+            // Log rejection
+            let outcome_audit = AuditRecord::new(
+                AuditAction::CommandRejected,
+                AuditOutcome::Rejected,
+            )
+            .with_command(command.command_name())
+            .with_error(e.message());
+            audit_log.append(&outcome_audit).ok();
+            
+            // Output error
+            write_error(e.code(), e.message())?;
+        }
+    }
+    
+    Ok(())
+}
+
+/// Build a control plane command from CLI action.
+fn build_command(action: ControlAction) -> CliResult<(ControlPlaneCommand, AuthorityContext)> {
+    let authority = AuthorityContext::operator();
+    
+    let command = match action {
+        ControlAction::Inspect { target } => {
+            let inspection = match target {
+                InspectTarget::Cluster => InspectionCommand::InspectClusterState,
+                InspectTarget::Node { node_id } => {
+                    let uuid = parse_uuid(&node_id)?;
+                    InspectionCommand::InspectNode { node_id: uuid }
+                }
+                InspectTarget::Replication => InspectionCommand::InspectReplicationStatus,
+                InspectTarget::Promotion => InspectionCommand::InspectPromotionState,
+            };
+            ControlPlaneCommand::Inspection(inspection)
+        }
+        ControlAction::Diag { target } => {
+            let diagnostic = match target {
+                DiagTarget::Diagnostics { .. } => DiagnosticCommand::RunDiagnostics,
+                DiagTarget::Wal => DiagnosticCommand::InspectWal,
+                DiagTarget::Snapshots => DiagnosticCommand::InspectSnapshots,
+            };
+            ControlPlaneCommand::Diagnostic(diagnostic)
+        }
+        ControlAction::Promote { replica_id, reason, .. } => {
+            let uuid = parse_uuid(&replica_id)?;
+            ControlPlaneCommand::Control(ControlCommand::RequestPromotion {
+                replica_id: uuid,
+                reason,
+            })
+        }
+        ControlAction::Demote { node_id, reason, .. } => {
+            let uuid = parse_uuid(&node_id)?;
+            ControlPlaneCommand::Control(ControlCommand::RequestDemotion {
+                node_id: uuid,
+                reason,
+            })
+        }
+        ControlAction::ForcePromote { replica_id, reason, acknowledge_risks, .. } => {
+            let uuid = parse_uuid(&replica_id)?;
+            let risks: Vec<String> = acknowledge_risks.split(',').map(|s| s.trim().to_string()).collect();
+            ControlPlaneCommand::Control(ControlCommand::ForcePromotion {
+                replica_id: uuid,
+                reason,
+                acknowledged_risks: risks,
+            })
+        }
+    };
+    
+    Ok((command, authority))
+}
+
+/// Parse a UUID from a string.
+fn parse_uuid(s: &str) -> CliResult<Uuid> {
+    Uuid::parse_str(s).map_err(|e| {
+        CliError::config_error(format!("Invalid UUID '{}': {}", s, e))
+    })
 }
 
 /// Check if a data directory is initialized
