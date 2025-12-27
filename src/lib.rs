@@ -1,8 +1,11 @@
 //! aerodb - A strict, deterministic, self-hostable database
 //!
 //! Phase 0: Minimum Viable Infrastructure
+//! Phase 8: Authentication & Authorization (BaaS)
+//! Phase 9: Auto-Generated REST API
 
 pub mod api;
+pub mod auth; // Phase 8: Authentication & Authorization
 pub mod backup;
 pub mod checkpoint;
 pub mod cli;
@@ -17,6 +20,7 @@ pub mod planner;
 pub mod promotion;
 pub mod recovery;
 pub mod replication;
+pub mod rest_api; // Phase 9: REST API
 pub mod restore;
 pub mod schema;
 pub mod snapshot;
