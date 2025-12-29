@@ -13,6 +13,7 @@ pub mod crash_point;
 pub mod dx;
 pub mod executor;
 pub mod file_storage; // Phase 11: File Storage
+pub mod functions; // Phase 12: Serverless Functions
 pub mod index;
 pub mod mvcc;
 pub mod observability;
