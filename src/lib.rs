@@ -12,6 +12,7 @@ pub mod cli;
 pub mod crash_point;
 pub mod dx;
 pub mod executor;
+pub mod file_storage; // Phase 11: File Storage
 pub mod index;
 pub mod mvcc;
 pub mod observability;
