@@ -21,6 +21,7 @@ pub mod promotion;
 pub mod recovery;
 pub mod replication;
 pub mod rest_api; // Phase 9: REST API
+pub mod realtime; // Phase 10: Real-Time Subscriptions
 pub mod restore;
 pub mod schema;
 pub mod snapshot;
