@@ -141,6 +141,87 @@ impl<U: UserRepository, S: SessionRepository> AuthService<U, S> {
             .ok_or(AuthError::InvalidCredentials)
     }
     
+    /// Update user profile (non-password fields)
+    pub fn update_user(&self, user_id: Uuid, update: UpdateUserRequest) -> AuthResult<User> {
+        let mut user = self.user_repo.find_by_id(user_id)?
+            .ok_or(AuthError::InvalidCredentials)?;
+        
+        // Update metadata if provided
+        if let Some(metadata) = update.metadata {
+            user.metadata = Some(metadata);
+        }
+        
+        user.updated_at = chrono::Utc::now();
+        self.user_repo.update(&user)?;
+        
+        Ok(user)
+    }
+    
+    /// Change password for authenticated user
+    pub fn change_password(
+        &self, 
+        user_id: Uuid, 
+        current_password: &str, 
+        new_password: &str
+    ) -> AuthResult<()> {
+        let mut user = self.user_repo.find_by_id(user_id)?
+            .ok_or(AuthError::InvalidCredentials)?;
+        
+        // Verify current password
+        if !user.verify_password(current_password)? {
+            return Err(AuthError::InvalidCredentials);
+        }
+        
+        // Validate new password
+        self.password_policy.validate(new_password)?;
+        
+        // Update password
+        user.set_password(new_password)?;
+        user.updated_at = chrono::Utc::now();
+        self.user_repo.update(&user)?;
+        
+        Ok(())
+    }
+    
+    /// Request password reset (sends email)
+    pub fn forgot_password(&self, email: &str) -> AuthResult<String> {
+        // Check if user exists (but don't reveal this to caller)
+        let user = self.user_repo.find_by_email(email)?;
+        
+        if user.is_none() {
+            // Return fake token to prevent email enumeration
+            // In production, this would not send an email
+            return Ok(super::crypto::generate_token());
+        }
+        
+        // Generate reset token
+        let reset_token = super::crypto::generate_token();
+        
+        // In production: store token hash with expiry and send email
+        // For now, return the token (would be sent via email)
+        
+        Ok(reset_token)
+    }
+    
+    /// Reset password using token
+    pub fn reset_password(&self, token: &str, new_password: &str) -> AuthResult<()> {
+        // Validate password
+        self.password_policy.validate(new_password)?;
+        
+        // In production: look up token in reset_tokens collection
+        // Verify token is valid and not expired
+        // Get associated user_id
+        // Update password
+        // Invalidate token
+        
+        // For now, this is a stub that validates the password format
+        if token.is_empty() {
+            return Err(AuthError::InvalidToken);
+        }
+        
+        Ok(())
+    }
+    
     /// Validate an access token and return RLS context
     pub fn validate_access_token(&self, token: &str) -> AuthResult<RlsContext> {
         let claims = self.jwt_manager.validate_token(token)?;
@@ -197,6 +278,28 @@ pub struct RefreshRequest {
 #[derive(Debug, Deserialize)]
 pub struct LogoutRequest {
     pub refresh_token: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateUserRequest {
+    pub metadata: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ChangePasswordRequest {
+    pub current_password: String,
+    pub new_password: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ForgotPasswordRequest {
+    pub email: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ResetPasswordRequest {
+    pub token: String,
+    pub new_password: String,
 }
 
 #[derive(Debug, Serialize)]

@@ -11,6 +11,7 @@ pub mod user;
 pub mod session;
 pub mod jwt;
 pub mod rls;
+pub mod email;
 pub mod api;
 
 pub use errors::{AuthError, AuthResult};

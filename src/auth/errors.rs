@@ -97,6 +97,10 @@ pub enum AuthError {
     /// Storage operation failed
     #[error("Storage error: {0}")]
     StorageError(String),
+    
+    /// Invalid or expired token (for password reset, email verification)
+    #[error("Invalid or expired token")]
+    InvalidToken,
 }
 
 impl AuthError {
@@ -116,6 +120,7 @@ impl AuthError {
             AuthError::TokenExpired => 401,
             AuthError::InvalidSignature => 401,
             AuthError::AuthenticationRequired => 401,
+            AuthError::InvalidToken => 401,
             
             // 403 Forbidden
             AuthError::EmailNotVerified => 403,

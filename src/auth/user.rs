@@ -77,6 +77,13 @@ impl User {
         self.email_verified = true;
         self.updated_at = Utc::now();
     }
+    
+    /// Set a new password (bypasses policy validation - use when policy already validated)
+    pub fn set_password(&mut self, new_password: &str) -> AuthResult<()> {
+        self.password_hash = hash_password(new_password)?;
+        self.updated_at = Utc::now();
+        Ok(())
+    }
 }
 
 /// User creation request

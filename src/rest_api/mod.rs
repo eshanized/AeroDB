@@ -11,6 +11,7 @@ pub mod parser;
 pub mod handler;
 pub mod response;
 pub mod server;
+pub mod generator;
 
 pub use errors::{RestError, RestResult};
 pub use filter::{FilterExpr, FilterOperator};

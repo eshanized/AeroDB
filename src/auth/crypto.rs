@@ -38,6 +38,13 @@ impl Default for PasswordPolicy {
     }
 }
 
+impl PasswordPolicy {
+    /// Validate a password against this policy
+    pub fn validate(&self, password: &str) -> AuthResult<()> {
+        validate_password(password, self)
+    }
+}
+
 /// Validate password against policy
 pub fn validate_password(password: &str, policy: &PasswordPolicy) -> AuthResult<()> {
     if password.len() < policy.min_length {
