@@ -14,7 +14,7 @@ pub const MAX_LIMIT: usize = 1000;
 pub const DEFAULT_LIMIT: usize = 100;
 
 /// Parsed query parameters
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct QueryParams {
     /// Fields to select (None = all)
     pub select: Option<Vec<String>>,
@@ -30,6 +30,18 @@ pub struct QueryParams {
     
     /// Number of records to skip
     pub offset: usize,
+}
+
+impl Default for QueryParams {
+    fn default() -> Self {
+        Self {
+            select: None,
+            filters: Vec::new(),
+            order: Vec::new(),
+            limit: DEFAULT_LIMIT,
+            offset: 0,
+        }
+    }
 }
 
 /// Order by clause
