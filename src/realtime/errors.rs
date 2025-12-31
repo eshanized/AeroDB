@@ -85,6 +85,18 @@ pub enum RealtimeError {
     /// Internal error
     #[error("Internal error: {0}")]
     Internal(String),
+    
+    /// Configuration error
+    #[error("Configuration error: {0}")]
+    ConfigError(String),
+    
+    /// Connection error
+    #[error("Connection error: {0}")]
+    ConnectionError(String),
+    
+    /// Authentication error
+    #[error("Authentication error: {0}")]
+    AuthError(String),
 }
 
 impl RealtimeError {
@@ -104,6 +116,9 @@ impl RealtimeError {
             RealtimeError::MessageTooLarge(_) => 4021,
             RealtimeError::NotTracking => 4030,
             RealtimeError::Internal(_) => 4500,
+            RealtimeError::ConfigError(_) => 4501,
+            RealtimeError::ConnectionError(_) => 4502,
+            RealtimeError::AuthError(_) => 4003,
         }
     }
 }

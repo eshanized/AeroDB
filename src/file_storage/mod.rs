@@ -11,6 +11,7 @@ pub mod permissions;
 pub mod backend;
 pub mod local;
 pub mod signed_url;
+pub mod metadata;
 
 pub use errors::{StorageError, StorageResult};
 pub use bucket::{Bucket, BucketConfig};
@@ -19,3 +20,5 @@ pub use permissions::StoragePermissions;
 pub use backend::StorageBackend;
 pub use local::LocalBackend;
 pub use signed_url::SignedUrlGenerator;
+pub use metadata::{MetadataStore, InMemoryMetadataStore};
+

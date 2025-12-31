@@ -309,6 +309,43 @@ impl SubscriptionRegistry {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+    
+    /// Alias for subscribe (used by WebSocket server)
+    pub fn register(&self, subscription: Subscription) -> RealtimeResult<String> {
+        self.subscribe(subscription)
+    }
+    
+    /// Unsubscribe by channel for a specific connection
+    pub fn unsubscribe_by_channel(&self, connection_id: &str, channel: &str) -> RealtimeResult<()> {
+        let sub_ids: Vec<String> = {
+            if let Ok(by_conn) = self.by_connection.read() {
+                by_conn.get(connection_id).cloned().unwrap_or_default().into_iter().collect()
+            } else {
+                return Ok(());
+            }
+        };
+        
+        // Find subscription matching this channel
+        let mut found = false;
+        if let Ok(by_id) = self.by_id.read() {
+            for id in sub_ids {
+                if let Some(sub) = by_id.get(&id) {
+                    if sub.collection == channel {
+                        drop(by_id);  // Release read lock before unsubscribe
+                        self.unsubscribe(&id)?;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if found {
+            Ok(())
+        } else {
+            Err(RealtimeError::SubscriptionNotFound(format!("{}:{}", connection_id, channel)))
+        }
+    }
 }
 
 #[cfg(test)]

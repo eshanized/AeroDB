@@ -12,6 +12,7 @@
 //! - **Subscriptions**: Client subscription management
 //! - **Broadcast**: Pub/sub channels
 //! - **Presence**: User presence tracking
+//! - **WebSocket**: Network layer for connections
 
 pub mod errors;
 pub mod event;
@@ -20,11 +21,14 @@ pub mod subscription;
 pub mod dispatcher;
 pub mod broadcast;
 pub mod presence;
+pub mod websocket;
 
 pub use errors::{RealtimeError, RealtimeResult};
 pub use event::{DatabaseEvent, EventType, BroadcastEvent};
 pub use event_log::EventLog;
-pub use subscription::{Subscription, SubscriptionRegistry};
+pub use subscription::{Subscription, SubscriptionRegistry, SubscriptionFilter};
 pub use dispatcher::Dispatcher;
 pub use broadcast::BroadcastChannel;
 pub use presence::PresenceTracker;
+pub use websocket::{WebSocketServer, WebSocketConfig};
+

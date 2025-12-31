@@ -41,7 +41,7 @@ pub struct Dispatcher {
     connections: RwLock<HashMap<String, Connection>>,
     
     /// Subscription registry
-    subscriptions: Arc<SubscriptionRegistry>,
+    pub subscriptions: Arc<SubscriptionRegistry>,
     
     /// RLS policies by collection
     rls_policies: RwLock<HashMap<String, RlsPolicy>>,
