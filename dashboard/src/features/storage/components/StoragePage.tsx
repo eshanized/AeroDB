@@ -65,13 +65,7 @@ export function StoragePage() {
         setCurrentPath([]);
     };
 
-    const handleNavigate = (folder: string) => {
-        setCurrentPath([...currentPath, folder]);
-    };
-
-    const handleNavigateUp = () => {
-        setCurrentPath(currentPath.slice(0, -1));
-    };
+    // Navigation is handled inline in the breadcrumb component
 
     return (
         <div className="flex flex-col h-screen">
@@ -117,8 +111,8 @@ export function StoragePage() {
                                                 key={bucket.id}
                                                 onClick={() => handleBucketSelect(bucket.name)}
                                                 className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedBucket === bucket.name
-                                                        ? "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]"
-                                                        : "hover:bg-[hsl(var(--accent))]"
+                                                    ? "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]"
+                                                    : "hover:bg-[hsl(var(--accent))]"
                                                     }`}
                                             >
                                                 <div className="flex items-center justify-between">

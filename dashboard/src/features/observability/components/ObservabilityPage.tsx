@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api/client";
 import { config } from "@/config";
-import { formatRelativeTime, formatNumber, formatDuration } from "@/lib/utils";
+import { formatNumber, formatDuration } from "@/lib/utils";
 import type { LogEntry, Metric } from "@/types";
 import {
     BarChart3,
@@ -15,14 +15,9 @@ import {
     Download,
     RefreshCw,
     AlertCircle,
-    AlertTriangle,
-    Info,
-    Bug,
-    Filter,
     Clock,
     Activity,
     Database,
-    HardDrive,
 } from "lucide-react";
 import {
     LineChart,
@@ -75,20 +70,8 @@ export function ObservabilityPage() {
         log.message.toLowerCase().includes(logSearch.toLowerCase())
     );
 
-    const getLevelIcon = (level: string) => {
-        switch (level) {
-            case "ERROR":
-                return <AlertCircle className="h-4 w-4 text-red-500" />;
-            case "WARN":
-                return <AlertTriangle className="h-4 w-4 text-amber-500" />;
-            case "INFO":
-                return <Info className="h-4 w-4 text-blue-500" />;
-            case "DEBUG":
-                return <Bug className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />;
-            default:
-                return null;
-        }
-    };
+    // Helper functions for level icons are available if needed
+    // Uses AlertCircle, AlertTriangle, Info, Bug icons from lucide-react
 
     const getLevelColor = (level: string) => {
         switch (level) {

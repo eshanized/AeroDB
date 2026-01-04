@@ -13,8 +13,6 @@ import {
     Zap,
     Circle,
     RefreshCw,
-    AlertCircle,
-    Filter,
     Play,
     Pause,
     Trash2,
@@ -112,8 +110,8 @@ export function RealtimePage() {
                                     <div className="flex items-center gap-2">
                                         <Circle
                                             className={`h-2 w-2 ${subscriptionsQuery.data?.length
-                                                    ? "fill-green-500 text-green-500"
-                                                    : "fill-[hsl(var(--muted-foreground))] text-[hsl(var(--muted-foreground))]"
+                                                ? "fill-green-500 text-green-500"
+                                                : "fill-[hsl(var(--muted-foreground))] text-[hsl(var(--muted-foreground))]"
                                                 }`}
                                         />
                                         <span className="text-sm text-[hsl(var(--muted-foreground))]">
