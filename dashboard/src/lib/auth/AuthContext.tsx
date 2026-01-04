@@ -4,8 +4,8 @@ import {
     useEffect,
     useState,
     useCallback,
-    ReactNode,
 } from "react";
+import type { ReactNode } from "react";
 import { api, setTokens, clearTokens, loadRefreshToken } from "@/lib/api/client";
 import { config } from "@/config";
 import type { User, Session, AuthResponse, ApiError } from "@/types";

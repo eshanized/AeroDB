@@ -1,4 +1,5 @@
-import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
+import axios, { AxiosError } from "axios";
+import type { AxiosInstance, AxiosRequestConfig } from "axios";
 import { config } from "@/config";
 import type { ApiError, ApiResponse } from "@/types";
 
@@ -96,8 +97,8 @@ function createApiClient(): AxiosInstance {
                             { refresh_token: storedRefresh }
                         );
 
-                        const { access_token, refresh_token } = response.data;
-                        setTokens(access_token, refresh_token);
+                        const { access_token, refresh_token: newRefresh } = response.data;
+                        setTokens(access_token, newRefresh);
 
                         // Retry original request
                         if (originalRequest.headers) {
