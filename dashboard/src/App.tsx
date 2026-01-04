@@ -9,6 +9,7 @@ import { StoragePage } from "@/features/storage/components/StoragePage";
 import { RealtimePage } from "@/features/realtime/components/RealtimePage";
 import { ClusterPage } from "@/features/cluster/components/ClusterPage";
 import { ObservabilityPage } from "@/features/observability/components/ObservabilityPage";
+import { Toaster, TooltipProvider } from "@/components/ui";
 
 // Create React Query client
 const queryClient = new QueryClient({
@@ -89,9 +90,12 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
+        <TooltipProvider>
+          <BrowserRouter>
+            <AppRoutes />
+            <Toaster />
+          </BrowserRouter>
+        </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
