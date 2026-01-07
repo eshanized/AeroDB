@@ -13,7 +13,6 @@ import {
     FileText,
     Search,
     Download,
-    RefreshCw,
     AlertCircle,
     Clock,
     Activity,
@@ -28,6 +27,16 @@ import {
     Tooltip,
     ResponsiveContainer,
 } from "recharts";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+    Badge,
+    Skeleton,
+} from "@/components/ui";
 
 export function ObservabilityPage() {
     const [logLevel, setLogLevel] = useState<string | null>(null);
@@ -70,23 +79,31 @@ export function ObservabilityPage() {
         log.message.toLowerCase().includes(logSearch.toLowerCase())
     );
 
-    // Helper functions for level icons are available if needed
-    // Uses AlertCircle, AlertTriangle, Info, Bug icons from lucide-react
-
-    const getLevelColor = (level: string) => {
+    const getLevelBadgeVariant = (level: string) => {
         switch (level) {
             case "ERROR":
-                return "text-red-500 bg-red-500/10";
+                return "destructive";
             case "WARN":
-                return "text-amber-500 bg-amber-500/10";
+                return "default";
             case "INFO":
-                return "text-blue-500 bg-blue-500/10";
+                return "secondary";
             case "DEBUG":
-                return "text-[hsl(var(--muted-foreground))] bg-[hsl(var(--muted))]";
+                return "outline";
+            default:
+                return "outline";
+        }
+    };
+
+    const getLevelClassName = (level: string) => {
+        switch (level) {
+            case "WARN":
+                return "bg-amber-500/15 text-amber-600 hover:bg-amber-500/25 border-amber-500/50";
+            case "INFO":
+                return "bg-blue-500/15 text-blue-600 hover:bg-blue-500/25 border-blue-500/50";
             default:
                 return "";
         }
-    };
+    }
 
     // Sample chart data (would come from API in real implementation)
     const chartData = metricsQuery.data?.qps || [
@@ -119,7 +136,7 @@ export function ObservabilityPage() {
                             <CardContent className="pt-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                                        <p className="text-sm text-muted-foreground">
                                             Queries / sec
                                         </p>
                                         <p className="text-2xl font-bold">
@@ -129,7 +146,7 @@ export function ObservabilityPage() {
                                             )}
                                         </p>
                                     </div>
-                                    <Activity className="h-8 w-8 text-[hsl(var(--primary))] opacity-50" />
+                                    <Activity className="h-8 w-8 text-primary opacity-50" />
                                 </div>
                             </CardContent>
                         </Card>
@@ -138,7 +155,7 @@ export function ObservabilityPage() {
                             <CardContent className="pt-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                                        <p className="text-sm text-muted-foreground">
                                             p95 Latency
                                         </p>
                                         <p className="text-2xl font-bold">
@@ -154,7 +171,7 @@ export function ObservabilityPage() {
                             <CardContent className="pt-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                                        <p className="text-sm text-muted-foreground">
                                             Error Rate
                                         </p>
                                         <p className="text-2xl font-bold">
@@ -170,7 +187,7 @@ export function ObservabilityPage() {
                             <CardContent className="pt-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                                        <p className="text-sm text-muted-foreground">
                                             Connections
                                         </p>
                                         <p className="text-2xl font-bold">
@@ -268,7 +285,7 @@ export function ObservabilityPage() {
                         <CardContent className="space-y-3">
                             {/* Search */}
                             <div className="relative">
-                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     placeholder="Search logs..."
                                     className="pl-8"
@@ -279,40 +296,56 @@ export function ObservabilityPage() {
 
                             {/* Log entries */}
                             {logsQuery.isLoading ? (
-                                <div className="flex items-center justify-center py-8">
-                                    <RefreshCw className="h-5 w-5 animate-spin text-[hsl(var(--muted-foreground))]" />
+                                <div className="space-y-2">
+                                    <Skeleton className="h-10 w-full" />
+                                    <Skeleton className="h-10 w-full" />
+                                    <Skeleton className="h-10 w-full" />
                                 </div>
                             ) : (
-                                <div className="space-y-2 max-h-80 overflow-auto">
-                                    {(filteredLogs || []).slice(0, 50).map((log) => (
-                                        <div
-                                            key={log.id}
-                                            className="p-3 rounded-lg border text-sm font-mono"
-                                        >
-                                            <div className="flex items-start gap-2">
-                                                <span className="text-[hsl(var(--muted-foreground))] shrink-0">
-                                                    {new Date(log.timestamp).toLocaleTimeString()}
-                                                </span>
-                                                <span
-                                                    className={`px-1.5 py-0.5 rounded text-xs shrink-0 ${getLevelColor(
-                                                        log.level
-                                                    )}`}
-                                                >
-                                                    {log.level}
-                                                </span>
-                                                <span className="text-[hsl(var(--muted-foreground))] shrink-0">
-                                                    [{log.module}]
-                                                </span>
-                                                <span className="break-all">{log.message}</span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {(!filteredLogs || filteredLogs.length === 0) && (
-                                        <div className="text-center py-8 text-[hsl(var(--muted-foreground))]">
-                                            <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                                            <p>No logs matching filters</p>
-                                        </div>
-                                    )}
+                                <div className="border rounded-lg overflow-hidden">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead className="w-[180px]">Timestamp</TableHead>
+                                                <TableHead className="w-[100px]">Level</TableHead>
+                                                <TableHead className="w-[150px]">Module</TableHead>
+                                                <TableHead>Message</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {(filteredLogs || []).slice(0, 50).map((log) => (
+                                                <TableRow key={log.id} className="font-mono text-xs">
+                                                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                                                        {new Date(log.timestamp).toLocaleTimeString()}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge
+                                                            variant={getLevelBadgeVariant(log.level) as any}
+                                                            className={getLevelClassName(log.level)}
+                                                        >
+                                                            {log.level}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-muted-foreground">
+                                                        [{log.module}]
+                                                    </TableCell>
+                                                    <TableCell className="break-all">
+                                                        {log.message}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                            {(!filteredLogs || filteredLogs.length === 0) && (
+                                                <TableRow>
+                                                    <TableCell colSpan={4} className="h-24 text-center">
+                                                        <div className="flex flex-col items-center justify-center text-muted-foreground">
+                                                            <FileText className="h-8 w-8 mb-2 opacity-50" />
+                                                            <p>No logs matching filters</p>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
                                 </div>
                             )}
                         </CardContent>

@@ -12,22 +12,38 @@ import {
     Upload,
     Download,
     Trash2,
-    ChevronRight,
     File,
     Image,
     FileText,
     Archive,
     Plus,
-    RefreshCw,
+    // RefreshCw,
     AlertCircle,
+    // ChevronRight,
 } from "lucide-react";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    // BreadcrumbPage,
+    BreadcrumbSeparator,
+    Skeleton,
+    Badge,
+} from "@/components/ui";
 
 function FileIcon({ contentType }: { contentType: string }) {
     if (contentType.startsWith("image/")) return <Image className="h-5 w-5 text-blue-500" />;
     if (contentType.includes("pdf")) return <FileText className="h-5 w-5 text-red-500" />;
     if (contentType.includes("zip") || contentType.includes("archive"))
         return <Archive className="h-5 w-5 text-amber-500" />;
-    return <File className="h-5 w-5 text-[hsl(var(--muted-foreground))]" />;
+    return <File className="h-5 w-5 text-muted-foreground" />;
 }
 
 export function StoragePage() {
@@ -65,8 +81,6 @@ export function StoragePage() {
         setCurrentPath([]);
     };
 
-    // Navigation is handled inline in the breadcrumb component
-
     return (
         <div className="flex flex-col h-screen">
             <Header
@@ -97,11 +111,13 @@ export function StoragePage() {
                             </CardHeader>
                             <CardContent>
                                 {bucketsQuery.isLoading ? (
-                                    <div className="flex items-center justify-center py-8">
-                                        <RefreshCw className="h-5 w-5 animate-spin text-[hsl(var(--muted-foreground))]" />
+                                    <div className="space-y-2">
+                                        <Skeleton className="h-12 w-full" />
+                                        <Skeleton className="h-12 w-full" />
+                                        <Skeleton className="h-12 w-full" />
                                     </div>
                                 ) : bucketsQuery.data?.length === 0 ? (
-                                    <p className="text-sm text-[hsl(var(--muted-foreground))] text-center py-4">
+                                    <p className="text-sm text-muted-foreground text-center py-4">
                                         No buckets yet
                                     </p>
                                 ) : (
@@ -111,8 +127,8 @@ export function StoragePage() {
                                                 key={bucket.id}
                                                 onClick={() => handleBucketSelect(bucket.name)}
                                                 className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedBucket === bucket.name
-                                                    ? "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]"
-                                                    : "hover:bg-[hsl(var(--accent))]"
+                                                    ? "bg-accent text-accent-foreground"
+                                                    : "hover:bg-accent"
                                                     }`}
                                             >
                                                 <div className="flex items-center justify-between">
@@ -120,11 +136,11 @@ export function StoragePage() {
                                                         <FolderOpen className="h-4 w-4" />
                                                         <span className="font-medium">{bucket.name}</span>
                                                     </div>
-                                                    <span className="text-xs text-[hsl(var(--muted-foreground))]">
+                                                    <Badge variant="outline" className="text-[10px] h-5">
                                                         {bucket.public ? "Public" : "Private"}
-                                                    </span>
+                                                    </Badge>
                                                 </div>
-                                                <div className="flex items-center justify-between mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+                                                <div className="flex items-center justify-between mt-1 text-xs text-muted-foreground">
                                                     <span>{bucket.file_count} files</span>
                                                     <span>{formatBytes(bucket.total_size)}</span>
                                                 </div>
@@ -142,38 +158,47 @@ export function StoragePage() {
                             <CardHeader className="pb-3">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
-                                        {/* Breadcrumb */}
-                                        <button
-                                            onClick={() => {
-                                                setSelectedBucket(null);
-                                                setCurrentPath([]);
-                                            }}
-                                            className="text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
-                                        >
-                                            Storage
-                                        </button>
-                                        {selectedBucket && (
-                                            <>
-                                                <ChevronRight className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-                                                <button
-                                                    onClick={() => setCurrentPath([])}
-                                                    className="text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
-                                                >
-                                                    {selectedBucket}
-                                                </button>
-                                            </>
-                                        )}
-                                        {currentPath.map((folder, i) => (
-                                            <span key={i} className="flex items-center gap-2">
-                                                <ChevronRight className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-                                                <button
-                                                    onClick={() => setCurrentPath(currentPath.slice(0, i + 1))}
-                                                    className="text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
-                                                >
-                                                    {folder}
-                                                </button>
-                                            </span>
-                                        ))}
+                                        <Breadcrumb>
+                                            <BreadcrumbList>
+                                                <BreadcrumbItem>
+                                                    <BreadcrumbLink
+                                                        onClick={() => {
+                                                            setSelectedBucket(null);
+                                                            setCurrentPath([]);
+                                                        }}
+                                                        className="cursor-pointer"
+                                                    >
+                                                        Storage
+                                                    </BreadcrumbLink>
+                                                </BreadcrumbItem>
+                                                {selectedBucket && (
+                                                    <>
+                                                        <BreadcrumbSeparator />
+                                                        <BreadcrumbItem>
+                                                            <BreadcrumbLink
+                                                                onClick={() => setCurrentPath([])}
+                                                                className="cursor-pointer"
+                                                            >
+                                                                {selectedBucket}
+                                                            </BreadcrumbLink>
+                                                        </BreadcrumbItem>
+                                                    </>
+                                                )}
+                                                {currentPath.map((folder, i) => (
+                                                    <div key={i} className="flex items-center">
+                                                        <BreadcrumbSeparator />
+                                                        <BreadcrumbItem>
+                                                            <BreadcrumbLink
+                                                                onClick={() => setCurrentPath(currentPath.slice(0, i + 1))}
+                                                                className="cursor-pointer"
+                                                            >
+                                                                {folder}
+                                                            </BreadcrumbLink>
+                                                        </BreadcrumbItem>
+                                                    </div>
+                                                ))}
+                                            </BreadcrumbList>
+                                        </Breadcrumb>
                                     </div>
                                     {selectedBucket && (
                                         <Button size="sm" className="gap-2">
@@ -185,21 +210,23 @@ export function StoragePage() {
                             </CardHeader>
                             <CardContent>
                                 {!selectedBucket ? (
-                                    <div className="flex flex-col items-center justify-center py-12 text-[hsl(var(--muted-foreground))]">
+                                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                                         <FolderOpen className="h-12 w-12 mb-4 opacity-50" />
                                         <p>Select a bucket from the sidebar to browse files</p>
                                     </div>
                                 ) : filesQuery.isLoading ? (
-                                    <div className="flex items-center justify-center py-12">
-                                        <RefreshCw className="h-6 w-6 animate-spin text-[hsl(var(--muted-foreground))]" />
+                                    <div className="space-y-2">
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
                                     </div>
                                 ) : filesQuery.error ? (
-                                    <div className="flex flex-col items-center justify-center py-12 text-[hsl(var(--destructive))]">
+                                    <div className="flex flex-col items-center justify-center py-12 text-destructive">
                                         <AlertCircle className="h-12 w-12 mb-4" />
                                         <p>{(filesQuery.error as Error).message}</p>
                                     </div>
                                 ) : filesQuery.data?.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center py-12 text-[hsl(var(--muted-foreground))]">
+                                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                                         <FolderOpen className="h-12 w-12 mb-4 opacity-50" />
                                         <p>This folder is empty</p>
                                         <Button variant="outline" className="mt-4 gap-2">
@@ -209,45 +236,35 @@ export function StoragePage() {
                                     </div>
                                 ) : (
                                     <div className="border rounded-lg overflow-hidden">
-                                        <table className="w-full text-sm">
-                                            <thead className="border-b bg-[hsl(var(--muted))]">
-                                                <tr>
-                                                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">
-                                                        Name
-                                                    </th>
-                                                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">
-                                                        Size
-                                                    </th>
-                                                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">
-                                                        Type
-                                                    </th>
-                                                    <th className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">
-                                                        Uploaded
-                                                    </th>
-                                                    <th className="text-right px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]">
-                                                        Actions
-                                                    </th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Name</TableHead>
+                                                    <TableHead>Size</TableHead>
+                                                    <TableHead>Type</TableHead>
+                                                    <TableHead>Uploaded</TableHead>
+                                                    <TableHead className="text-right">Actions</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
                                                 {filesQuery.data?.map((file) => (
-                                                    <tr key={file.id} className="border-b hover:bg-[hsl(var(--muted))]/50">
-                                                        <td className="px-4 py-3">
+                                                    <TableRow key={file.id}>
+                                                        <TableCell>
                                                             <div className="flex items-center gap-2">
                                                                 <FileIcon contentType={file.content_type} />
                                                                 <span className="font-medium">{file.path.split("/").pop()}</span>
                                                             </div>
-                                                        </td>
-                                                        <td className="px-4 py-3 text-[hsl(var(--muted-foreground))]">
+                                                        </TableCell>
+                                                        <TableCell className="text-muted-foreground">
                                                             {formatBytes(file.size)}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-[hsl(var(--muted-foreground))]">
+                                                        </TableCell>
+                                                        <TableCell className="text-muted-foreground">
                                                             {file.content_type}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-[hsl(var(--muted-foreground))]">
+                                                        </TableCell>
+                                                        <TableCell className="text-muted-foreground">
                                                             {formatRelativeTime(file.created_at)}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-right">
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
                                                             <div className="flex items-center justify-end gap-1">
                                                                 <Button variant="ghost" size="icon" className="h-8 w-8">
                                                                     <Download className="h-4 w-4" />
@@ -255,16 +272,16 @@ export function StoragePage() {
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="icon"
-                                                                    className="h-8 w-8 text-[hsl(var(--destructive))]"
+                                                                    className="h-8 w-8 text-destructive"
                                                                 >
                                                                     <Trash2 className="h-4 w-4" />
                                                                 </Button>
                                                             </div>
-                                                        </td>
-                                                    </tr>
+                                                        </TableCell>
+                                                    </TableRow>
                                                 ))}
-                                            </tbody>
-                                        </table>
+                                            </TableBody>
+                                        </Table>
                                     </div>
                                 )}
                             </CardContent>

@@ -9,15 +9,23 @@ import { config } from "@/config";
 import { formatNumber, isStale } from "@/lib/utils";
 import type { Collection, PaginatedResponse } from "@/types";
 import {
-    Table,
     ChevronLeft,
     ChevronRight,
     Search,
     Filter,
-    RefreshCw,
+    // RefreshCw,
     Database,
     AlertCircle,
 } from "lucide-react";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+    Skeleton,
+} from "@/components/ui";
 
 export function DatabasePage() {
     const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
@@ -110,7 +118,7 @@ export function DatabasePage() {
                             <CardContent className="space-y-2">
                                 {/* Search */}
                                 <div className="relative">
-                                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+                                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                                     <Input
                                         placeholder="Search collections..."
                                         className="pl-8"
@@ -122,11 +130,13 @@ export function DatabasePage() {
                                 {/* Collection list */}
                                 <div className="space-y-1 max-h-96 overflow-auto">
                                     {collectionsQuery.isLoading ? (
-                                        <div className="text-sm text-[hsl(var(--muted-foreground))] p-2">
-                                            Loading collections...
+                                        <div className="space-y-2">
+                                            <Skeleton className="h-8 w-full" />
+                                            <Skeleton className="h-8 w-full" />
+                                            <Skeleton className="h-8 w-full" />
                                         </div>
                                     ) : filteredCollections.length === 0 ? (
-                                        <div className="text-sm text-[hsl(var(--muted-foreground))] p-2">
+                                        <div className="text-sm text-muted-foreground p-2">
                                             No collections found
                                         </div>
                                     ) : (
@@ -138,13 +148,13 @@ export function DatabasePage() {
                                                     setCurrentPage(0);
                                                 }}
                                                 className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${selectedCollection === collection.name
-                                                    ? "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]"
-                                                    : "hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))]"
+                                                    ? "bg-accent text-accent-foreground"
+                                                    : "hover:bg-accent hover:text-accent-foreground"
                                                     }`}
                                             >
                                                 <div className="flex items-center justify-between">
                                                     <span className="font-medium">{collection.name}</span>
-                                                    <span className="text-xs text-[hsl(var(--muted-foreground))]">
+                                                    <span className="text-xs text-muted-foreground">
                                                         {formatNumber(collection.count)}
                                                     </span>
                                                 </div>
@@ -162,7 +172,13 @@ export function DatabasePage() {
                             <CardHeader className="pb-3">
                                 <div className="flex items-center justify-between">
                                     <CardTitle className="text-base flex items-center gap-2">
-                                        <Table className="h-4 w-4" />
+                                        <Table className="h-4 w-4" /> // This is the Icon, wait "Table" is now a component
+                                        {/* Conflict: Table icon vs Table component.
+                                            I should rename the imported component or icon.
+                                            Lucide exports 'Table' icon.
+                                            SHADCN exports 'Table' component.
+                                            I should rename Lucide icon to TableIcon.
+                                         */}
                                         {selectedCollection || "Select a collection"}
                                     </CardTitle>
                                     {selectedCollection && (
@@ -177,16 +193,18 @@ export function DatabasePage() {
                             </CardHeader>
                             <CardContent>
                                 {!selectedCollection ? (
-                                    <div className="flex flex-col items-center justify-center py-12 text-[hsl(var(--muted-foreground))]">
+                                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                                         <Database className="h-12 w-12 mb-4 opacity-50" />
                                         <p>Select a collection from the sidebar to browse data</p>
                                     </div>
                                 ) : dataQuery.isLoading ? (
-                                    <div className="flex items-center justify-center py-12">
-                                        <RefreshCw className="h-6 w-6 animate-spin text-[hsl(var(--muted-foreground))]" />
+                                    <div className="space-y-2">
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
                                     </div>
                                 ) : dataQuery.error ? (
-                                    <div className="flex flex-col items-center justify-center py-12 text-[hsl(var(--destructive))]">
+                                    <div className="flex flex-col items-center justify-center py-12 text-destructive">
                                         <AlertCircle className="h-12 w-12 mb-4" />
                                         <p>{(dataQuery.error as Error).message}</p>
                                     </div>
@@ -195,44 +213,41 @@ export function DatabasePage() {
                                         {/* Table */}
                                         <div className="border rounded-lg overflow-hidden">
                                             <div className="overflow-x-auto">
-                                                <table className="w-full text-sm">
-                                                    <thead className="border-b bg-[hsl(var(--muted))]">
-                                                        <tr>
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
                                                             {dataQuery.data?.data &&
                                                                 dataQuery.data.data.length > 0 &&
                                                                 Object.keys(dataQuery.data.data[0]).map((key) => (
-                                                                    <th
-                                                                        key={key}
-                                                                        className="text-left px-4 py-3 font-medium text-[hsl(var(--muted-foreground))]"
-                                                                    >
+                                                                    <TableHead key={key}>
                                                                         {key}
-                                                                    </th>
+                                                                    </TableHead>
                                                                 ))}
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
                                                         {dataQuery.data?.data?.map((row, i) => (
-                                                            <tr
+                                                            <TableRow
                                                                 key={i}
-                                                                className="border-b hover:bg-[hsl(var(--muted))]/50 cursor-pointer"
+                                                                className="cursor-pointer"
                                                             >
                                                                 {Object.values(row).map((value, j) => (
-                                                                    <td key={j} className="px-4 py-3">
+                                                                    <TableCell key={j}>
                                                                         {typeof value === "object"
                                                                             ? JSON.stringify(value)
                                                                             : String(value ?? "")}
-                                                                    </td>
+                                                                    </TableCell>
                                                                 ))}
-                                                            </tr>
+                                                            </TableRow>
                                                         ))}
-                                                    </tbody>
-                                                </table>
+                                                    </TableBody>
+                                                </Table>
                                             </div>
                                         </div>
 
                                         {/* Pagination */}
                                         <div className="flex items-center justify-between mt-4">
-                                            <div className="text-sm text-[hsl(var(--muted-foreground))]">
+                                            <div className="text-sm text-muted-foreground">
                                                 Showing {currentPage * limit + 1} -{" "}
                                                 {Math.min((currentPage + 1) * limit, dataQuery.data?.total || 0)} of{" "}
                                                 {formatNumber(dataQuery.data?.total || 0)} rows
