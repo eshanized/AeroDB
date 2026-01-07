@@ -156,27 +156,53 @@ impl SmtpEmailSender {
 
 impl EmailSender for SmtpEmailSender {
     fn send(&self, template: EmailTemplate) -> AuthResult<()> {
+        use lettre::{
+            message::header::ContentType,
+            transport::smtp::authentication::Credentials,
+            Message, SmtpTransport, Transport,
+        };
+
         let (to, subject, body) = self.render_template(&template);
 
-        // Note: Actual SMTP sending would use lettre or similar crate
-        // For now, log the email (useful for development)
-        eprintln!("[EMAIL] Would send to {}: {}", to, subject);
+        // Build the email message
+        let email = Message::builder()
+            .from(
+                format!("{} <{}>", self.config.from_name, self.config.from_email)
+                    .parse()
+                    .map_err(|e| AuthError::EmailError(format!("Invalid from address: {}", e)))?,
+            )
+            .to(to
+                .parse()
+                .map_err(|e| AuthError::EmailError(format!("Invalid to address: {}", e)))?)
+            .subject(subject)
+            .header(ContentType::TEXT_PLAIN)
+            .body(body)
+            .map_err(|e| AuthError::EmailError(format!("Failed to build email: {}", e)))?;
 
-        // In production, this would use lettre:
-        // let email = Message::builder()
-        //     .from(self.config.from_email.parse()?)
-        //     .to(to.parse()?)
-        //     .subject(subject)
-        //     .body(body)?;
-        //
-        // let mailer = SmtpTransport::relay(&self.config.smtp_host)?
-        //     .credentials(Credentials::new(
-        //         self.config.smtp_user.clone(),
-        //         self.config.smtp_password.clone(),
-        //     ))
-        //     .build();
-        //
-        // mailer.send(&email)?;
+        // Build SMTP transport
+        let mailer = if self.config.smtp_user.is_empty() {
+            // No authentication (for local development SMTP servers)
+            SmtpTransport::builder_dangerous(&self.config.smtp_host)
+                .port(self.config.smtp_port)
+                .build()
+        } else {
+            // With authentication
+            let creds = Credentials::new(
+                self.config.smtp_user.clone(),
+                self.config.smtp_password.clone(),
+            );
+
+            SmtpTransport::relay(&self.config.smtp_host)
+                .map_err(|e| AuthError::EmailError(format!("SMTP relay error: {}", e)))?
+                .credentials(creds)
+                .port(self.config.smtp_port)
+                .build()
+        };
+
+        // Send the email
+        mailer
+            .send(&email)
+            .map_err(|e| AuthError::EmailError(format!("Failed to send email: {}", e)))?;
 
         Ok(())
     }

@@ -14,11 +14,83 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use super::crypto::PasswordPolicy;
+use super::email::{EmailSender, EmailTemplate};
 use super::errors::{AuthError, AuthResult};
 use super::jwt::{JwtConfig, JwtManager, TokenResponse};
 use super::rls::RlsContext;
 use super::session::{SessionConfig, SessionManager, SessionRepository};
 use super::user::{LoginRequest, SignupRequest, User, UserRepository};
+
+use chrono::{DateTime, Duration, Utc};
+use std::collections::HashMap;
+use std::sync::RwLock;
+
+/// Reset token entry with hash and expiration
+#[derive(Debug, Clone)]
+struct ResetTokenEntry {
+    token_hash: String,
+    user_id: Uuid,
+    expires_at: DateTime<Utc>,
+}
+
+/// In-memory reset token store
+pub struct ResetTokenStore {
+    tokens: RwLock<HashMap<String, ResetTokenEntry>>,
+    ttl: Duration,
+}
+
+impl Default for ResetTokenStore {
+    fn default() -> Self {
+        Self {
+            tokens: RwLock::new(HashMap::new()),
+            ttl: Duration::hours(1),
+        }
+    }
+}
+
+impl ResetTokenStore {
+    pub fn new(ttl: Duration) -> Self {
+        Self {
+            tokens: RwLock::new(HashMap::new()),
+            ttl,
+        }
+    }
+
+    /// Store a reset token (stores hash, returns raw token)
+    pub fn store(&self, user_id: Uuid) -> String {
+        let raw_token = super::crypto::generate_token();
+        let token_hash = super::crypto::hash_token(&raw_token);
+        
+        let entry = ResetTokenEntry {
+            token_hash: token_hash.clone(),
+            user_id,
+            expires_at: Utc::now() + self.ttl,
+        };
+
+        self.tokens.write().unwrap().insert(token_hash, entry);
+        raw_token
+    }
+
+    /// Validate and consume a reset token (returns user_id if valid)
+    pub fn validate_and_consume(&self, raw_token: &str) -> Option<Uuid> {
+        let token_hash = super::crypto::hash_token(raw_token);
+        let mut tokens = self.tokens.write().unwrap();
+
+        if let Some(entry) = tokens.remove(&token_hash) {
+            if entry.expires_at > Utc::now() {
+                return Some(entry.user_id);
+            }
+        }
+        None
+    }
+
+    /// Clean up expired tokens
+    pub fn cleanup_expired(&self) {
+        let now = Utc::now();
+        let mut tokens = self.tokens.write().unwrap();
+        tokens.retain(|_, entry| entry.expires_at > now);
+    }
+}
 
 /// Auth service combining all auth components
 pub struct AuthService<U: UserRepository, S: SessionRepository> {
@@ -26,6 +98,8 @@ pub struct AuthService<U: UserRepository, S: SessionRepository> {
     session_manager: SessionManager<S>,
     jwt_manager: JwtManager,
     password_policy: PasswordPolicy,
+    reset_tokens: ResetTokenStore,
+    email_sender: Arc<dyn EmailSender>,
 }
 
 impl<U: UserRepository, S: SessionRepository> AuthService<U, S> {
@@ -36,11 +110,31 @@ impl<U: UserRepository, S: SessionRepository> AuthService<U, S> {
         session_config: SessionConfig,
         password_policy: PasswordPolicy,
     ) -> Self {
+        Self::with_email_sender(
+            user_repo,
+            session_repo,
+            jwt_config,
+            session_config,
+            password_policy,
+            Arc::new(super::email::MockEmailSender::new()),
+        )
+    }
+
+    pub fn with_email_sender(
+        user_repo: U,
+        session_repo: S,
+        jwt_config: JwtConfig,
+        session_config: SessionConfig,
+        password_policy: PasswordPolicy,
+        email_sender: Arc<dyn EmailSender>,
+    ) -> Self {
         Self {
             user_repo: Arc::new(user_repo),
             session_manager: SessionManager::new(session_config, session_repo),
             jwt_manager: JwtManager::new(jwt_config),
             password_policy,
+            reset_tokens: ResetTokenStore::default(),
+            email_sender,
         }
     }
 
@@ -187,40 +281,53 @@ impl<U: UserRepository, S: SessionRepository> AuthService<U, S> {
     }
 
     /// Request password reset (sends email)
-    pub fn forgot_password(&self, email: &str) -> AuthResult<String> {
-        // Check if user exists (but don't reveal this to caller)
+    pub fn forgot_password(&self, email: &str) -> AuthResult<()> {
+        // Check if user exists
         let user = self.user_repo.find_by_email(email)?;
 
-        if user.is_none() {
-            // Return fake token to prevent email enumeration
-            // In production, this would not send an email
-            return Ok(super::crypto::generate_token());
+        if let Some(user) = user {
+            // Generate and store reset token
+            let reset_token = self.reset_tokens.store(user.id);
+
+            // Send password reset email
+            self.email_sender.send(EmailTemplate::PasswordReset {
+                token: reset_token,
+                user_email: email.to_string(),
+            })?;
         }
-
-        // Generate reset token
-        let reset_token = super::crypto::generate_token();
-
-        // In production: store token hash with expiry and send email
-        // For now, return the token (would be sent via email)
-
-        Ok(reset_token)
+        // Always return success to prevent email enumeration attacks
+        Ok(())
     }
 
     /// Reset password using token
     pub fn reset_password(&self, token: &str, new_password: &str) -> AuthResult<()> {
-        // Validate password
+        // Validate password format first
         self.password_policy.validate(new_password)?;
 
-        // In production: look up token in reset_tokens collection
-        // Verify token is valid and not expired
-        // Get associated user_id
-        // Update password
-        // Invalidate token
+        // Validate and consume the reset token
+        let user_id = self
+            .reset_tokens
+            .validate_and_consume(token)
+            .ok_or(AuthError::InvalidToken)?;
 
-        // For now, this is a stub that validates the password format
-        if token.is_empty() {
-            return Err(AuthError::InvalidToken);
-        }
+        // Get the user
+        let mut user = self
+            .user_repo
+            .find_by_id(user_id)?
+            .ok_or(AuthError::InvalidCredentials)?;
+
+        // Update password
+        user.set_password(new_password)?;
+        user.updated_at = Utc::now();
+        self.user_repo.update(&user)?;
+
+        // Revoke all existing sessions for security
+        self.session_manager.revoke_all_user_sessions(user_id)?;
+
+        // Send password changed notification
+        let _ = self.email_sender.send(EmailTemplate::PasswordChanged {
+            user_email: user.email.clone(),
+        });
 
         Ok(())
     }

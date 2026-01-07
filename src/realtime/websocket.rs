@@ -454,18 +454,32 @@ impl WebSocketServer {
 
 /// Validate JWT token and return RLS context
 fn validate_token(token: &str) -> RealtimeResult<RlsContext> {
-    // In production, this would validate the JWT signature and extract claims
-    // For now, create a basic authenticated context
+    use crate::auth::jwt::{JwtConfig, JwtManager};
+
     if token.is_empty() {
         return Err(RealtimeError::AuthError("Empty token".to_string()));
     }
 
-    // Parse as simple user_id for testing
-    if let Ok(user_id) = Uuid::parse_str(token) {
-        Ok(RlsContext::authenticated(user_id))
-    } else {
-        // Anonymous but authenticated (no user_id extracted)
-        Ok(RlsContext::anonymous())
+    // Create JWT manager with default config for validation
+    // In production, this would be injected as a dependency
+    let jwt_manager = JwtManager::new(JwtConfig::default());
+
+    // Validate the JWT token
+    match jwt_manager.validate_token(token) {
+        Ok(claims) => {
+            // Extract user_id from claims
+            match JwtManager::get_user_id(&claims) {
+                Ok(user_id) => Ok(RlsContext::authenticated(user_id)),
+                Err(_) => {
+                    // Token is valid but has no user_id claim - allow anonymous authenticated
+                    Ok(RlsContext::anonymous())
+                }
+            }
+        }
+        Err(e) => Err(RealtimeError::AuthError(format!(
+            "Token validation failed: {}",
+            e
+        ))),
     }
 }
 

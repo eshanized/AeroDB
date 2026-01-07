@@ -96,6 +96,10 @@ pub enum AuthError {
     /// Invalid or expired token (for password reset, email verification)
     #[error("Invalid or expired token")]
     InvalidToken,
+
+    /// Email sending failed
+    #[error("Email error: {0}")]
+    EmailError(String),
 }
 
 impl AuthError {
@@ -129,6 +133,7 @@ impl AuthError {
             AuthError::HashingFailed => 500,
             AuthError::TokenGenerationFailed => 500,
             AuthError::StorageError(_) => 500,
+            AuthError::EmailError(_) => 500,
         }
     }
 
