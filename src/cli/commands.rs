@@ -203,6 +203,7 @@ pub fn run_command(cmd: Command) -> CliResult<()> {
         Command::Start { config } => start(&config),
         Command::Query { config } => query(&config),
         Command::Explain { config } => explain(&config),
+        Command::Serve { config, port } => serve(&config, port),
         Command::Control { config, action } => control(&config, action),
     }
 }
@@ -390,6 +391,46 @@ pub fn explain(config_path: &Path) -> CliResult<()> {
     
     let response = handler.handle(&request_str, &mut subsystems);
     write_json(&response.to_json())?;
+    
+    Ok(())
+}
+
+/// Start the HTTP server for dashboard (Phase 13.5)
+///
+/// Boots the database and starts an HTTP server. This is the recommended
+/// mode for connecting the dashboard frontend.
+///
+/// Per implementation plan:
+/// 1. Boot database (same as start command)
+/// 2. Initialize HTTP server with all subsystems
+/// 3. Start Axum server on specified port
+pub fn serve(config_path: &Path, port: u16) -> CliResult<()> {
+    let config = Config::load(config_path)?;
+    let data_dir = config.data_path();
+    
+    // Check if initialized
+    if !is_initialized(data_dir) {
+        return Err(CliError::not_initialized());
+    }
+    
+    // Boot the system (same as start command)
+    let (_wal_writer, _storage_writer, _storage_reader, _schema_loader, _index_manager) = 
+        boot_system(data_dir)?;
+    
+    // Create HTTP server with configured port
+    use crate::http_server::{HttpServer, HttpServerConfig};
+    
+    let http_config = HttpServerConfig::with_port(port);
+    let server = HttpServer::with_config(http_config);
+    
+    // Start the async runtime and run the server
+    let rt = tokio::runtime::Runtime::new()
+        .map_err(|e| CliError::boot_failed(format!("Failed to create tokio runtime: {}", e)))?;
+    
+    rt.block_on(async {
+        server.start().await
+            .map_err(|e| CliError::boot_failed(format!("HTTP server failed: {}", e)))
+    })?;
     
     Ok(())
 }

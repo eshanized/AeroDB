@@ -29,4 +29,5 @@ pub mod schema;
 pub mod snapshot;
 pub mod storage;
 pub mod wal;
+pub mod http_server; // Phase 13.5: Dashboard HTTP Server
 

@@ -55,6 +55,20 @@ pub enum Command {
         config: PathBuf,
     },
     
+    /// Start HTTP server for dashboard (Phase 13.5)
+    ///
+    /// Starts an HTTP server exposing REST API for the dashboard.
+    /// This replaces stdin/stdout mode with HTTP mode.
+    Serve {
+        /// Path to configuration file
+        #[arg(long, default_value = "./aerodb.json")]
+        config: PathBuf,
+        
+        /// Port to bind to (default: 54321)
+        #[arg(long, default_value = "54321")]
+        port: u16,
+    },
+    
     /// Control plane commands (Phase 7)
     ///
     /// Per PHASE7_COMMAND_MODEL.md: Operator control surface for AeroDB.
