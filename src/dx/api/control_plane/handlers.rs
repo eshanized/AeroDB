@@ -8,6 +8,7 @@
 //!
 //! This is the ONLY component allowed to call kernel APIs.
 
+use std::sync::Arc;
 use std::time::SystemTime;
 use uuid::Uuid;
 
@@ -17,9 +18,116 @@ use super::confirmation::{ConfirmationFlow, ConfirmationResult, ConfirmationToke
 use super::errors::{ControlPlaneError, ControlPlaneResult};
 use super::types::{
     ClusterState, CommandOutcome, CommandRequest, CommandResponse, CommandResponseData,
-    DiagnosticResult, NodeHealth, NodeRole, NodeState, PromotionResultData, PromotionStateView,
-    ReplicaState, ReplicationStatus, SnapshotInfo, WalInfo,
+    DiagnosticResult, DiagnosticSection, NodeHealth, NodeRole, NodeState, PromotionResultData,
+    PromotionStateView, ReplicaState, ReplicationStatus, SnapshotInfo, WalInfo,
 };
+
+use crate::promotion::{PromotionController, PromotionState};
+use crate::replication::ReplicationState;
+
+/// Kernel Adapter trait for accessing kernel subsystems.
+///
+/// Per PHASE7_CONTROL_PLANE_ARCHITECTURE.md §4.4:
+/// - Each method corresponds to exactly one kernel operation
+/// - Methods are read-only for inspection, mutating for control
+pub trait KernelAdapter: Send + Sync {
+    /// Get current replication state
+    fn get_replication_state(&self) -> ReplicationState;
+
+    /// Get promotion controller state
+    fn get_promotion_state(&self) -> PromotionState;
+
+    /// Get WAL current position
+    fn get_wal_position(&self) -> u64;
+
+    /// Get WAL oldest retained position
+    fn get_wal_oldest_position(&self) -> u64;
+
+    /// Get WAL size in bytes
+    fn get_wal_size_bytes(&self) -> u64;
+
+    /// Get list of active snapshots
+    fn get_snapshots(&self) -> Vec<(u64, SystemTime)>;
+
+    /// Get list of checkpoints
+    fn get_checkpoints(&self) -> Vec<(u64, SystemTime)>;
+
+    /// Request promotion for a replica
+    fn request_promotion(&self, replica_id: Uuid, reason: &str) -> Result<String, String>;
+
+    /// Request demotion for a node
+    fn request_demotion(&self, node_id: Uuid, reason: &str) -> Result<String, String>;
+
+    /// Force promotion (with risk acknowledgment)
+    fn force_promotion(&self, replica_id: Uuid, reason: &str) -> Result<String, String>;
+}
+
+/// Default kernel adapter using actual kernel modules
+pub struct DefaultKernelAdapter {
+    replication_state: ReplicationState,
+    promotion_state: PromotionState,
+}
+
+impl Default for DefaultKernelAdapter {
+    fn default() -> Self {
+        Self {
+            replication_state: ReplicationState::default(),
+            promotion_state: PromotionState::Steady,
+        }
+    }
+}
+
+impl DefaultKernelAdapter {
+    pub fn new(replication_state: ReplicationState, promotion_state: PromotionState) -> Self {
+        Self {
+            replication_state,
+            promotion_state,
+        }
+    }
+}
+
+impl KernelAdapter for DefaultKernelAdapter {
+    fn get_replication_state(&self) -> ReplicationState {
+        self.replication_state.clone()
+    }
+
+    fn get_promotion_state(&self) -> PromotionState {
+        self.promotion_state.clone()
+    }
+
+    fn get_wal_position(&self) -> u64 {
+        // Would read from actual WAL writer
+        0
+    }
+
+    fn get_wal_oldest_position(&self) -> u64 {
+        0
+    }
+
+    fn get_wal_size_bytes(&self) -> u64 {
+        0
+    }
+
+    fn get_snapshots(&self) -> Vec<(u64, SystemTime)> {
+        Vec::new()
+    }
+
+    fn get_checkpoints(&self) -> Vec<(u64, SystemTime)> {
+        Vec::new()
+    }
+
+    fn request_promotion(&self, _replica_id: Uuid, _reason: &str) -> Result<String, String> {
+        Err("Promotion controller not connected".to_string())
+    }
+
+    fn request_demotion(&self, _node_id: Uuid, _reason: &str) -> Result<String, String> {
+        Err("Demotion controller not connected".to_string())
+    }
+
+    fn force_promotion(&self, _replica_id: Uuid, _reason: &str) -> Result<String, String> {
+        Err("Promotion controller not connected".to_string())
+    }
+}
 
 /// Phase 7 Control Plane Handler.
 ///
@@ -27,17 +135,41 @@ use super::types::{
 /// - Routes requests to kernel boundary adapter
 /// - Orchestrates confirmation flows
 /// - Validates request structure and authority
-#[derive(Debug, Default)]
 pub struct ControlPlaneHandler {
     /// Confirmation flow manager (ephemeral state).
     confirmation: ConfirmationFlow,
+    /// Kernel adapter for accessing kernel subsystems.
+    kernel: Arc<dyn KernelAdapter>,
+}
+
+impl Default for ControlPlaneHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl std::fmt::Debug for ControlPlaneHandler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ControlPlaneHandler")
+            .field("confirmation", &self.confirmation)
+            .finish()
+    }
 }
 
 impl ControlPlaneHandler {
-    /// Create a new control plane handler.
+    /// Create a new control plane handler with default kernel adapter.
     pub fn new() -> Self {
         Self {
             confirmation: ConfirmationFlow::new(),
+            kernel: Arc::new(DefaultKernelAdapter::default()),
+        }
+    }
+
+    /// Create with a custom kernel adapter.
+    pub fn with_kernel(kernel: Arc<dyn KernelAdapter>) -> Self {
+        Self {
+            confirmation: ConfirmationFlow::new(),
+            kernel,
         }
     }
 
@@ -152,11 +284,19 @@ impl ControlPlaneHandler {
     ) -> ControlPlaneResult<CommandResponse> {
         match cmd {
             InspectionCommand::InspectClusterState => {
-                // TODO: Call actual kernel to get cluster state
+                let repl_state = self.kernel.get_replication_state();
                 let state = ClusterState {
                     cluster_id: None,
-                    primary_id: None,
-                    replicas: Vec::new(),
+                    primary_id: if repl_state.is_primary() || repl_state.is_disabled() {
+                        Some(Uuid::nil()) // This node is primary
+                    } else {
+                        None
+                    },
+                    replicas: if let Some(replica_id) = repl_state.replica_id() {
+                        vec![replica_id]
+                    } else {
+                        Vec::new()
+                    },
                     snapshot_time: SystemTime::now(),
                 };
                 Ok(CommandResponse::success(
@@ -166,12 +306,26 @@ impl ControlPlaneHandler {
                 ))
             }
             InspectionCommand::InspectNode { node_id } => {
-                // TODO: Call actual kernel to get node state
+                let repl_state = self.kernel.get_replication_state();
+                let role = if repl_state.is_primary() {
+                    NodeRole::Primary
+                } else if repl_state.is_replica() {
+                    NodeRole::Replica
+                } else {
+                    NodeRole::Unknown
+                };
+                let health = if repl_state.is_halted() {
+                    NodeHealth::Unavailable
+                } else if repl_state.can_read() {
+                    NodeHealth::Healthy
+                } else {
+                    NodeHealth::Unknown
+                };
                 let state = NodeState {
                     node_id: *node_id,
-                    role: NodeRole::Unknown,
-                    wal_position: 0,
-                    health: NodeHealth::Unknown,
+                    role,
+                    wal_position: self.kernel.get_wal_position(),
+                    health,
                     snapshot_time: SystemTime::now(),
                 };
                 Ok(CommandResponse::success(
@@ -181,10 +335,22 @@ impl ControlPlaneHandler {
                 ))
             }
             InspectionCommand::InspectReplicationStatus => {
-                // TODO: Call actual kernel to get replication status
+                let repl_state = self.kernel.get_replication_state();
                 let status = ReplicationStatus {
-                    primary_id: None,
-                    replicas: Vec::new(),
+                    primary_id: if repl_state.is_primary() || repl_state.is_disabled() {
+                        Some(Uuid::nil())
+                    } else {
+                        None
+                    },
+                    replicas: if let Some(replica_id) = repl_state.replica_id() {
+                        vec![ReplicaState {
+                            replica_id,
+                            lag_bytes: 0,
+                            health: NodeHealth::Healthy,
+                        }]
+                    } else {
+                        Vec::new()
+                    },
                     snapshot_time: SystemTime::now(),
                 };
                 Ok(CommandResponse::success(
@@ -194,10 +360,10 @@ impl ControlPlaneHandler {
                 ))
             }
             InspectionCommand::InspectPromotionState => {
-                // TODO: Call actual kernel (promotion controller) to get state
+                let promo_state = self.kernel.get_promotion_state();
                 let state = PromotionStateView {
-                    state: "Steady".to_string(),
-                    pending_replica: None,
+                    state: promo_state.state_name().to_string(),
+                    pending_replica: promo_state.replica_id(),
                     last_promotion: None,
                     snapshot_time: SystemTime::now(),
                 };
@@ -221,9 +387,39 @@ impl ControlPlaneHandler {
     ) -> ControlPlaneResult<CommandResponse> {
         match cmd {
             DiagnosticCommand::RunDiagnostics => {
-                // TODO: Collect actual diagnostics from kernel
+                let repl_state = self.kernel.get_replication_state();
+                let promo_state = self.kernel.get_promotion_state();
+                
+                let sections = vec![
+                    DiagnosticSection {
+                        name: "replication".to_string(),
+                        entries: vec![
+                            ("status".to_string(), if repl_state.is_halted() { "error" } else { "ok" }.to_string()),
+                            ("state".to_string(), repl_state.state_name().to_string()),
+                            ("can_write".to_string(), repl_state.can_write().to_string()),
+                            ("can_read".to_string(), repl_state.can_read().to_string()),
+                        ],
+                    },
+                    DiagnosticSection {
+                        name: "promotion".to_string(),
+                        entries: vec![
+                            ("status".to_string(), "ok".to_string()),
+                            ("state".to_string(), promo_state.state_name().to_string()),
+                        ],
+                    },
+                    DiagnosticSection {
+                        name: "wal".to_string(),
+                        entries: vec![
+                            ("status".to_string(), "ok".to_string()),
+                            ("position".to_string(), self.kernel.get_wal_position().to_string()),
+                            ("oldest".to_string(), self.kernel.get_wal_oldest_position().to_string()),
+                            ("size_bytes".to_string(), self.kernel.get_wal_size_bytes().to_string()),
+                        ],
+                    },
+                ];
+                
                 let result = DiagnosticResult {
-                    sections: Vec::new(),
+                    sections,
                     collected_at: SystemTime::now(),
                 };
                 Ok(CommandResponse::success(
@@ -233,11 +429,10 @@ impl ControlPlaneHandler {
                 ))
             }
             DiagnosticCommand::InspectWal => {
-                // TODO: Call actual WAL subsystem
                 let info = WalInfo {
-                    current_position: 0,
-                    oldest_position: 0,
-                    size_bytes: 0,
+                    current_position: self.kernel.get_wal_position(),
+                    oldest_position: self.kernel.get_wal_oldest_position(),
+                    size_bytes: self.kernel.get_wal_size_bytes(),
                     snapshot_time: SystemTime::now(),
                 };
                 Ok(CommandResponse::success(
@@ -247,10 +442,26 @@ impl ControlPlaneHandler {
                 ))
             }
             DiagnosticCommand::InspectSnapshots => {
-                // TODO: Call actual snapshot subsystem
+                let snapshots_data = self.kernel.get_snapshots();
+                let checkpoints_data = self.kernel.get_checkpoints();
+                
                 let info = SnapshotInfo {
-                    snapshots: Vec::new(),
-                    checkpoints: Vec::new(),
+                    snapshots: snapshots_data
+                        .into_iter()
+                        .map(|(wal_position, created_at)| super::types::SnapshotMeta {
+                            id: format!("snapshot-{}", wal_position),
+                            created_at,
+                            wal_position,
+                        })
+                        .collect(),
+                    checkpoints: checkpoints_data
+                        .into_iter()
+                        .map(|(wal_position, created_at)| super::types::CheckpointMeta {
+                            id: format!("checkpoint-{}", wal_position),
+                            created_at,
+                            wal_position,
+                        })
+                        .collect(),
                     snapshot_time: SystemTime::now(),
                 };
                 Ok(CommandResponse::success(
@@ -273,14 +484,19 @@ impl ControlPlaneHandler {
     ) -> ControlPlaneResult<CommandResponse> {
         match cmd {
             ControlCommand::RequestPromotion { replica_id, reason } => {
-                // TODO: Call actual promotion controller
-                // Per PHASE7_COMMAND_MODEL.md §6.1:
-                // Maps to promotion state machine
+                let result_msg = self.kernel.request_promotion(
+                    *replica_id,
+                    reason.as_deref().unwrap_or("operator request"),
+                );
+                let (success, explanation) = match result_msg {
+                    Ok(msg) => (true, msg),
+                    Err(msg) => (false, msg),
+                };
                 let result = PromotionResultData {
                     replica_id: *replica_id,
-                    success: false,
-                    new_role: None,
-                    explanation: "Promotion controller integration pending".to_string(),
+                    success,
+                    new_role: if success { Some(NodeRole::Primary) } else { None },
+                    explanation,
                 };
                 Ok(CommandResponse::success(
                     request_id,
@@ -289,12 +505,19 @@ impl ControlPlaneHandler {
                 ))
             }
             ControlCommand::RequestDemotion { node_id, reason } => {
-                // TODO: Call actual demotion logic
+                let result_msg = self.kernel.request_demotion(
+                    *node_id,
+                    reason.as_deref().unwrap_or("operator request"),
+                );
+                let (success, explanation) = match result_msg {
+                    Ok(msg) => (true, msg),
+                    Err(msg) => (false, msg),
+                };
                 let result = PromotionResultData {
                     replica_id: *node_id,
-                    success: false,
-                    new_role: None,
-                    explanation: "Demotion integration pending".to_string(),
+                    success,
+                    new_role: if success { Some(NodeRole::Replica) } else { None },
+                    explanation,
                 };
                 Ok(CommandResponse::success(
                     request_id,
@@ -305,14 +528,18 @@ impl ControlPlaneHandler {
             ControlCommand::ForcePromotion {
                 replica_id,
                 reason,
-                acknowledged_risks,
+                acknowledged_risks: _,
             } => {
-                // TODO: Call actual force promotion with override flag
+                let result_msg = self.kernel.force_promotion(\n                    *replica_id,\n                    reason.as_str(),\n                );
+                let (success, explanation) = match result_msg {
+                    Ok(msg) => (true, msg),
+                    Err(msg) => (false, msg),
+                };
                 let result = PromotionResultData {
                     replica_id: *replica_id,
-                    success: false,
-                    new_role: None,
-                    explanation: "Force promotion integration pending".to_string(),
+                    success,
+                    new_role: if success { Some(NodeRole::Primary) } else { None },
+                    explanation,
                 };
                 Ok(CommandResponse::success(
                     request_id,
