@@ -21,9 +21,8 @@ use super::verifier::{SchemaCheck, StorageRecordInfo, StorageScan};
 
 impl WalRead for WalReader {
     fn read_next(&mut self) -> RecoveryResult<Option<WalRecord>> {
-        WalReader::read_next(self).map_err(|e| {
-            RecoveryError::wal_corruption(self.current_offset(), e.to_string())
-        })
+        WalReader::read_next(self)
+            .map_err(|e| RecoveryError::wal_corruption(self.current_offset(), e.to_string()))
     }
 
     fn current_offset(&self) -> u64 {
@@ -140,7 +139,7 @@ mod tests {
     #[test]
     fn test_wal_read_implementation() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         // Write some records
         {
             let mut writer = WalWriter::open(temp_dir.path()).unwrap();
@@ -184,11 +183,11 @@ mod tests {
     #[test]
     fn test_recovery_storage_adapter() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         // Initialize directories
         std::fs::create_dir_all(temp_dir.path().join("data")).unwrap();
         std::fs::create_dir_all(temp_dir.path().join("wal")).unwrap();
-        
+
         let storage = RecoveryStorage::open(temp_dir.path()).unwrap();
         let (writer, _reader) = storage.into_parts();
         assert_eq!(writer.current_offset(), 0);

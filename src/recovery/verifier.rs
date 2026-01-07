@@ -186,7 +186,8 @@ mod tests {
         }
 
         fn schema_version_exists(&self, schema_id: &str, version: &str) -> bool {
-            self.schemas.contains(&(schema_id.to_string(), version.to_string()))
+            self.schemas
+                .contains(&(schema_id.to_string(), version.to_string()))
         }
     }
 
@@ -257,7 +258,10 @@ mod tests {
         let result = ConsistencyVerifier::verify(&mut storage, &schema);
 
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().code().code(), "AERO_RECOVERY_SCHEMA_MISSING");
+        assert_eq!(
+            result.unwrap_err().code().code(),
+            "AERO_RECOVERY_SCHEMA_MISSING"
+        );
     }
 
     #[test]

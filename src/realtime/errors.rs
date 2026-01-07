@@ -13,87 +13,81 @@ pub enum RealtimeError {
     // ==================
     // Connection Errors
     // ==================
-    
     /// Connection closed
     #[error("Connection closed")]
     ConnectionClosed,
-    
+
     /// Connection timeout
     #[error("Connection timeout")]
     ConnectionTimeout,
-    
+
     /// Invalid message format
     #[error("Invalid message format: {0}")]
     InvalidMessage(String),
-    
+
     // ==================
     // Subscription Errors
     // ==================
-    
     /// Invalid topic format
     #[error("Invalid topic: {0}")]
     InvalidTopic(String),
-    
+
     /// Subscription not found
     #[error("Subscription not found: {0}")]
     SubscriptionNotFound(String),
-    
+
     /// Too many subscriptions
     #[error("Too many subscriptions (max: {0})")]
     TooManySubscriptions(usize),
-    
+
     // ==================
     // Authorization Errors
     // ==================
-    
     /// Not authorized to subscribe
     #[error("Not authorized to subscribe to this topic")]
     Unauthorized,
-    
+
     /// Authentication required
     #[error("Authentication required")]
     AuthenticationRequired,
-    
+
     // ==================
     // Broadcast Errors
     // ==================
-    
     /// Channel not found
     #[error("Channel not found: {0}")]
     ChannelNotFound(String),
-    
+
     /// Rate limit exceeded
     #[error("Rate limit exceeded")]
     RateLimitExceeded,
-    
+
     /// Message too large
     #[error("Message too large (max: {0} bytes)")]
     MessageTooLarge(usize),
-    
+
     // ==================
     // Presence Errors
     // ==================
-    
     /// Not tracking presence
     #[error("Not tracking presence in this channel")]
     NotTracking,
-    
+
     // ==================
     // Internal Errors
     // ==================
-    
     /// Internal error
     #[error("Internal error: {0}")]
     Internal(String),
-    
+
     /// Configuration error
     #[error("Configuration error: {0}")]
     ConfigError(String),
-    
+
     /// Connection error
     #[error("Connection error: {0}")]
     ConnectionError(String),
-    
+
     /// Authentication error
     #[error("Authentication error: {0}")]
     AuthError(String),
@@ -126,7 +120,7 @@ impl RealtimeError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_error_close_codes() {
         assert_eq!(RealtimeError::ConnectionClosed.close_code(), 1000);

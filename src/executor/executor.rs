@@ -31,12 +31,7 @@ pub trait IndexLookup {
     fn lookup_eq(&self, field: &str, value: &Value) -> Vec<u64>;
 
     /// Get all document offsets for an indexed field range
-    fn lookup_range(
-        &self,
-        field: &str,
-        min: Option<&Value>,
-        max: Option<&Value>,
-    ) -> Vec<u64>;
+    fn lookup_range(&self, field: &str, min: Option<&Value>, max: Option<&Value>) -> Vec<u64>;
 
     /// Get all document offsets in primary key order
     fn all_offsets_pk_order(&self) -> Vec<u64>;
@@ -105,7 +100,11 @@ impl<'a, I: IndexLookup, S: StorageRead> QueryExecutor<'a, I, S> {
             }
 
             // Extract document ID from composite (collection:id -> id)
-            let doc_id = record.document_id.split(':').last().unwrap_or(&record.document_id);
+            let doc_id = record
+                .document_id
+                .split(':')
+                .last()
+                .unwrap_or(&record.document_id);
 
             candidates.push(ResultDocument::new(
                 doc_id,
@@ -170,10 +169,8 @@ impl<'a, I: IndexLookup, S: StorageRead> QueryExecutor<'a, I, S> {
                 for pred in &plan.predicates {
                     if pred.field == plan.chosen_index {
                         match &pred.op {
-                            FilterOp::Gte(v) |
-                            FilterOp::Gt(v) => min = Some(v),
-                            FilterOp::Lte(v) |
-                            FilterOp::Lt(v) => max = Some(v),
+                            FilterOp::Gte(v) | FilterOp::Gt(v) => min = Some(v),
+                            FilterOp::Lte(v) | FilterOp::Lt(v) => max = Some(v),
                             _ => {}
                         }
                     }
@@ -210,7 +207,10 @@ mod tests {
         }
 
         fn add_pk(&mut self, pk: &str, offset: u64) {
-            self.pk_index.entry(pk.to_string()).or_default().push(offset);
+            self.pk_index
+                .entry(pk.to_string())
+                .or_default()
+                .push(offset);
             if !self.all_offsets.contains(&offset) {
                 self.all_offsets.push(offset);
             }
@@ -245,7 +245,12 @@ mod tests {
                 .unwrap_or_default()
         }
 
-        fn lookup_range(&self, _field: &str, _min: Option<&Value>, _max: Option<&Value>) -> Vec<u64> {
+        fn lookup_range(
+            &self,
+            _field: &str,
+            _min: Option<&Value>,
+            _max: Option<&Value>,
+        ) -> Vec<u64> {
             // For testing, return all offsets
             self.all_offsets.clone()
         }
@@ -326,13 +331,21 @@ mod tests {
         index.add_pk("user_1", 100);
 
         let mut storage = MockStorage::new();
-        storage.add_record(100, make_record(
-            "user_1", "users", "v1",
-            json!({"_id": "user_1", "name": "Alice"}),
-        ));
+        storage.add_record(
+            100,
+            make_record(
+                "user_1",
+                "users",
+                "v1",
+                json!({"_id": "user_1", "name": "Alice"}),
+            ),
+        );
 
         let plan = make_plan(
-            "users", "v1", "_id", ScanType::PrimaryKey,
+            "users",
+            "v1",
+            "_id",
+            ScanType::PrimaryKey,
             vec![Predicate::eq("_id", json!("user_1"))],
             1,
         );
@@ -353,17 +366,30 @@ mod tests {
         index.add_field_index("email", "bob@example.com", 200);
 
         let mut storage = MockStorage::new();
-        storage.add_record(100, make_record(
-            "user_1", "users", "v1",
-            json!({"_id": "user_1", "email": "alice@example.com"}),
-        ));
-        storage.add_record(200, make_record(
-            "user_2", "users", "v1",
-            json!({"_id": "user_2", "email": "bob@example.com"}),
-        ));
+        storage.add_record(
+            100,
+            make_record(
+                "user_1",
+                "users",
+                "v1",
+                json!({"_id": "user_1", "email": "alice@example.com"}),
+            ),
+        );
+        storage.add_record(
+            200,
+            make_record(
+                "user_2",
+                "users",
+                "v1",
+                json!({"_id": "user_2", "email": "bob@example.com"}),
+            ),
+        );
 
         let plan = make_plan(
-            "users", "v1", "email", ScanType::IndexedEquality,
+            "users",
+            "v1",
+            "email",
+            ScanType::IndexedEquality,
             vec![Predicate::eq("email", json!("alice@example.com"))],
             10,
         );
@@ -384,14 +410,22 @@ mod tests {
 
         let mut storage = MockStorage::new();
         for i in 1..=5 {
-            storage.add_record(i as u64 * 100, make_record(
-                &format!("user_{}", i), "users", "v1",
-                json!({"_id": format!("user_{}", i), "age": 20 + i}),
-            ));
+            storage.add_record(
+                i as u64 * 100,
+                make_record(
+                    &format!("user_{}", i),
+                    "users",
+                    "v1",
+                    json!({"_id": format!("user_{}", i), "age": 20 + i}),
+                ),
+            );
         }
 
         let plan = make_plan(
-            "users", "v1", "age", ScanType::IndexedRange,
+            "users",
+            "v1",
+            "age",
+            ScanType::IndexedRange,
             vec![
                 Predicate::gte("age", json!(21)),
                 Predicate::lte("age", json!(24)),
@@ -414,18 +448,31 @@ mod tests {
         index.add_pk("user_2", 200);
 
         let mut storage = MockStorage::new();
-        storage.add_record(100, make_record(
-            "user_1", "users", "v1",
-            json!({"_id": "user_1", "name": "Alice"}),
-        ));
-        storage.add_record(200, make_record(
-            "user_2", "users", "v2", // Different version!
-            json!({"_id": "user_2", "name": "Bob"}),
-        ));
+        storage.add_record(
+            100,
+            make_record(
+                "user_1",
+                "users",
+                "v1",
+                json!({"_id": "user_1", "name": "Alice"}),
+            ),
+        );
+        storage.add_record(
+            200,
+            make_record(
+                "user_2",
+                "users",
+                "v2", // Different version!
+                json!({"_id": "user_2", "name": "Bob"}),
+            ),
+        );
 
         // Query for v1 only
         let mut plan = make_plan(
-            "users", "v1", "_id", ScanType::PrimaryKey,
+            "users",
+            "v1",
+            "_id",
+            ScanType::PrimaryKey,
             vec![Predicate::eq("_id", json!("user_2"))],
             10,
         );
@@ -455,14 +502,22 @@ mod tests {
         index.add_pk("user_1", 100);
 
         let mut storage = MockStorage::new();
-        storage.add_record(100, make_record(
-            "user_1", "users", "v1",
-            json!({"_id": "user_1", "name": "Alice"}),
-        ));
+        storage.add_record(
+            100,
+            make_record(
+                "user_1",
+                "users",
+                "v1",
+                json!({"_id": "user_1", "name": "Alice"}),
+            ),
+        );
         storage.mark_corrupt(100);
 
         let plan = make_plan(
-            "users", "v1", "_id", ScanType::PrimaryKey,
+            "users",
+            "v1",
+            "_id",
+            ScanType::PrimaryKey,
             vec![Predicate::eq("_id", json!("user_1"))],
             1,
         );
@@ -485,14 +540,22 @@ mod tests {
 
         let mut storage = MockStorage::new();
         for i in 1..=3 {
-            storage.add_record(i as u64 * 100, make_record(
-                &format!("user_{}", i), "users", "v1",
-                json!({"_id": format!("user_{}", i), "age": 30 - i}),
-            ));
+            storage.add_record(
+                i as u64 * 100,
+                make_record(
+                    &format!("user_{}", i),
+                    "users",
+                    "v1",
+                    json!({"_id": format!("user_{}", i), "age": 30 - i}),
+                ),
+            );
         }
 
         let mut plan = make_plan(
-            "users", "v1", "age", ScanType::IndexedRange,
+            "users",
+            "v1",
+            "age",
+            ScanType::IndexedRange,
             vec![Predicate::gte("age", json!(27))],
             10,
         );
@@ -521,14 +584,22 @@ mod tests {
 
         let mut storage = MockStorage::new();
         for i in 1..=10 {
-            storage.add_record(i as u64 * 100, make_record(
-                &format!("user_{}", i), "users", "v1",
-                json!({"_id": format!("user_{}", i), "age": 20 + i}),
-            ));
+            storage.add_record(
+                i as u64 * 100,
+                make_record(
+                    &format!("user_{}", i),
+                    "users",
+                    "v1",
+                    json!({"_id": format!("user_{}", i), "age": 20 + i}),
+                ),
+            );
         }
 
         let plan = make_plan(
-            "users", "v1", "age", ScanType::IndexedRange,
+            "users",
+            "v1",
+            "age",
+            ScanType::IndexedRange,
             vec![Predicate::gte("age", json!(21))],
             3, // Limit to 3
         );
@@ -547,13 +618,21 @@ mod tests {
         index.add_pk("user_1", 100);
 
         let mut storage = MockStorage::new();
-        storage.add_record(100, make_record(
-            "user_1", "users", "v1",
-            json!({"_id": "user_1", "name": "Alice"}),
-        ));
+        storage.add_record(
+            100,
+            make_record(
+                "user_1",
+                "users",
+                "v1",
+                json!({"_id": "user_1", "name": "Alice"}),
+            ),
+        );
 
         let plan = make_plan(
-            "users", "v1", "_id", ScanType::PrimaryKey,
+            "users",
+            "v1",
+            "_id",
+            ScanType::PrimaryKey,
             vec![Predicate::eq("_id", json!("user_1"))],
             1,
         );

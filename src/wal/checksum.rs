@@ -58,18 +58,21 @@ mod tests {
         let data2 = b"second payload";
         let checksum1 = compute_checksum(data1);
         let checksum2 = compute_checksum(data2);
-        assert_ne!(checksum1, checksum2, "Different data must produce different checksums");
+        assert_ne!(
+            checksum1, checksum2,
+            "Different data must produce different checksums"
+        );
     }
 
     #[test]
     fn test_checksum_detects_single_bit_flip() {
         let mut data = vec![0x00, 0x01, 0x02, 0x03, 0x04];
         let original_checksum = compute_checksum(&data);
-        
+
         // Flip a single bit
         data[2] ^= 0x01;
         let corrupted_checksum = compute_checksum(&data);
-        
+
         assert_ne!(
             original_checksum, corrupted_checksum,
             "Single bit flip must change checksum"

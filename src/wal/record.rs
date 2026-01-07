@@ -53,7 +53,10 @@ impl RecordType {
 
     /// Returns true if this is an MVCC-specific record type
     pub fn is_mvcc_record(self) -> bool {
-        matches!(self, RecordType::MvccCommit | RecordType::MvccVersion | RecordType::MvccGc)
+        matches!(
+            self,
+            RecordType::MvccCommit | RecordType::MvccVersion | RecordType::MvccGc
+        )
     }
 
     /// Convert to u8
@@ -102,8 +105,7 @@ impl MvccCommitPayload {
             ));
         }
         let commit_id = u64::from_le_bytes([
-            data[0], data[1], data[2], data[3],
-            data[4], data[5], data[6], data[7],
+            data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
         ]);
         Ok(Self { commit_id })
     }
@@ -154,42 +156,42 @@ impl MvccVersionPayload {
     /// Serialize to bytes
     pub fn serialize(&self) -> Vec<u8> {
         let mut buf = Vec::new();
-        
+
         // commit_id (u64 LE)
         buf.extend_from_slice(&self.commit_id.to_le_bytes());
-        
+
         // key (length-prefixed string)
         buf.extend_from_slice(&(self.key.len() as u32).to_le_bytes());
         buf.extend_from_slice(self.key.as_bytes());
-        
+
         // is_tombstone (u8)
         buf.push(if self.is_tombstone { 1 } else { 0 });
-        
+
         // payload (length-prefixed bytes)
         buf.extend_from_slice(&(self.payload.len() as u32).to_le_bytes());
         buf.extend_from_slice(&self.payload);
-        
+
         buf
     }
 
     /// Deserialize from bytes
     pub fn deserialize(data: &[u8]) -> std::io::Result<Self> {
         use std::io::{Cursor, Read};
-        
+
         if data.len() < 8 + 4 + 1 + 4 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
                 "MvccVersionPayload too short",
             ));
         }
-        
+
         let mut cursor = Cursor::new(data);
-        
+
         // commit_id
         let mut commit_buf = [0u8; 8];
         cursor.read_exact(&mut commit_buf)?;
         let commit_id = u64::from_le_bytes(commit_buf);
-        
+
         // key
         let mut len_buf = [0u8; 4];
         cursor.read_exact(&mut len_buf)?;
@@ -197,20 +199,23 @@ impl MvccVersionPayload {
         let mut key_buf = vec![0u8; key_len];
         cursor.read_exact(&mut key_buf)?;
         let key = String::from_utf8(key_buf).map_err(|e| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Invalid UTF-8: {}", e))
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Invalid UTF-8: {}", e),
+            )
         })?;
-        
+
         // is_tombstone
         let mut tombstone_buf = [0u8; 1];
         cursor.read_exact(&mut tombstone_buf)?;
         let is_tombstone = tombstone_buf[0] != 0;
-        
+
         // payload
         cursor.read_exact(&mut len_buf)?;
         let payload_len = u32::from_le_bytes(len_buf) as usize;
         let mut payload = vec![0u8; payload_len];
         cursor.read_exact(&mut payload)?;
-        
+
         Ok(Self {
             commit_id,
             key,
@@ -680,7 +685,12 @@ pub struct MvccVersionRecord {
 
 impl MvccVersionRecord {
     /// Create a new MVCC version record
-    pub fn new(sequence_number: u64, commit_id: u64, key: impl Into<String>, data: Vec<u8>) -> Self {
+    pub fn new(
+        sequence_number: u64,
+        commit_id: u64,
+        key: impl Into<String>,
+        data: Vec<u8>,
+    ) -> Self {
         Self {
             sequence_number,
             payload: MvccVersionPayload::new(commit_id, key, data),
@@ -916,7 +926,10 @@ mod tests {
         let record = WalRecord::insert(1, sample_payload());
         let serialized1 = record.serialize();
         let serialized2 = record.serialize();
-        assert_eq!(serialized1, serialized2, "Serialization must be deterministic");
+        assert_eq!(
+            serialized1, serialized2,
+            "Serialization must be deterministic"
+        );
     }
 
     #[test]
@@ -958,7 +971,10 @@ mod tests {
         let record = MvccCommitRecord::new(1, 42);
         let serialized1 = record.serialize();
         let serialized2 = record.serialize();
-        assert_eq!(serialized1, serialized2, "Serialization must be deterministic");
+        assert_eq!(
+            serialized1, serialized2,
+            "Serialization must be deterministic"
+        );
     }
 
     #[test]
@@ -1020,7 +1036,10 @@ mod tests {
         let record = MvccVersionRecord::new(1, 42, "key", b"data".to_vec());
         let serialized1 = record.serialize();
         let serialized2 = record.serialize();
-        assert_eq!(serialized1, serialized2, "Serialization must be deterministic");
+        assert_eq!(
+            serialized1, serialized2,
+            "Serialization must be deterministic"
+        );
     }
 
     #[test]
@@ -1042,4 +1061,3 @@ mod tests {
         assert!(RecordType::MvccVersion.is_mvcc_record());
     }
 }
-

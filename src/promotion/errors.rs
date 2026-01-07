@@ -21,22 +21,22 @@ pub struct PromotionError {
 pub enum PromotionErrorKind {
     /// Forbidden state transition attempted
     ForbiddenTransition,
-    
+
     /// Promotion validation failed
     ValidationFailed,
-    
+
     /// No promotion in progress
     NoPromotionInProgress,
-    
+
     /// Promotion already in progress
     PromotionAlreadyInProgress,
-    
+
     /// Invalid replica for promotion
     InvalidReplica,
-    
+
     /// Authority transition failed
     AuthorityTransitionFailed,
-    
+
     /// Promotion denied by validator
     PromotionDenied,
 }
@@ -49,33 +49,33 @@ impl PromotionError {
             message: message.into(),
         }
     }
-    
+
     /// Create a forbidden transition error.
     pub fn forbidden_transition(from: &str, to: &str) -> Self {
         Self::new(
             PromotionErrorKind::ForbiddenTransition,
-            format!("forbidden transition: {} → {}", from, to)
+            format!("forbidden transition: {} → {}", from, to),
         )
     }
-    
+
     /// Create a validation failed error.
     pub fn validation_failed(reason: impl Into<String>) -> Self {
         Self::new(PromotionErrorKind::ValidationFailed, reason)
     }
-    
+
     /// Create a no promotion in progress error.
     pub fn no_promotion_in_progress() -> Self {
         Self::new(
             PromotionErrorKind::NoPromotionInProgress,
-            "no promotion attempt is in progress"
+            "no promotion attempt is in progress",
         )
     }
-    
+
     /// Create a promotion already in progress error.
     pub fn promotion_already_in_progress() -> Self {
         Self::new(
             PromotionErrorKind::PromotionAlreadyInProgress,
-            "a promotion attempt is already in progress"
+            "a promotion attempt is already in progress",
         )
     }
 }

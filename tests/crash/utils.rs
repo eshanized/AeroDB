@@ -47,8 +47,7 @@ pub fn validate_wal_integrity(data_dir: &Path) -> Result<(), String> {
     let wal_log = wal_dir.join("wal.log");
     if wal_log.exists() {
         // Try to read to verify not corrupted
-        let mut file = File::open(&wal_log)
-            .map_err(|e| format!("Cannot open wal.log: {}", e))?;
+        let mut file = File::open(&wal_log).map_err(|e| format!("Cannot open wal.log: {}", e))?;
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer)
             .map_err(|e| format!("Cannot read wal.log: {}", e))?;
@@ -67,8 +66,8 @@ pub fn validate_snapshot_integrity(data_dir: &Path) -> Result<(), String> {
     }
 
     // Check each snapshot has a manifest
-    for entry in fs::read_dir(&snapshots_dir)
-        .map_err(|e| format!("Cannot read snapshots dir: {}", e))?
+    for entry in
+        fs::read_dir(&snapshots_dir).map_err(|e| format!("Cannot read snapshots dir: {}", e))?
     {
         let entry = entry.map_err(|e| format!("Cannot read entry: {}", e))?;
         let path = entry.path();
@@ -82,8 +81,8 @@ pub fn validate_snapshot_integrity(data_dir: &Path) -> Result<(), String> {
             }
 
             // Validate manifest is valid JSON
-            let mut file = File::open(&manifest)
-                .map_err(|e| format!("Cannot open manifest: {}", e))?;
+            let mut file =
+                File::open(&manifest).map_err(|e| format!("Cannot open manifest: {}", e))?;
             let mut contents = String::new();
             file.read_to_string(&mut contents)
                 .map_err(|e| format!("Cannot read manifest: {}", e))?;
@@ -104,14 +103,12 @@ pub fn validate_no_partial_files(data_dir: &Path) -> Result<(), String> {
             return Ok(());
         }
 
-        for entry in fs::read_dir(dir)
-            .map_err(|e| format!("Cannot read dir {}: {}", dir.display(), e))?
+        for entry in
+            fs::read_dir(dir).map_err(|e| format!("Cannot read dir {}: {}", dir.display(), e))?
         {
             let entry = entry.map_err(|e| format!("Cannot read entry: {}", e))?;
             let path = entry.path();
-            let name = path.file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("");
+            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
             if name.ends_with(".tmp") || name.ends_with(".partial") {
                 return Err(format!("Partial file found: {}", path.display()));
@@ -136,11 +133,11 @@ pub fn validate_backup_integrity(backup_path: &Path) -> Result<(), String> {
     }
 
     // Try to open as tar archive
-    let file = File::open(backup_path)
-        .map_err(|e| format!("Cannot open backup: {}", e))?;
+    let file = File::open(backup_path).map_err(|e| format!("Cannot open backup: {}", e))?;
 
     let mut archive = tar::Archive::new(file);
-    let entries = archive.entries()
+    let entries = archive
+        .entries()
         .map_err(|e| format!("Cannot read backup entries: {}", e))?;
 
     // Count entries to verify archive is readable
@@ -184,8 +181,7 @@ pub fn read_wal_contents(data_dir: &Path) -> Result<Vec<u8>, String> {
         return Ok(Vec::new());
     }
 
-    let mut file = File::open(&wal_log)
-        .map_err(|e| format!("Cannot open wal.log: {}", e))?;
+    let mut file = File::open(&wal_log).map_err(|e| format!("Cannot open wal.log: {}", e))?;
 
     let mut contents = Vec::new();
     file.read_to_end(&mut contents)
@@ -212,7 +208,7 @@ mod tests {
     #[test]
     fn test_validate_wal_integrity() {
         let data_dir = create_temp_data_dir("wal_test");
-        
+
         // Empty WAL is valid
         let result = validate_wal_integrity(&data_dir);
         assert!(result.is_ok());

@@ -189,10 +189,7 @@ impl Event {
 
     /// Returns true if this event indicates a fatal condition
     pub fn is_fatal(&self) -> bool {
-        matches!(
-            self,
-            Event::WalCorruption | Event::RecoveryFailed
-        )
+        matches!(self, Event::WalCorruption | Event::RecoveryFailed)
     }
 }
 
@@ -268,6 +265,9 @@ mod tests {
     #[test]
     fn test_event_display() {
         assert_eq!(format!("{}", Event::BootStart), "AERODB_STARTUP_BEGIN");
-        assert_eq!(format!("{}", Event::CheckpointComplete), "CHECKPOINT_COMPLETE");
+        assert_eq!(
+            format!("{}", Event::CheckpointComplete),
+            "CHECKPOINT_COMPLETE"
+        );
     }
 }

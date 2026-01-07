@@ -21,26 +21,31 @@ pub struct SnapshotMetadata {
     /// Commit boundary of this snapshot
     /// Per §4: WAL replay resumes at CommitId > C_snap
     pub commit_boundary: CommitId,
-    
+
     /// WAL sequence number at snapshot boundary
     pub wal_sequence: u64,
-    
+
     /// Snapshot checksum for integrity validation
     pub checksum: u64,
-    
+
     /// Size in bytes
     pub size_bytes: u64,
-    
+
     /// Whether this snapshot is complete
     pub is_complete: bool,
-    
+
     /// Whether this snapshot was created by Primary
     pub from_primary: bool,
 }
 
 impl SnapshotMetadata {
     /// Create new snapshot metadata.
-    pub fn new(commit_boundary: CommitId, wal_sequence: u64, checksum: u64, size_bytes: u64) -> Self {
+    pub fn new(
+        commit_boundary: CommitId,
+        wal_sequence: u64,
+        checksum: u64,
+        size_bytes: u64,
+    ) -> Self {
         Self {
             commit_boundary,
             wal_sequence,
@@ -57,19 +62,19 @@ impl SnapshotMetadata {
 pub enum SnapshotTransferState {
     /// Not started
     Idle,
-    
+
     /// Transfer in progress
     Transferring,
-    
+
     /// Transfer complete, awaiting validation
     TransferComplete,
-    
+
     /// Validated, awaiting installation
     Validated,
-    
+
     /// Installed successfully
     Installed,
-    
+
     /// Transfer or validation failed
     Failed,
 }
@@ -79,19 +84,19 @@ pub enum SnapshotTransferState {
 pub enum SnapshotEligibility {
     /// Snapshot is eligible for transfer
     Eligible,
-    
+
     /// Not from Primary
     NotFromPrimary,
-    
+
     /// Missing commit boundary
     MissingCommitBoundary,
-    
+
     /// Incomplete snapshot
     Incomplete,
-    
+
     /// Failed integrity check
     IntegrityFailure,
-    
+
     /// Superseded by newer snapshot
     Superseded,
 }
@@ -116,17 +121,17 @@ pub fn check_snapshot_eligibility(metadata: &SnapshotMetadata) -> SnapshotEligib
     if !metadata.from_primary {
         return SnapshotEligibility::NotFromPrimary;
     }
-    
+
     // Must be complete (§3.3)
     if !metadata.is_complete {
         return SnapshotEligibility::Incomplete;
     }
-    
+
     // Checksum must be valid (§5.2)
     if metadata.checksum == 0 {
         return SnapshotEligibility::IntegrityFailure;
     }
-    
+
     SnapshotEligibility::Eligible
 }
 
@@ -150,90 +155,92 @@ impl SnapshotReceiver {
             bytes_received: 0,
         }
     }
-    
+
     /// Get current state.
     pub fn state(&self) -> SnapshotTransferState {
         self.state
     }
-    
+
     /// Get metadata if available.
     pub fn metadata(&self) -> Option<&SnapshotMetadata> {
         self.metadata.as_ref()
     }
-    
+
     /// Start receiving a snapshot.
     ///
     /// Per §4.2: Replica validates and installs atomically.
     pub fn start_transfer(&mut self, metadata: SnapshotMetadata) -> ReplicationResult<()> {
         if self.state != SnapshotTransferState::Idle {
             return Err(ReplicationError::configuration_error(
-                "snapshot transfer already in progress"
+                "snapshot transfer already in progress",
             ));
         }
-        
+
         // Check eligibility per §3
         let eligibility = check_snapshot_eligibility(&metadata);
         if !eligibility.is_eligible() {
-            return Err(ReplicationError::configuration_error(
-                format!("snapshot not eligible: {:?}", eligibility)
-            ));
+            return Err(ReplicationError::configuration_error(format!(
+                "snapshot not eligible: {:?}",
+                eligibility
+            )));
         }
-        
+
         self.metadata = Some(metadata);
         self.bytes_received = 0;
         self.state = SnapshotTransferState::Transferring;
-        
+
         Ok(())
     }
-    
+
     /// Record bytes received.
     pub fn receive_bytes(&mut self, bytes: u64) -> ReplicationResult<()> {
         if self.state != SnapshotTransferState::Transferring {
             return Err(ReplicationError::configuration_error(
-                "not in transferring state"
+                "not in transferring state",
             ));
         }
-        
+
         self.bytes_received += bytes;
-        
+
         // Check if transfer is complete
         if let Some(metadata) = &self.metadata {
             if self.bytes_received >= metadata.size_bytes {
                 self.state = SnapshotTransferState::TransferComplete;
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Validate received snapshot.
     ///
     /// Per §5.2: Validate checksum, manifest, commit boundary, MVCC metadata.
     pub fn validate(&mut self) -> ReplicationResult<()> {
         if self.state != SnapshotTransferState::TransferComplete {
             return Err(ReplicationError::configuration_error(
-                "transfer not complete"
+                "transfer not complete",
             ));
         }
-        
-        let metadata = self.metadata.as_ref().ok_or_else(|| {
-            ReplicationError::configuration_error("no metadata")
-        })?;
-        
+
+        let metadata = self
+            .metadata
+            .as_ref()
+            .ok_or_else(|| ReplicationError::configuration_error("no metadata"))?;
+
         // Verify bytes received match expected
         if self.bytes_received != metadata.size_bytes {
             self.state = SnapshotTransferState::Failed;
             return Err(ReplicationError::history_divergence(
-                "snapshot size mismatch"
+                "snapshot size mismatch",
             ));
         }
-        
+
         // Verification passed (actual checksum verification would happen here)
         self.state = SnapshotTransferState::Validated;
-        
+
         Ok(())
     }
-    
+
     /// Install snapshot atomically.
     ///
     /// Per §5.1: Atomic, all-or-nothing, crash-safe.
@@ -242,28 +249,30 @@ impl SnapshotReceiver {
     pub fn install(&mut self) -> ReplicationResult<SnapshotInstallResult> {
         if self.state != SnapshotTransferState::Validated {
             return Err(ReplicationError::configuration_error(
-                "snapshot not validated"
+                "snapshot not validated",
             ));
         }
-        
-        let metadata = self.metadata.as_ref().ok_or_else(|| {
-            ReplicationError::configuration_error("no metadata")
-        })?.clone();
-        
+
+        let metadata = self
+            .metadata
+            .as_ref()
+            .ok_or_else(|| ReplicationError::configuration_error("no metadata"))?
+            .clone();
+
         // In real implementation, this would:
         // 1. Write snapshot to staging area
         // 2. Fsync
         // 3. Atomically swap into place
         // 4. Update metadata
-        
+
         self.state = SnapshotTransferState::Installed;
-        
+
         Ok(SnapshotInstallResult {
             commit_boundary: metadata.commit_boundary,
             wal_resume_sequence: metadata.wal_sequence + 1,
         })
     }
-    
+
     /// Abort transfer.
     ///
     /// Per §9.1: Crash during transfer → discard.
@@ -272,7 +281,7 @@ impl SnapshotReceiver {
         self.metadata = None;
         self.bytes_received = 0;
     }
-    
+
     /// Reset to idle state.
     pub fn reset(&mut self) {
         self.state = SnapshotTransferState::Idle;
@@ -292,7 +301,7 @@ impl Default for SnapshotReceiver {
 pub struct SnapshotInstallResult {
     /// Commit boundary of installed snapshot
     pub commit_boundary: CommitId,
-    
+
     /// WAL sequence to resume from (strictly > snapshot boundary)
     /// Per §6: Replica must accept WAL records with CommitId > C_snap
     pub wal_resume_sequence: u64,
@@ -310,12 +319,7 @@ mod tests {
     use super::*;
 
     fn create_test_metadata() -> SnapshotMetadata {
-        SnapshotMetadata::new(
-            CommitId::new(100),
-            99,
-            0xDEADBEEF,
-            1024,
-        )
+        SnapshotMetadata::new(CommitId::new(100), 99, 0xDEADBEEF, 1024)
     }
 
     #[test]
@@ -330,7 +334,7 @@ mod tests {
         // Per §2: Only Primary may produce snapshots
         let mut metadata = create_test_metadata();
         metadata.from_primary = false;
-        
+
         assert_eq!(
             check_snapshot_eligibility(&metadata),
             SnapshotEligibility::NotFromPrimary
@@ -341,7 +345,7 @@ mod tests {
     fn test_snapshot_eligibility_incomplete() {
         let mut metadata = create_test_metadata();
         metadata.is_complete = false;
-        
+
         assert_eq!(
             check_snapshot_eligibility(&metadata),
             SnapshotEligibility::Incomplete
@@ -352,25 +356,25 @@ mod tests {
     fn test_snapshot_receiver_lifecycle() {
         let mut receiver = SnapshotReceiver::new();
         assert_eq!(receiver.state(), SnapshotTransferState::Idle);
-        
+
         // Start transfer
         let metadata = create_test_metadata();
         assert!(receiver.start_transfer(metadata).is_ok());
         assert_eq!(receiver.state(), SnapshotTransferState::Transferring);
-        
+
         // Receive bytes
         assert!(receiver.receive_bytes(1024).is_ok());
         assert_eq!(receiver.state(), SnapshotTransferState::TransferComplete);
-        
+
         // Validate
         assert!(receiver.validate().is_ok());
         assert_eq!(receiver.state(), SnapshotTransferState::Validated);
-        
+
         // Install
         let result = receiver.install();
         assert!(result.is_ok());
         assert_eq!(receiver.state(), SnapshotTransferState::Installed);
-        
+
         let install_result = result.unwrap();
         assert_eq!(install_result.commit_boundary, CommitId::new(100));
         assert_eq!(install_result.wal_resume_sequence, 100);
@@ -383,10 +387,10 @@ mod tests {
         let metadata = create_test_metadata();
         receiver.start_transfer(metadata).unwrap();
         receiver.receive_bytes(512).unwrap();
-        
+
         // Abort mid-transfer
         receiver.abort();
-        
+
         assert_eq!(receiver.state(), SnapshotTransferState::Failed);
         assert!(receiver.metadata().is_none());
     }
@@ -398,7 +402,7 @@ mod tests {
             commit_boundary: CommitId::new(50),
             wal_resume_sequence: 51,
         };
-        
+
         let pos = result.wal_resume_position();
         assert_eq!(pos.sequence, 51);
     }
@@ -407,7 +411,7 @@ mod tests {
     fn test_cannot_start_transfer_twice() {
         let mut receiver = SnapshotReceiver::new();
         let metadata = create_test_metadata();
-        
+
         assert!(receiver.start_transfer(metadata.clone()).is_ok());
         assert!(receiver.start_transfer(metadata).is_err());
     }
@@ -417,11 +421,11 @@ mod tests {
         let mut receiver = SnapshotReceiver::new();
         let metadata = create_test_metadata();
         receiver.start_transfer(metadata).unwrap();
-        
+
         // Receive wrong number of bytes
         receiver.receive_bytes(512).unwrap();
         receiver.state = SnapshotTransferState::TransferComplete; // Force complete
-        
+
         let result = receiver.validate();
         assert!(result.is_err());
         assert_eq!(receiver.state(), SnapshotTransferState::Failed);

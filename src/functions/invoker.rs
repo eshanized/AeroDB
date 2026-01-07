@@ -14,19 +14,19 @@ use super::trigger::TriggerType;
 pub struct InvocationContext {
     /// Invocation ID
     pub id: Uuid,
-    
+
     /// Function ID
     pub function_id: Uuid,
-    
+
     /// Trigger that caused invocation
     pub trigger: TriggerType,
-    
+
     /// Request payload
     pub payload: Value,
-    
+
     /// User ID (if authenticated)
     pub user_id: Option<Uuid>,
-    
+
     /// Invocation timestamp
     pub timestamp: DateTime<Utc>,
 }
@@ -50,19 +50,19 @@ impl InvocationContext {
 pub struct InvocationResult {
     /// Invocation ID
     pub id: Uuid,
-    
+
     /// Success flag
     pub success: bool,
-    
+
     /// Return value (if successful)
     pub result: Option<Value>,
-    
+
     /// Error message (if failed)
     pub error: Option<String>,
-    
+
     /// Execution duration in milliseconds
     pub duration_ms: u64,
-    
+
     /// Logs produced
     pub logs: Vec<String>,
 }
@@ -79,7 +79,7 @@ impl InvocationResult {
             logs: Vec::new(),
         }
     }
-    
+
     /// Create a failed result
     pub fn failure(id: Uuid, error: String, duration_ms: u64) -> Self {
         Self {
@@ -102,25 +102,29 @@ impl Invoker {
     pub fn new() -> Self {
         Self
     }
-    
+
     /// Invoke a function
-    /// 
+    ///
     /// Note: Actual WASM execution is stubbed. This simulates
     /// successful invocation for testing purposes.
-    pub fn invoke(&self, function: &Function, context: InvocationContext) -> FunctionResult<InvocationResult> {
+    pub fn invoke(
+        &self,
+        function: &Function,
+        context: InvocationContext,
+    ) -> FunctionResult<InvocationResult> {
         // Check if function is enabled
         if !function.enabled {
             return Err(FunctionError::RuntimeError("Function is disabled".into()));
         }
-        
+
         // Simulate execution (in real implementation, this would run WASM)
         let start = std::time::Instant::now();
-        
+
         // Stub: Return the payload as result
         let result = context.payload.clone();
-        
+
         let duration_ms = start.elapsed().as_millis() as u64;
-        
+
         Ok(InvocationResult::success(context.id, result, duration_ms))
     }
 }
@@ -128,7 +132,7 @@ impl Invoker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_invocation_context() {
         let func = Function::new(
@@ -136,50 +140,42 @@ mod tests {
             TriggerType::http("/test".to_string()),
             vec![1],
         );
-        
-        let context = InvocationContext::new(
-            &func,
-            serde_json::json!({"message": "hello"}),
-            None,
-        );
-        
+
+        let context = InvocationContext::new(&func, serde_json::json!({"message": "hello"}), None);
+
         assert_eq!(context.function_id, func.id);
     }
-    
+
     #[test]
     fn test_invoke() {
         let invoker = Invoker::new();
-        
+
         let func = Function::new(
             "echo".to_string(),
             TriggerType::http("/echo".to_string()),
             vec![1, 2, 3],
         );
-        
-        let context = InvocationContext::new(
-            &func,
-            serde_json::json!({"input": "test"}),
-            None,
-        );
-        
+
+        let context = InvocationContext::new(&func, serde_json::json!({"input": "test"}), None);
+
         let result = invoker.invoke(&func, context).unwrap();
         assert!(result.success);
         assert!(result.result.is_some());
     }
-    
+
     #[test]
     fn test_disabled_function() {
         let invoker = Invoker::new();
-        
+
         let mut func = Function::new(
             "disabled".to_string(),
             TriggerType::http("/disabled".to_string()),
             vec![1],
         );
         func.enabled = false;
-        
+
         let context = InvocationContext::new(&func, serde_json::json!({}), None);
-        
+
         assert!(invoker.invoke(&func, context).is_err());
     }
 }

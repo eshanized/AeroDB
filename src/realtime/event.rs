@@ -34,31 +34,31 @@ impl std::fmt::Display for EventType {
 pub struct DatabaseEvent {
     /// Monotonically increasing sequence number (RT-E2)
     pub sequence: u64,
-    
+
     /// Event type
     pub event_type: EventType,
-    
+
     /// Collection name
     pub collection: String,
-    
+
     /// Schema name (default: "public")
     #[serde(default = "default_schema")]
     pub schema: String,
-    
+
     /// Record ID
     pub record_id: String,
-    
+
     /// New record data (for INSERT/UPDATE)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub new_data: Option<Value>,
-    
+
     /// Old record data (for UPDATE/DELETE)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub old_data: Option<Value>,
-    
+
     /// Timestamp of the event
     pub timestamp: DateTime<Utc>,
-    
+
     /// User who made the change (if authenticated)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_id: Option<Uuid>,
@@ -89,7 +89,7 @@ impl DatabaseEvent {
             user_id,
         }
     }
-    
+
     /// Create an UPDATE event
     pub fn update(
         sequence: u64,
@@ -111,7 +111,7 @@ impl DatabaseEvent {
             user_id,
         }
     }
-    
+
     /// Create a DELETE event
     pub fn delete(
         sequence: u64,
@@ -132,12 +132,12 @@ impl DatabaseEvent {
             user_id,
         }
     }
-    
+
     /// Get the topic string for this event
     pub fn topic(&self) -> String {
         format!("realtime:{}:{}", self.schema, self.collection)
     }
-    
+
     /// Serialize to Supabase-compatible format
     pub fn to_wire_format(&self) -> Value {
         serde_json::json!({
@@ -159,17 +159,17 @@ impl DatabaseEvent {
 pub struct BroadcastEvent {
     /// Channel name
     pub channel: String,
-    
+
     /// Event name (user-defined)
     pub event: String,
-    
+
     /// Payload
     pub payload: Value,
-    
+
     /// Sender user ID
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sender_id: Option<Uuid>,
-    
+
     /// Timestamp
     pub timestamp: DateTime<Utc>,
 }
@@ -185,12 +185,12 @@ impl BroadcastEvent {
             timestamp: Utc::now(),
         }
     }
-    
+
     /// Get the topic string for this event
     pub fn topic(&self) -> String {
         format!("realtime:broadcast:{}", self.channel)
     }
-    
+
     /// Serialize to wire format
     pub fn to_wire_format(&self) -> Value {
         serde_json::json!({
@@ -207,13 +207,13 @@ impl BroadcastEvent {
 pub struct PresenceEvent {
     /// Channel name
     pub channel: String,
-    
+
     /// Event type (join, leave, sync)
     pub event: PresenceEventType,
-    
+
     /// User state(s)
     pub state: Value,
-    
+
     /// Timestamp
     pub timestamp: DateTime<Utc>,
 }
@@ -230,14 +230,14 @@ pub enum PresenceEventType {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_event_type_display() {
         assert_eq!(EventType::Insert.to_string(), "INSERT");
         assert_eq!(EventType::Update.to_string(), "UPDATE");
         assert_eq!(EventType::Delete.to_string(), "DELETE");
     }
-    
+
     #[test]
     fn test_insert_event() {
         let event = DatabaseEvent::insert(
@@ -247,14 +247,14 @@ mod tests {
             serde_json::json!({"title": "Hello"}),
             None,
         );
-        
+
         assert_eq!(event.sequence, 1);
         assert_eq!(event.event_type, EventType::Insert);
         assert_eq!(event.collection, "posts");
         assert!(event.new_data.is_some());
         assert!(event.old_data.is_none());
     }
-    
+
     #[test]
     fn test_update_event() {
         let event = DatabaseEvent::update(
@@ -265,12 +265,12 @@ mod tests {
             serde_json::json!({"title": "Updated"}),
             None,
         );
-        
+
         assert_eq!(event.event_type, EventType::Update);
         assert!(event.new_data.is_some());
         assert!(event.old_data.is_some());
     }
-    
+
     #[test]
     fn test_delete_event() {
         let event = DatabaseEvent::delete(
@@ -280,12 +280,12 @@ mod tests {
             serde_json::json!({"title": "Goodbye"}),
             None,
         );
-        
+
         assert_eq!(event.event_type, EventType::Delete);
         assert!(event.new_data.is_none());
         assert!(event.old_data.is_some());
     }
-    
+
     #[test]
     fn test_event_topic() {
         let event = DatabaseEvent::insert(
@@ -295,10 +295,10 @@ mod tests {
             serde_json::json!({}),
             None,
         );
-        
+
         assert_eq!(event.topic(), "realtime:public:posts");
     }
-    
+
     #[test]
     fn test_wire_format() {
         let event = DatabaseEvent::insert(
@@ -308,13 +308,13 @@ mod tests {
             serde_json::json!({"title": "Test"}),
             None,
         );
-        
+
         let wire = event.to_wire_format();
         assert_eq!(wire["type"], "postgres_changes");
         assert_eq!(wire["payload"]["event"], "INSERT");
         assert_eq!(wire["payload"]["table"], "posts");
     }
-    
+
     #[test]
     fn test_broadcast_event() {
         let event = BroadcastEvent::new(
@@ -323,9 +323,9 @@ mod tests {
             serde_json::json!({"text": "Hello!"}),
             None,
         );
-        
+
         assert_eq!(event.topic(), "realtime:broadcast:chat-room");
-        
+
         let wire = event.to_wire_format();
         assert_eq!(wire["type"], "broadcast");
         assert_eq!(wire["event"], "message");

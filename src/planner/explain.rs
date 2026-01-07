@@ -36,18 +36,26 @@ impl ExplainPlan {
         let predicates: Vec<String> = plan
             .predicates
             .iter()
-            .map(|p| format!("{} {} {:?}", p.field, p.op.op_name(), match &p.op {
-                super::ast::FilterOp::Eq(v) => v,
-                super::ast::FilterOp::Gte(v) => v,
-                super::ast::FilterOp::Gt(v) => v,
-                super::ast::FilterOp::Lte(v) => v,
-                super::ast::FilterOp::Lt(v) => v,
-            }))
+            .map(|p| {
+                format!(
+                    "{} {} {:?}",
+                    p.field,
+                    p.op.op_name(),
+                    match &p.op {
+                        super::ast::FilterOp::Eq(v) => v,
+                        super::ast::FilterOp::Gte(v) => v,
+                        super::ast::FilterOp::Gt(v) => v,
+                        super::ast::FilterOp::Lte(v) => v,
+                        super::ast::FilterOp::Lt(v) => v,
+                    }
+                )
+            })
             .collect();
 
-        let sort = plan.sort.as_ref().map(|s| {
-            format!("{} {}", s.field, s.direction.as_str())
-        });
+        let sort = plan
+            .sort
+            .as_ref()
+            .map(|s| format!("{} {}", s.field, s.direction.as_str()));
 
         Self {
             accepted: true,
@@ -130,8 +138,12 @@ mod tests {
     struct TestSchemaRegistry;
 
     impl SchemaRegistry for TestSchemaRegistry {
-        fn schema_exists(&self, _: &str) -> bool { true }
-        fn schema_version_exists(&self, _: &str, _: &str) -> bool { true }
+        fn schema_exists(&self, _: &str) -> bool {
+            true
+        }
+        fn schema_version_exists(&self, _: &str, _: &str) -> bool {
+            true
+        }
     }
 
     #[test]
@@ -164,7 +176,10 @@ mod tests {
         let explain = ExplainPlan::from_error(&err);
 
         assert!(!explain.accepted);
-        assert_eq!(explain.rejection_code, Some("AERO_QUERY_UNINDEXED_FIELD".into()));
+        assert_eq!(
+            explain.rejection_code,
+            Some("AERO_QUERY_UNINDEXED_FIELD".into())
+        );
 
         let output = format!("{}", explain);
         assert!(output.contains("REJECTED"));

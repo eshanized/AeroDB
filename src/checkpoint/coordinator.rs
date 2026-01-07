@@ -71,13 +71,8 @@ pub fn create_checkpoint_impl(
     wal.fsync()?;
 
     // Step 3-4: Create snapshot (includes fsync of all snapshot files)
-    let snapshot_id = SnapshotManager::create_snapshot(
-        data_dir,
-        storage_path,
-        schema_dir,
-        wal,
-        lock,
-    )?;
+    let snapshot_id =
+        SnapshotManager::create_snapshot(data_dir, storage_path, schema_dir, wal, lock)?;
 
     // Checkpoint ID equals snapshot ID
     let checkpoint_id = snapshot_id.clone();
@@ -187,7 +182,9 @@ mod tests {
 
         let schema_path = schema_dir.join("user_v1.json");
         let mut schema_file = File::create(&schema_path).unwrap();
-        schema_file.write_all(br#"{"name": "user", "version": 1}"#).unwrap();
+        schema_file
+            .write_all(br#"{"name": "user", "version": 1}"#)
+            .unwrap();
         schema_file.sync_all().unwrap();
 
         (temp_dir, storage_path, schema_dir, wal)
@@ -209,13 +206,8 @@ mod tests {
         let data_dir = temp_dir.path();
         let lock = GlobalExecutionLock::new();
 
-        let checkpoint_id = create_checkpoint_impl(
-            data_dir,
-            &storage_path,
-            &schema_dir,
-            &mut wal,
-            &lock,
-        ).unwrap();
+        let checkpoint_id =
+            create_checkpoint_impl(data_dir, &storage_path, &schema_dir, &mut wal, &lock).unwrap();
 
         // Verify snapshot exists
         let snapshot_dir = data_dir.join("snapshots").join(&checkpoint_id);
@@ -230,13 +222,8 @@ mod tests {
         let data_dir = temp_dir.path();
         let lock = GlobalExecutionLock::new();
 
-        let checkpoint_id = create_checkpoint_impl(
-            data_dir,
-            &storage_path,
-            &schema_dir,
-            &mut wal,
-            &lock,
-        ).unwrap();
+        let checkpoint_id =
+            create_checkpoint_impl(data_dir, &storage_path, &schema_dir, &mut wal, &lock).unwrap();
 
         // Verify marker exists
         let mp = marker_path(data_dir);
@@ -256,18 +243,14 @@ mod tests {
         let lock = GlobalExecutionLock::new();
 
         // Write some WAL records first
-        wal.append(RecordType::Insert, create_test_payload("doc1")).unwrap();
-        wal.append(RecordType::Insert, create_test_payload("doc2")).unwrap();
+        wal.append(RecordType::Insert, create_test_payload("doc1"))
+            .unwrap();
+        wal.append(RecordType::Insert, create_test_payload("doc2"))
+            .unwrap();
         assert_eq!(wal.next_sequence_number(), 3);
 
         // Create checkpoint
-        create_checkpoint_impl(
-            data_dir,
-            &storage_path,
-            &schema_dir,
-            &mut wal,
-            &lock,
-        ).unwrap();
+        create_checkpoint_impl(data_dir, &storage_path, &schema_dir, &mut wal, &lock).unwrap();
 
         // Verify WAL is truncated (sequence reset to 1)
         assert_eq!(wal.next_sequence_number(), 1);
@@ -284,13 +267,8 @@ mod tests {
         let data_dir = temp_dir.path();
         let lock = GlobalExecutionLock::new();
 
-        let checkpoint_id = create_checkpoint_impl(
-            data_dir,
-            &storage_path,
-            &schema_dir,
-            &mut wal,
-            &lock,
-        ).unwrap();
+        let checkpoint_id =
+            create_checkpoint_impl(data_dir, &storage_path, &schema_dir, &mut wal, &lock).unwrap();
 
         // Verify checkpoint_id format matches snapshot format
         assert_eq!(checkpoint_id.len(), 16); // YYYYMMDDTHHMMSSZ
@@ -310,19 +288,16 @@ mod tests {
         let lock = GlobalExecutionLock::new();
 
         // Write before checkpoint
-        wal.append(RecordType::Insert, create_test_payload("old_doc")).unwrap();
+        wal.append(RecordType::Insert, create_test_payload("old_doc"))
+            .unwrap();
 
         // Checkpoint
-        create_checkpoint_impl(
-            data_dir,
-            &storage_path,
-            &schema_dir,
-            &mut wal,
-            &lock,
-        ).unwrap();
+        create_checkpoint_impl(data_dir, &storage_path, &schema_dir, &mut wal, &lock).unwrap();
 
         // New writes should work, starting at sequence 1
-        let seq = wal.append(RecordType::Insert, create_test_payload("new_doc")).unwrap();
+        let seq = wal
+            .append(RecordType::Insert, create_test_payload("new_doc"))
+            .unwrap();
         assert_eq!(seq, 1);
     }
 
@@ -338,20 +313,16 @@ mod tests {
         let schema_dir = data_dir.join("schemas");
         fs::create_dir_all(&schema_dir).unwrap();
 
-        let result = create_checkpoint_impl(
-            data_dir,
-            &storage_path,
-            &schema_dir,
-            &mut wal,
-            &lock,
-        );
+        let result = create_checkpoint_impl(data_dir, &storage_path, &schema_dir, &mut wal, &lock);
 
         // Should fail
         assert!(result.is_err());
 
         // WAL should be intact (no truncation)
         // (We didn't write anything, so just verify it can still write)
-        let seq = wal.append(RecordType::Insert, create_test_payload("test")).unwrap();
+        let seq = wal
+            .append(RecordType::Insert, create_test_payload("test"))
+            .unwrap();
         assert_eq!(seq, 1);
     }
 
@@ -361,18 +332,15 @@ mod tests {
         let data_dir = temp_dir.path();
         let lock = GlobalExecutionLock::new();
 
-        create_checkpoint_impl(
-            data_dir,
-            &storage_path,
-            &schema_dir,
-            &mut wal,
-            &lock,
-        ).unwrap();
+        create_checkpoint_impl(data_dir, &storage_path, &schema_dir, &mut wal, &lock).unwrap();
 
         let mp = marker_path(data_dir);
         let marker = CheckpointMarker::read_from_file(&mp).unwrap();
 
-        assert!(marker.wal_truncated, "Marker should show wal_truncated=true after successful checkpoint");
+        assert!(
+            marker.wal_truncated,
+            "Marker should show wal_truncated=true after successful checkpoint"
+        );
     }
 
     #[test]
@@ -382,28 +350,19 @@ mod tests {
         let lock = GlobalExecutionLock::new();
 
         // First checkpoint
-        let cp1 = create_checkpoint_impl(
-            data_dir,
-            &storage_path,
-            &schema_dir,
-            &mut wal,
-            &lock,
-        ).unwrap();
+        let cp1 =
+            create_checkpoint_impl(data_dir, &storage_path, &schema_dir, &mut wal, &lock).unwrap();
 
         // Write more data
-        wal.append(RecordType::Insert, create_test_payload("doc_after_cp1")).unwrap();
+        wal.append(RecordType::Insert, create_test_payload("doc_after_cp1"))
+            .unwrap();
 
         // Allow time difference in snapshot IDs
         std::thread::sleep(std::time::Duration::from_millis(1100));
 
         // Second checkpoint
-        let cp2 = create_checkpoint_impl(
-            data_dir,
-            &storage_path,
-            &schema_dir,
-            &mut wal,
-            &lock,
-        ).unwrap();
+        let cp2 =
+            create_checkpoint_impl(data_dir, &storage_path, &schema_dir, &mut wal, &lock).unwrap();
 
         // Both snapshots should exist
         assert!(data_dir.join("snapshots").join(&cp1).exists());

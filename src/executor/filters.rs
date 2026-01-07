@@ -14,7 +14,9 @@ impl PredicateFilter {
     /// Checks if a document matches all predicates
     pub fn matches(document: &Value, predicates: &[Predicate]) -> bool {
         // All predicates must match (AND semantics)
-        predicates.iter().all(|pred| Self::matches_predicate(document, pred))
+        predicates
+            .iter()
+            .all(|pred| Self::matches_predicate(document, pred))
     }
 
     /// Checks if a document matches a single predicate

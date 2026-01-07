@@ -9,4 +9,7 @@
 
 mod memory_layout;
 
-pub use memory_layout::{Arena, CacheAligned, CacheLineAligned, MemoryLayoutConfig, MemoryLayoutStats, MemoryPath, PackedKeyValue, CACHE_LINE_SIZE};
+pub use memory_layout::{
+    Arena, CacheAligned, CacheLineAligned, MemoryLayoutConfig, MemoryLayoutStats, MemoryPath,
+    PackedKeyValue, CACHE_LINE_SIZE,
+};

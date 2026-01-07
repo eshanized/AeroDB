@@ -7,7 +7,7 @@ use std::fs::{self, File};
 use std::io::Write;
 
 use crate::crash::utils::{
-    create_temp_data_dir, cleanup_temp_data_dir, validate_snapshot_integrity,
+    cleanup_temp_data_dir, create_temp_data_dir, validate_snapshot_integrity,
 };
 use aerodb::crash_point::points;
 
@@ -46,7 +46,8 @@ fn test_snapshot_complete_valid() {
 
     // Create valid manifest
     let mut f = File::create(snapshot_dir.join("manifest.json")).unwrap();
-    f.write_all(br#"{"snapshot_id":"20260204T120000Z","created_at":"2026-02-04T12:00:00Z"}"#).unwrap();
+    f.write_all(br#"{"snapshot_id":"20260204T120000Z","created_at":"2026-02-04T12:00:00Z"}"#)
+        .unwrap();
 
     // Validate
     let result = validate_snapshot_integrity(&data_dir);
@@ -59,7 +60,10 @@ fn test_snapshot_complete_valid() {
 #[test]
 fn test_snapshot_crash_points_defined() {
     assert_eq!(points::SNAPSHOT_START, "snapshot_start");
-    assert_eq!(points::SNAPSHOT_AFTER_STORAGE_COPY, "snapshot_after_storage_copy");
+    assert_eq!(
+        points::SNAPSHOT_AFTER_STORAGE_COPY,
+        "snapshot_after_storage_copy"
+    );
     assert_eq!(points::SNAPSHOT_BEFORE_MANIFEST, "snapshot_before_manifest");
     assert_eq!(points::SNAPSHOT_AFTER_MANIFEST, "snapshot_after_manifest");
 }

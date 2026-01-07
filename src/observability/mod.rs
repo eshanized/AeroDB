@@ -31,17 +31,17 @@
 //! scope.complete();
 //! ```
 
+pub mod audit;
 mod events;
 mod logger;
 mod metrics;
 mod scope;
-pub mod audit;
 
+pub use audit::{AuditAction, AuditLog, AuditOutcome, AuditRecord, FileAuditLog, MemoryAuditLog};
 pub use events::Event;
 pub use logger::{Logger, Severity};
 pub use metrics::{MetricsRegistry, MetricsSnapshot};
 pub use scope::{ObservationScope, Timer};
-pub use audit::{AuditRecord, AuditAction, AuditOutcome, AuditLog, FileAuditLog, MemoryAuditLog};
 
 use std::fmt;
 use std::io;
@@ -133,7 +133,9 @@ impl fmt::Display for ObservabilityError {
 
 impl std::error::Error for ObservabilityError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.source.as_ref().map(|e| e as &(dyn std::error::Error + 'static))
+        self.source
+            .as_ref()
+            .map(|e| e as &(dyn std::error::Error + 'static))
     }
 }
 
@@ -194,8 +196,6 @@ mod tests {
 
     #[test]
     fn test_log_event_with_fields() {
-        log_event_with_fields(Event::ConfigLoaded, &[
-            ("data_dir", "/tmp/test"),
-        ]);
+        log_event_with_fields(Event::ConfigLoaded, &[("data_dir", "/tmp/test")]);
     }
 }

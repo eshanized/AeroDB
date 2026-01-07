@@ -95,7 +95,11 @@ impl ApiError {
         Self {
             code: err.code().code().to_string(),
             message: err.message().to_string(),
-            severity: if err.is_fatal() { Severity::Fatal } else { Severity::Error },
+            severity: if err.is_fatal() {
+                Severity::Fatal
+            } else {
+                Severity::Error
+            },
         }
     }
 
@@ -113,7 +117,11 @@ impl ApiError {
         Self {
             code: err.code().code().to_string(),
             message: err.message().to_string(),
-            severity: if err.is_fatal() { Severity::Fatal } else { Severity::Error },
+            severity: if err.is_fatal() {
+                Severity::Fatal
+            } else {
+                Severity::Error
+            },
         }
     }
 
@@ -122,7 +130,11 @@ impl ApiError {
         Self {
             code: err.code().code().to_string(),
             message: err.message().to_string(),
-            severity: if err.is_fatal() { Severity::Fatal } else { Severity::Error },
+            severity: if err.is_fatal() {
+                Severity::Fatal
+            } else {
+                Severity::Error
+            },
         }
     }
 
@@ -131,7 +143,11 @@ impl ApiError {
         Self {
             code: err.code().code().to_string(),
             message: err.message().to_string(),
-            severity: if err.is_fatal() { Severity::Fatal } else { Severity::Error },
+            severity: if err.is_fatal() {
+                Severity::Fatal
+            } else {
+                Severity::Error
+            },
         }
     }
 

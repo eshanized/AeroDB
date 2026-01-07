@@ -87,10 +87,7 @@ impl WalReplayer {
                 Ok(None) => break, // End of WAL
                 Err(e) => {
                     // WAL corruption detected - abort immediately
-                    return Err(RecoveryError::wal_corruption(
-                        offset_before,
-                        e.message(),
-                    ));
+                    return Err(RecoveryError::wal_corruption(offset_before, e.message()));
                 }
             };
 
@@ -151,7 +148,10 @@ mod tests {
             }
 
             if self.corrupt_at == Some(self.position) {
-                return Err(RecoveryError::wal_corruption(self.offset, "checksum mismatch"));
+                return Err(RecoveryError::wal_corruption(
+                    self.offset,
+                    "checksum mismatch",
+                ));
             }
 
             let record = self.records[self.position].clone();
@@ -177,7 +177,9 @@ mod tests {
 
     impl MockStorage {
         fn new() -> Self {
-            Self { applied: Vec::new() }
+            Self {
+                applied: Vec::new(),
+            }
         }
     }
 
@@ -196,10 +198,7 @@ mod tests {
     }
 
     fn make_delete_record(seq: u64, id: &str) -> WalRecord {
-        WalRecord::delete(
-            seq,
-            WalPayload::tombstone("users", id, "users", "v1"),
-        )
+        WalRecord::delete(seq, WalPayload::tombstone("users", id, "users", "v1"))
     }
 
     #[test]

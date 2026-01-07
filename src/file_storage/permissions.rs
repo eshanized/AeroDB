@@ -12,14 +12,14 @@ impl StoragePermissions {
     pub fn new() -> Self {
         Self
     }
-    
+
     /// Check read permission
     pub fn check_read(&self, bucket: &Bucket, context: &RlsContext) -> StorageResult<()> {
         // Service role can read anything
         if context.can_bypass_rls() {
             return Ok(());
         }
-        
+
         match bucket.config.policy {
             BucketPolicy::Public => Ok(()),
             BucketPolicy::Authenticated => {
@@ -42,19 +42,19 @@ impl StoragePermissions {
             }
         }
     }
-    
+
     /// Check write permission
     pub fn check_write(&self, bucket: &Bucket, context: &RlsContext) -> StorageResult<()> {
         // Service role can write anything
         if context.can_bypass_rls() {
             return Ok(());
         }
-        
+
         // Must be authenticated to write
         if !context.is_authenticated {
             return Err(StorageError::Unauthorized);
         }
-        
+
         match bucket.config.policy {
             BucketPolicy::Public | BucketPolicy::Authenticated => Ok(()),
             BucketPolicy::Private => {
@@ -70,7 +70,7 @@ impl StoragePermissions {
             }
         }
     }
-    
+
     /// Check delete permission
     pub fn check_delete(&self, bucket: &Bucket, context: &RlsContext) -> StorageResult<()> {
         // Same as write
@@ -83,19 +83,19 @@ mod tests {
     use super::*;
     use crate::file_storage::bucket::BucketConfig;
     use uuid::Uuid;
-    
+
     #[test]
     fn test_public_bucket_read() {
         let permissions = StoragePermissions::new();
         let mut config = BucketConfig::default();
         config.policy = BucketPolicy::Public;
         let bucket = Bucket::new("public".to_string(), None, config);
-        
+
         // Anonymous can read public
         let anon = RlsContext::anonymous();
         assert!(permissions.check_read(&bucket, &anon).is_ok());
     }
-    
+
     #[test]
     fn test_private_bucket_read() {
         let permissions = StoragePermissions::new();
@@ -103,31 +103,31 @@ mod tests {
         let mut config = BucketConfig::default();
         config.policy = BucketPolicy::Private;
         let bucket = Bucket::new("private".to_string(), Some(owner_id), config);
-        
+
         // Anonymous cannot read
         let anon = RlsContext::anonymous();
         assert!(permissions.check_read(&bucket, &anon).is_err());
-        
+
         // Owner can read
         let owner = RlsContext::authenticated(owner_id);
         assert!(permissions.check_read(&bucket, &owner).is_ok());
-        
+
         // Other user cannot read
         let other = RlsContext::authenticated(Uuid::new_v4());
         assert!(permissions.check_read(&bucket, &other).is_err());
     }
-    
+
     #[test]
     fn test_authenticated_bucket() {
         let permissions = StoragePermissions::new();
         let mut config = BucketConfig::default();
         config.policy = BucketPolicy::Authenticated;
         let bucket = Bucket::new("auth".to_string(), None, config);
-        
+
         // Anonymous cannot read
         let anon = RlsContext::anonymous();
         assert!(permissions.check_read(&bucket, &anon).is_err());
-        
+
         // Any authenticated user can read
         let user = RlsContext::authenticated(Uuid::new_v4());
         assert!(permissions.check_read(&bucket, &user).is_ok());

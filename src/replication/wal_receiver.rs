@@ -35,12 +35,12 @@ impl WalReceiver {
             active: false,
         }
     }
-    
+
     /// Create a new WAL receiver from genesis.
     pub fn from_genesis() -> Self {
         Self::new(WalPosition::genesis())
     }
-    
+
     /// Create a receiver after snapshot restore.
     ///
     /// Per REPLICATION_LOG_FLOW.md §7:
@@ -53,32 +53,32 @@ impl WalReceiver {
             active: false,
         }
     }
-    
+
     /// Start the receiver.
     pub fn start(&mut self) {
         self.active = true;
     }
-    
+
     /// Stop the receiver.
     pub fn stop(&mut self) {
         self.active = false;
     }
-    
+
     /// Check if receiver is active.
     pub fn is_active(&self) -> bool {
         self.active
     }
-    
+
     /// Get last applied position.
     pub fn applied_position(&self) -> WalPosition {
         self.applied_position
     }
-    
+
     /// Get expected next sequence.
     pub fn expected_sequence(&self) -> u64 {
         self.expected_sequence
     }
-    
+
     /// Validate and receive a WAL record envelope.
     ///
     /// Per REPLICATION_LOG_FLOW.md §5:
@@ -92,13 +92,13 @@ impl WalReceiver {
         if !self.active {
             return ReceiveResult::NotActive;
         }
-        
+
         // Per §5.1: Check for gaps
         if envelope.position.sequence < self.expected_sequence {
             // Duplicate - already received
             return ReceiveResult::Duplicate;
         }
-        
+
         if envelope.position.sequence > self.expected_sequence {
             // Gap detected!
             // Per §5.2: Replica must stop applying WAL
@@ -107,16 +107,16 @@ impl WalReceiver {
                 received: envelope.position.sequence,
             };
         }
-        
+
         // Sequence matches expected - this is the happy path
         // Per Stage 3: Validate checksum before accepting
         if !envelope.validate_checksum() {
             return ReceiveResult::ChecksumInvalid;
         }
-        
+
         ReceiveResult::Accepted
     }
-    
+
     /// Apply a received record (after validation).
     ///
     /// Per REPLICATION_LOG_FLOW.md §4.2:
@@ -125,12 +125,12 @@ impl WalReceiver {
         self.applied_position = envelope.position.advance(record_size);
         self.expected_sequence = envelope.position.sequence + 1;
     }
-    
+
     /// Check if a position is behind (would need catch-up).
     pub fn is_behind(&self, primary_position: WalPosition) -> bool {
         self.applied_position < primary_position
     }
-    
+
     /// Calculate lag in sequence numbers.
     pub fn sequence_lag(&self, primary_sequence: u64) -> u64 {
         primary_sequence.saturating_sub(self.applied_position.sequence)
@@ -142,19 +142,16 @@ impl WalReceiver {
 pub enum ReceiveResult {
     /// Record accepted and ready to apply
     Accepted,
-    
+
     /// Receiver is not active
     NotActive,
-    
+
     /// Record is a duplicate (already received)
     Duplicate,
-    
+
     /// Gap detected - fatal per REPLICATION_LOG_FLOW.md §5.2
-    GapDetected {
-        expected: u64,
-        received: u64,
-    },
-    
+    GapDetected { expected: u64, received: u64 },
+
     /// Checksum validation failed - fatal per Stage 3
     ChecksumInvalid,
 }
@@ -164,22 +161,22 @@ impl ReceiveResult {
     pub fn is_accepted(&self) -> bool {
         matches!(self, Self::Accepted)
     }
-    
+
     /// Check if result is a gap (fatal).
     pub fn is_gap(&self) -> bool {
         matches!(self, Self::GapDetected { .. })
     }
-    
+
     /// Check if result is a checksum failure (fatal).
     pub fn is_checksum_invalid(&self) -> bool {
         matches!(self, Self::ChecksumInvalid)
     }
-    
+
     /// Check if result is fatal (gap or checksum failure).
     pub fn is_fatal(&self) -> bool {
         self.is_gap() || self.is_checksum_invalid()
     }
-    
+
     /// Convert to halt reason.
     pub fn to_halt_reason(&self) -> Option<HaltReason> {
         match self {
@@ -188,20 +185,21 @@ impl ReceiveResult {
             _ => None,
         }
     }
-    
+
     /// Convert to replication result.
     pub fn to_result(&self) -> ReplicationResult<()> {
         match self {
             Self::Accepted => Ok(()),
             Self::NotActive => Err(ReplicationError::configuration_error(
-                "WAL receiver is not active"
+                "WAL receiver is not active",
             )),
             Self::Duplicate => Ok(()), // Duplicates are idempotent
-            Self::GapDetected { expected, received } => Err(ReplicationError::wal_gap(
-                format!("WAL gap detected: expected sequence {}, received {}", expected, received)
-            )),
+            Self::GapDetected { expected, received } => Err(ReplicationError::wal_gap(format!(
+                "WAL gap detected: expected sequence {}, received {}",
+                expected, received
+            ))),
             Self::ChecksumInvalid => Err(ReplicationError::wal_integrity_failed(
-                "WAL record checksum validation failed"
+                "WAL record checksum validation failed",
             )),
         }
     }
@@ -220,11 +218,8 @@ mod tests {
     #[test]
     fn test_receiver_rejects_when_inactive() {
         let mut receiver = WalReceiver::from_genesis();
-        let envelope = WalRecordEnvelope::new(
-            WalPosition::genesis(),
-            create_test_record(),
-        );
-        
+        let envelope = WalRecordEnvelope::new(WalPosition::genesis(), create_test_record());
+
         assert_eq!(receiver.receive(&envelope), ReceiveResult::NotActive);
     }
 
@@ -232,12 +227,9 @@ mod tests {
     fn test_receiver_accepts_expected_sequence() {
         let mut receiver = WalReceiver::from_genesis();
         receiver.start();
-        
-        let envelope = WalRecordEnvelope::new(
-            WalPosition::genesis(),
-            create_test_record(),
-        );
-        
+
+        let envelope = WalRecordEnvelope::new(WalPosition::genesis(), create_test_record());
+
         assert_eq!(receiver.receive(&envelope), ReceiveResult::Accepted);
     }
 
@@ -246,16 +238,13 @@ mod tests {
         // Per REPLICATION_LOG_FLOW.md §5
         let mut receiver = WalReceiver::from_genesis();
         receiver.start();
-        
+
         // Skip sequence 0, send sequence 2
-        let envelope = WalRecordEnvelope::new(
-            WalPosition::new(2, 200),
-            create_test_record(),
-        );
-        
+        let envelope = WalRecordEnvelope::new(WalPosition::new(2, 200), create_test_record());
+
         let result = receiver.receive(&envelope);
         assert!(result.is_gap());
-        
+
         match result {
             ReceiveResult::GapDetected { expected, received } => {
                 assert_eq!(expected, 0);
@@ -269,13 +258,10 @@ mod tests {
     fn test_receiver_handles_duplicate() {
         let mut receiver = WalReceiver::new(WalPosition::new(5, 500));
         receiver.start();
-        
+
         // Send sequence 3 (already applied)
-        let envelope = WalRecordEnvelope::new(
-            WalPosition::new(3, 300),
-            create_test_record(),
-        );
-        
+        let envelope = WalRecordEnvelope::new(WalPosition::new(3, 300), create_test_record());
+
         assert_eq!(receiver.receive(&envelope), ReceiveResult::Duplicate);
     }
 
@@ -283,15 +269,12 @@ mod tests {
     fn test_receiver_apply_advances_position() {
         let mut receiver = WalReceiver::from_genesis();
         receiver.start();
-        
-        let envelope = WalRecordEnvelope::new(
-            WalPosition::genesis(),
-            create_test_record(),
-        );
-        
+
+        let envelope = WalRecordEnvelope::new(WalPosition::genesis(), create_test_record());
+
         assert!(receiver.receive(&envelope).is_accepted());
         receiver.apply(&envelope, 50);
-        
+
         assert_eq!(receiver.expected_sequence(), 1);
         assert_eq!(receiver.applied_position().sequence, 1);
     }
@@ -299,8 +282,11 @@ mod tests {
     #[test]
     fn test_gap_is_fatal() {
         // Per REPLICATION_LOG_FLOW.md §5.2
-        let result = ReceiveResult::GapDetected { expected: 5, received: 10 };
-        
+        let result = ReceiveResult::GapDetected {
+            expected: 5,
+            received: 10,
+        };
+
         assert!(result.is_gap());
         assert_eq!(result.to_halt_reason(), Some(HaltReason::WalGapDetected));
         assert!(result.to_result().is_err());

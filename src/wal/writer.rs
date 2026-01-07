@@ -90,12 +90,7 @@ impl WalWriter {
         let metadata = match fs::metadata(wal_path) {
             Ok(m) => m,
             Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(1),
-            Err(e) => {
-                return Err(WalError::append_failed(
-                    "Failed to read WAL metadata",
-                    e,
-                ))
-            }
+            Err(e) => return Err(WalError::append_failed("Failed to read WAL metadata", e)),
         };
 
         if metadata.len() == 0 {
@@ -159,11 +154,7 @@ impl WalWriter {
     ///
     /// - `AERO_WAL_APPEND_FAILED` if write fails
     /// - `AERO_WAL_FSYNC_FAILED` if fsync fails (FATAL)
-    pub fn append(
-        &mut self,
-        record_type: RecordType,
-        payload: WalPayload,
-    ) -> WalResult<u64> {
+    pub fn append(&mut self, record_type: RecordType, payload: WalPayload) -> WalResult<u64> {
         let sequence_number = self.next_sequence;
         let record = WalRecord::new(record_type, sequence_number, payload);
         let serialized = record.serialize();
@@ -179,7 +170,10 @@ impl WalWriter {
         // fsync - this is mandatory and FATAL if it fails
         self.file.sync_all().map_err(|e| {
             WalError::fsync_failed(
-                format!("fsync failed after WAL append at sequence {}", sequence_number),
+                format!(
+                    "fsync failed after WAL append at sequence {}",
+                    sequence_number
+                ),
                 e,
             )
         })?;
@@ -210,9 +204,9 @@ impl WalWriter {
     /// This ensures all pending writes are durable on disk.
     /// Called before snapshot creation per CHECKPOINT.md.
     pub fn fsync(&self) -> WalResult<()> {
-        self.file.sync_all().map_err(|e| {
-            WalError::fsync_failed("Explicit WAL fsync failed", e)
-        })
+        self.file
+            .sync_all()
+            .map_err(|e| WalError::fsync_failed("Explicit WAL fsync failed", e))
     }
 
     /// Returns the WAL directory path.
@@ -242,7 +236,10 @@ impl WalWriter {
         if self.wal_path.exists() {
             fs::remove_file(&self.wal_path).map_err(|e| {
                 WalError::append_failed(
-                    format!("Failed to remove WAL file during truncation: {}", self.wal_path.display()),
+                    format!(
+                        "Failed to remove WAL file during truncation: {}",
+                        self.wal_path.display()
+                    ),
                     e,
                 )
             })?;
@@ -256,7 +253,10 @@ impl WalWriter {
             .open(&self.wal_path)
             .map_err(|e| {
                 WalError::append_failed(
-                    format!("Failed to create new WAL file during truncation: {}", self.wal_path.display()),
+                    format!(
+                        "Failed to create new WAL file during truncation: {}",
+                        self.wal_path.display()
+                    ),
                     e,
                 )
             })?;
@@ -270,15 +270,15 @@ impl WalWriter {
         })?;
 
         // fsync WAL directory to ensure file creation is durable
-        let dir_handle = OpenOptions::new()
-            .read(true)
-            .open(wal_dir)
-            .map_err(|e| {
-                WalError::append_failed(
-                    format!("Failed to open WAL directory for fsync: {}", wal_dir.display()),
-                    e,
-                )
-            })?;
+        let dir_handle = OpenOptions::new().read(true).open(wal_dir).map_err(|e| {
+            WalError::append_failed(
+                format!(
+                    "Failed to open WAL directory for fsync: {}",
+                    wal_dir.display()
+                ),
+                e,
+            )
+        })?;
 
         dir_handle.sync_all().map_err(|e| {
             WalError::fsync_failed(
@@ -293,7 +293,10 @@ impl WalWriter {
             .open(&self.wal_path)
             .map_err(|e| {
                 WalError::append_failed(
-                    format!("Failed to reopen WAL file after truncation: {}", self.wal_path.display()),
+                    format!(
+                        "Failed to reopen WAL file after truncation: {}",
+                        self.wal_path.display()
+                    ),
                     e,
                 )
             })?;
@@ -366,12 +369,14 @@ mod tests {
 
         let seq1 = writer.append_insert(create_test_payload("doc1")).unwrap();
         let seq2 = writer.append_update(create_test_payload("doc1")).unwrap();
-        let seq3 = writer.append_delete(WalPayload::tombstone(
-            "test_collection",
-            "doc1",
-            "test_schema",
-            "v1",
-        )).unwrap();
+        let seq3 = writer
+            .append_delete(WalPayload::tombstone(
+                "test_collection",
+                "doc1",
+                "test_schema",
+                "v1",
+            ))
+            .unwrap();
 
         assert_eq!(seq1, 1);
         assert_eq!(seq2, 2);
@@ -489,8 +494,12 @@ mod tests {
         writer.truncate().unwrap();
 
         // New writes should start at sequence 1
-        let seq1 = writer.append_insert(create_test_payload("new_doc1")).unwrap();
-        let seq2 = writer.append_insert(create_test_payload("new_doc2")).unwrap();
+        let seq1 = writer
+            .append_insert(create_test_payload("new_doc1"))
+            .unwrap();
+        let seq2 = writer
+            .append_insert(create_test_payload("new_doc2"))
+            .unwrap();
 
         assert_eq!(seq1, 1);
         assert_eq!(seq2, 2);
@@ -524,9 +533,13 @@ mod tests {
         // Write, truncate, write again
         {
             let mut writer = WalWriter::open(temp_dir.path()).unwrap();
-            writer.append_insert(create_test_payload("old_doc")).unwrap();
+            writer
+                .append_insert(create_test_payload("old_doc"))
+                .unwrap();
             writer.truncate().unwrap();
-            writer.append_insert(create_test_payload("new_doc")).unwrap();
+            writer
+                .append_insert(create_test_payload("new_doc"))
+                .unwrap();
         }
 
         // Reopen and verify only new record exists

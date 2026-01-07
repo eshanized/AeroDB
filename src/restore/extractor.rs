@@ -17,7 +17,8 @@ use super::errors::{RestoreError, RestoreResult};
 /// Per RESTORE.md §5: Create <data_dir>.restore_tmp
 pub fn create_temp_restore_dir(data_dir: &Path) -> RestoreResult<PathBuf> {
     let parent = data_dir.parent().unwrap_or(Path::new("."));
-    let data_dir_name = data_dir.file_name()
+    let data_dir_name = data_dir
+        .file_name()
         .ok_or_else(|| RestoreError::failed("Invalid data directory name"))?;
 
     let temp_name = format!("{}.restore_tmp", data_dir_name.to_string_lossy());
@@ -27,7 +28,10 @@ pub fn create_temp_restore_dir(data_dir: &Path) -> RestoreResult<PathBuf> {
     if temp_dir.exists() {
         fs::remove_dir_all(&temp_dir).map_err(|e| {
             RestoreError::io_error(
-                format!("Failed to clean up existing temp directory: {}", temp_dir.display()),
+                format!(
+                    "Failed to clean up existing temp directory: {}",
+                    temp_dir.display()
+                ),
                 e,
             )
         })?;
@@ -35,7 +39,10 @@ pub fn create_temp_restore_dir(data_dir: &Path) -> RestoreResult<PathBuf> {
 
     fs::create_dir_all(&temp_dir).map_err(|e| {
         RestoreError::io_error(
-            format!("Failed to create temp restore directory: {}", temp_dir.display()),
+            format!(
+                "Failed to create temp restore directory: {}",
+                temp_dir.display()
+            ),
             e,
         )
     })?;
@@ -58,7 +65,10 @@ pub fn extract_archive(archive_path: &Path, dest_dir: &Path) -> RestoreResult<()
 
     archive.unpack(dest_dir).map_err(|e| {
         RestoreError::invalid_backup_with_source(
-            format!("Failed to extract backup archive: {}", archive_path.display()),
+            format!(
+                "Failed to extract backup archive: {}",
+                archive_path.display()
+            ),
             std::io::Error::new(std::io::ErrorKind::Other, e),
         )
     })?;
@@ -87,7 +97,8 @@ pub fn cleanup_old_dir(old_dir: &Path) {
 /// Get the path for the backup of the old data directory
 pub fn get_old_data_dir_path(data_dir: &Path) -> RestoreResult<PathBuf> {
     let parent = data_dir.parent().unwrap_or(Path::new("."));
-    let data_dir_name = data_dir.file_name()
+    let data_dir_name = data_dir
+        .file_name()
         .ok_or_else(|| RestoreError::failed("Invalid data directory name"))?;
 
     let old_name = format!("{}.old", data_dir_name.to_string_lossy());
@@ -133,7 +144,9 @@ mod tests {
 
         let manifest_path = temp.path().join("backup_manifest.json");
         let mut manifest_file = File::open(&manifest_path).unwrap();
-        builder.append_file("backup_manifest.json", &mut manifest_file).unwrap();
+        builder
+            .append_file("backup_manifest.json", &mut manifest_file)
+            .unwrap();
 
         builder.finish().unwrap();
     }

@@ -93,13 +93,7 @@ mod tests {
 
     #[test]
     fn test_result_document() {
-        let doc = ResultDocument::new(
-            "user_123",
-            "users",
-            "v1",
-            json!({"name": "Alice"}),
-            1000,
-        );
+        let doc = ResultDocument::new("user_123", "users", "v1", json!({"name": "Alice"}), 1000);
         assert_eq!(doc.id(), "user_123");
         assert_eq!(doc.schema_id, "users");
     }

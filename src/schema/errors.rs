@@ -96,7 +96,11 @@ pub struct ValidationDetails {
 }
 
 impl ValidationDetails {
-    pub fn new(field: impl Into<String>, expected: impl Into<String>, actual: impl Into<String>) -> Self {
+    pub fn new(
+        field: impl Into<String>,
+        expected: impl Into<String>,
+        actual: impl Into<String>,
+    ) -> Self {
         Self {
             field: field.into(),
             expected: expected.into(),
@@ -120,7 +124,11 @@ impl ValidationDetails {
         }
     }
 
-    pub fn type_mismatch(field: impl Into<String>, expected: impl Into<String>, actual: impl Into<String>) -> Self {
+    pub fn type_mismatch(
+        field: impl Into<String>,
+        expected: impl Into<String>,
+        actual: impl Into<String>,
+    ) -> Self {
         Self {
             field: field.into(),
             expected: expected.into(),
@@ -139,7 +147,11 @@ impl ValidationDetails {
 
 impl fmt::Display for ValidationDetails {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "field '{}': expected {}, got {}", self.field, self.expected, self.actual)
+        write!(
+            f,
+            "field '{}': expected {}, got {}",
+            self.field, self.expected, self.actual
+        )
     }
 }
 
@@ -226,7 +238,10 @@ impl SchemaError {
     }
 
     /// Create a recovery schema missing error (FATAL)
-    pub fn recovery_schema_missing(schema_id: impl Into<String>, version: impl Into<String>) -> Self {
+    pub fn recovery_schema_missing(
+        schema_id: impl Into<String>,
+        version: impl Into<String>,
+    ) -> Self {
         let id = schema_id.into();
         let ver = version.into();
         Self {
@@ -292,7 +307,13 @@ impl SchemaError {
 
 impl fmt::Display for SchemaError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}] {}: {}", self.code.severity(), self.code.code(), self.message)?;
+        write!(
+            f,
+            "[{}] {}: {}",
+            self.code.severity(),
+            self.code.code(),
+            self.message
+        )?;
         write!(f, " [violates {}]", self.code.invariant())?;
         Ok(())
     }
@@ -309,18 +330,42 @@ mod tests {
 
     #[test]
     fn test_error_codes_match_spec() {
-        assert_eq!(SchemaErrorCode::AeroSchemaRequired.code(), "AERO_SCHEMA_REQUIRED");
-        assert_eq!(SchemaErrorCode::AeroUnknownSchema.code(), "AERO_UNKNOWN_SCHEMA");
-        assert_eq!(SchemaErrorCode::AeroUnknownSchemaVersion.code(), "AERO_UNKNOWN_SCHEMA_VERSION");
-        assert_eq!(SchemaErrorCode::AeroSchemaValidationFailed.code(), "AERO_SCHEMA_VALIDATION_FAILED");
-        assert_eq!(SchemaErrorCode::AeroSchemaImmutable.code(), "AERO_SCHEMA_IMMUTABLE");
+        assert_eq!(
+            SchemaErrorCode::AeroSchemaRequired.code(),
+            "AERO_SCHEMA_REQUIRED"
+        );
+        assert_eq!(
+            SchemaErrorCode::AeroUnknownSchema.code(),
+            "AERO_UNKNOWN_SCHEMA"
+        );
+        assert_eq!(
+            SchemaErrorCode::AeroUnknownSchemaVersion.code(),
+            "AERO_UNKNOWN_SCHEMA_VERSION"
+        );
+        assert_eq!(
+            SchemaErrorCode::AeroSchemaValidationFailed.code(),
+            "AERO_SCHEMA_VALIDATION_FAILED"
+        );
+        assert_eq!(
+            SchemaErrorCode::AeroSchemaImmutable.code(),
+            "AERO_SCHEMA_IMMUTABLE"
+        );
     }
 
     #[test]
     fn test_severity_levels() {
-        assert_eq!(SchemaErrorCode::AeroSchemaRequired.severity(), Severity::Reject);
-        assert_eq!(SchemaErrorCode::AeroSchemaValidationFailed.severity(), Severity::Reject);
-        assert_eq!(SchemaErrorCode::AeroRecoverySchemaMissing.severity(), Severity::Fatal);
+        assert_eq!(
+            SchemaErrorCode::AeroSchemaRequired.severity(),
+            Severity::Reject
+        );
+        assert_eq!(
+            SchemaErrorCode::AeroSchemaValidationFailed.severity(),
+            Severity::Reject
+        );
+        assert_eq!(
+            SchemaErrorCode::AeroRecoverySchemaMissing.severity(),
+            Severity::Fatal
+        );
     }
 
     #[test]

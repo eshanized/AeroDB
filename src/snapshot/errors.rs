@@ -194,7 +194,9 @@ impl fmt::Display for SnapshotError {
 
 impl std::error::Error for SnapshotError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.source.as_ref().map(|e| e as &(dyn std::error::Error + 'static))
+        self.source
+            .as_ref()
+            .map(|e| e as &(dyn std::error::Error + 'static))
     }
 }
 
@@ -207,16 +209,31 @@ mod tests {
 
     #[test]
     fn test_error_codes_match_spec() {
-        assert_eq!(SnapshotErrorCode::AeroSnapshotFailed.code(), "AERO_SNAPSHOT_FAILED");
+        assert_eq!(
+            SnapshotErrorCode::AeroSnapshotFailed.code(),
+            "AERO_SNAPSHOT_FAILED"
+        );
         assert_eq!(SnapshotErrorCode::AeroSnapshotIo.code(), "AERO_SNAPSHOT_IO");
-        assert_eq!(SnapshotErrorCode::AeroSnapshotManifest.code(), "AERO_SNAPSHOT_MANIFEST");
+        assert_eq!(
+            SnapshotErrorCode::AeroSnapshotManifest.code(),
+            "AERO_SNAPSHOT_MANIFEST"
+        );
     }
 
     #[test]
     fn test_all_errors_are_error_severity() {
-        assert_eq!(SnapshotErrorCode::AeroSnapshotFailed.severity(), Severity::Error);
-        assert_eq!(SnapshotErrorCode::AeroSnapshotIo.severity(), Severity::Error);
-        assert_eq!(SnapshotErrorCode::AeroSnapshotManifest.severity(), Severity::Error);
+        assert_eq!(
+            SnapshotErrorCode::AeroSnapshotFailed.severity(),
+            Severity::Error
+        );
+        assert_eq!(
+            SnapshotErrorCode::AeroSnapshotIo.severity(),
+            Severity::Error
+        );
+        assert_eq!(
+            SnapshotErrorCode::AeroSnapshotManifest.severity(),
+            Severity::Error
+        );
     }
 
     #[test]
@@ -224,10 +241,8 @@ mod tests {
         let err = SnapshotError::snapshot_failed("test failure");
         assert!(!err.is_fatal());
 
-        let err = SnapshotError::io_error(
-            "io failed",
-            io::Error::new(io::ErrorKind::Other, "test"),
-        );
+        let err =
+            SnapshotError::io_error("io failed", io::Error::new(io::ErrorKind::Other, "test"));
         assert!(!err.is_fatal());
 
         let err = SnapshotError::manifest_error("manifest failed");

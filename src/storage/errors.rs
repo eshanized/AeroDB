@@ -214,7 +214,9 @@ impl fmt::Display for StorageError {
 
 impl std::error::Error for StorageError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.source.as_ref().map(|e| e as &(dyn std::error::Error + 'static))
+        self.source
+            .as_ref()
+            .map(|e| e as &(dyn std::error::Error + 'static))
     }
 }
 
@@ -227,18 +229,42 @@ mod tests {
 
     #[test]
     fn test_error_codes_match_spec() {
-        assert_eq!(StorageErrorCode::AeroStorageIoError.code(), "AERO_STORAGE_IO_ERROR");
-        assert_eq!(StorageErrorCode::AeroStorageWriteFailed.code(), "AERO_STORAGE_WRITE_FAILED");
-        assert_eq!(StorageErrorCode::AeroStorageReadFailed.code(), "AERO_STORAGE_READ_FAILED");
-        assert_eq!(StorageErrorCode::AeroDataCorruption.code(), "AERO_DATA_CORRUPTION");
+        assert_eq!(
+            StorageErrorCode::AeroStorageIoError.code(),
+            "AERO_STORAGE_IO_ERROR"
+        );
+        assert_eq!(
+            StorageErrorCode::AeroStorageWriteFailed.code(),
+            "AERO_STORAGE_WRITE_FAILED"
+        );
+        assert_eq!(
+            StorageErrorCode::AeroStorageReadFailed.code(),
+            "AERO_STORAGE_READ_FAILED"
+        );
+        assert_eq!(
+            StorageErrorCode::AeroDataCorruption.code(),
+            "AERO_DATA_CORRUPTION"
+        );
     }
 
     #[test]
     fn test_severity_levels_match_spec() {
-        assert_eq!(StorageErrorCode::AeroStorageIoError.severity(), Severity::Error);
-        assert_eq!(StorageErrorCode::AeroStorageWriteFailed.severity(), Severity::Error);
-        assert_eq!(StorageErrorCode::AeroStorageReadFailed.severity(), Severity::Error);
-        assert_eq!(StorageErrorCode::AeroDataCorruption.severity(), Severity::Fatal);
+        assert_eq!(
+            StorageErrorCode::AeroStorageIoError.severity(),
+            Severity::Error
+        );
+        assert_eq!(
+            StorageErrorCode::AeroStorageWriteFailed.severity(),
+            Severity::Error
+        );
+        assert_eq!(
+            StorageErrorCode::AeroStorageReadFailed.severity(),
+            Severity::Error
+        );
+        assert_eq!(
+            StorageErrorCode::AeroDataCorruption.severity(),
+            Severity::Fatal
+        );
     }
 
     #[test]

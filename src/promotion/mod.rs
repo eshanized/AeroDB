@@ -19,24 +19,26 @@
 //! This module is ORTHOGONAL to Phase 5 replication.
 //! It observes and constrains Phase 5 transitions but does not replace them.
 
-mod state;
-mod errors;
-mod request;
 mod controller;
-mod validator;
-mod transition;
-mod marker;
-mod integration;
-mod observability;
 #[cfg(test)]
 mod crash_tests;
+mod errors;
+mod integration;
+mod marker;
+mod observability;
+mod request;
+mod state;
+mod transition;
+mod validator;
 
-pub use state::{PromotionState, DenialReason};
-pub use errors::{PromotionError, PromotionResult, PromotionErrorKind};
-pub use request::{PromotionRequest, PromotionRequestResult};
 pub use controller::PromotionController;
-pub use validator::{PromotionValidator, ValidationResult, ValidationContext};
-pub use transition::{AuthorityTransitionManager, TransitionResult, TransitionFailureReason};
-pub use marker::{DurableMarker, AuthorityMarker};
-pub use integration::{ReplicationIntegration, RebindResult};
-pub use observability::{PromotionEvent, PromotionExplanation, PromotionOutcome, InvariantCheck, PromotionObserver};
+pub use errors::{PromotionError, PromotionErrorKind, PromotionResult};
+pub use integration::{RebindResult, ReplicationIntegration};
+pub use marker::{AuthorityMarker, DurableMarker};
+pub use observability::{
+    InvariantCheck, PromotionEvent, PromotionExplanation, PromotionObserver, PromotionOutcome,
+};
+pub use request::{PromotionRequest, PromotionRequestResult};
+pub use state::{DenialReason, PromotionState};
+pub use transition::{AuthorityTransitionManager, TransitionFailureReason, TransitionResult};
+pub use validator::{PromotionValidator, ValidationContext, ValidationResult};

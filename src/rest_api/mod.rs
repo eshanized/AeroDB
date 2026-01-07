@@ -5,19 +5,18 @@
 //! This module provides HTTP endpoints for CRUD operations
 //! on all collections, with RLS enforcement.
 
+pub mod database;
 pub mod errors;
 pub mod filter;
-pub mod parser;
+pub mod generator;
 pub mod handler;
+pub mod parser;
 pub mod response;
 pub mod server;
-pub mod generator;
-pub mod database;
 
+pub use database::DatabaseFacade;
 pub use errors::{RestError, RestResult};
 pub use filter::{FilterExpr, FilterOperator};
-pub use parser::QueryParams;
 pub use handler::RestHandler;
+pub use parser::QueryParams;
 pub use server::RestServer;
-pub use database::DatabaseFacade;
-

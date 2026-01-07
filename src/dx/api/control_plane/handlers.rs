@@ -8,19 +8,18 @@
 //!
 //! This is the ONLY component allowed to call kernel APIs.
 
-use uuid::Uuid;
 use std::time::SystemTime;
+use uuid::Uuid;
 
-use super::commands::{ControlPlaneCommand, InspectionCommand, DiagnosticCommand, ControlCommand};
+use super::authority::AuthorityContext;
+use super::commands::{ControlCommand, ControlPlaneCommand, DiagnosticCommand, InspectionCommand};
 use super::confirmation::{ConfirmationFlow, ConfirmationResult, ConfirmationToken};
 use super::errors::{ControlPlaneError, ControlPlaneResult};
 use super::types::{
-    CommandRequest, CommandResponse, CommandOutcome, CommandResponseData,
-    ClusterState, NodeState, NodeRole, NodeHealth, ReplicationStatus,
-    ReplicaState, PromotionStateView, DiagnosticResult, WalInfo, SnapshotInfo,
-    PromotionResultData,
+    ClusterState, CommandOutcome, CommandRequest, CommandResponse, CommandResponseData,
+    DiagnosticResult, NodeHealth, NodeRole, NodeState, PromotionResultData, PromotionStateView,
+    ReplicaState, ReplicationStatus, SnapshotInfo, WalInfo,
 };
-use super::authority::AuthorityContext;
 
 /// Phase 7 Control Plane Handler.
 ///
@@ -41,7 +40,7 @@ impl ControlPlaneHandler {
             confirmation: ConfirmationFlow::new(),
         }
     }
-    
+
     /// Handle a command request.
     ///
     /// Per PHASE7_CONTROL_PLANE_ARCHITECTURE.md §6:
@@ -50,19 +49,22 @@ impl ControlPlaneHandler {
     /// 3. Request confirmation (if required)
     /// 4. Forward to kernel boundary adapter
     /// 5. Return result
-    pub fn handle_command(&mut self, request: CommandRequest) -> ControlPlaneResult<CommandResponse> {
+    pub fn handle_command(
+        &mut self,
+        request: CommandRequest,
+    ) -> ControlPlaneResult<CommandResponse> {
         // Step 1: Validate authority
         self.validate_authority(&request)?;
-        
+
         // Step 2: Check if confirmation is required
         if request.command.requires_confirmation() {
             return self.handle_confirmable_command(request);
         }
-        
+
         // Step 3: Execute non-confirmable command directly
         self.execute_command(&request)
     }
-    
+
     /// Validate authority for a command.
     fn validate_authority(&self, request: &CommandRequest) -> ControlPlaneResult<()> {
         // Per PHASE7_AUTHORITY_MODEL.md §3.2:
@@ -75,17 +77,22 @@ impl ControlPlaneHandler {
         }
         Ok(())
     }
-    
+
     /// Handle a command that requires confirmation.
-    fn handle_confirmable_command(&mut self, request: CommandRequest) -> ControlPlaneResult<CommandResponse> {
+    fn handle_confirmable_command(
+        &mut self,
+        request: CommandRequest,
+    ) -> ControlPlaneResult<CommandResponse> {
         let command_name = request.command.command_name();
         let target_id = self.extract_target_id(&request.command);
-        
+
         // Check if confirmation token is provided
         match request.confirmation_token {
             None => {
                 // Request confirmation
-                let token = self.confirmation.request_confirmation(command_name, target_id);
+                let token = self
+                    .confirmation
+                    .request_confirmation(command_name, target_id);
                 Ok(CommandResponse::awaiting_confirmation(
                     request.request_id,
                     command_name,
@@ -106,7 +113,7 @@ impl ControlPlaneHandler {
             }
         }
     }
-    
+
     /// Extract target ID from a command.
     fn extract_target_id(&self, command: &ControlPlaneCommand) -> Option<Uuid> {
         match command {
@@ -117,23 +124,27 @@ impl ControlPlaneHandler {
             _ => None,
         }
     }
-    
+
     /// Execute a command against the kernel.
     ///
     /// Per PHASE7_INVARIANTS.md §P7-E1:
     /// Each operator command MUST correspond to exactly one kernel action.
     fn execute_command(&self, request: &CommandRequest) -> ControlPlaneResult<CommandResponse> {
         match &request.command {
-            ControlPlaneCommand::Inspection(cmd) => self.execute_inspection(request.request_id, cmd),
-            ControlPlaneCommand::Diagnostic(cmd) => self.execute_diagnostic(request.request_id, cmd),
+            ControlPlaneCommand::Inspection(cmd) => {
+                self.execute_inspection(request.request_id, cmd)
+            }
+            ControlPlaneCommand::Diagnostic(cmd) => {
+                self.execute_diagnostic(request.request_id, cmd)
+            }
             ControlPlaneCommand::Control(cmd) => self.execute_control(request.request_id, cmd),
         }
     }
-    
+
     // =========================================================================
     // INSPECTION COMMANDS
     // =========================================================================
-    
+
     fn execute_inspection(
         &self,
         request_id: Uuid,
@@ -198,11 +209,11 @@ impl ControlPlaneHandler {
             }
         }
     }
-    
+
     // =========================================================================
     // DIAGNOSTIC COMMANDS
     // =========================================================================
-    
+
     fn execute_diagnostic(
         &self,
         request_id: Uuid,
@@ -250,11 +261,11 @@ impl ControlPlaneHandler {
             }
         }
     }
-    
+
     // =========================================================================
     // CONTROL COMMANDS
     // =========================================================================
-    
+
     fn execute_control(
         &self,
         request_id: Uuid,
@@ -291,7 +302,11 @@ impl ControlPlaneHandler {
                     CommandResponseData::PromotionResult(result),
                 ))
             }
-            ControlCommand::ForcePromotion { replica_id, reason, acknowledged_risks } => {
+            ControlCommand::ForcePromotion {
+                replica_id,
+                reason,
+                acknowledged_risks,
+            } => {
                 // TODO: Call actual force promotion with override flag
                 let result = PromotionResultData {
                     replica_id: *replica_id,
@@ -307,17 +322,15 @@ impl ControlPlaneHandler {
             }
         }
     }
-    
+
     /// Request confirmation for a command (without executing).
-    pub fn request_confirmation(
-        &mut self,
-        command: &ControlPlaneCommand,
-    ) -> ConfirmationToken {
+    pub fn request_confirmation(&mut self, command: &ControlPlaneCommand) -> ConfirmationToken {
         let command_name = command.command_name();
         let target_id = self.extract_target_id(command);
-        self.confirmation.request_confirmation(command_name, target_id)
+        self.confirmation
+            .request_confirmation(command_name, target_id)
     }
-    
+
     /// Reject a pending confirmation.
     pub fn reject_confirmation(&mut self, token_id: Uuid) {
         self.confirmation.reject(token_id);
@@ -328,17 +341,17 @@ impl ControlPlaneHandler {
 mod tests {
     use super::*;
     use crate::dx::api::control_plane::authority::AuthorityContext;
-    
+
     #[test]
     fn test_inspection_no_confirmation() {
         let mut handler = ControlPlaneHandler::new();
         let cmd = ControlPlaneCommand::Inspection(InspectionCommand::InspectClusterState);
         let request = CommandRequest::new(cmd, AuthorityContext::observer());
-        
+
         let response = handler.handle_command(request).unwrap();
         assert_eq!(response.outcome, CommandOutcome::Success);
     }
-    
+
     #[test]
     fn test_control_requires_confirmation() {
         let mut handler = ControlPlaneHandler::new();
@@ -347,12 +360,12 @@ mod tests {
             reason: None,
         });
         let request = CommandRequest::new(cmd, AuthorityContext::operator());
-        
+
         let response = handler.handle_command(request).unwrap();
         assert_eq!(response.outcome, CommandOutcome::AwaitingConfirmation);
         assert!(response.confirmation_token.is_some());
     }
-    
+
     #[test]
     fn test_control_with_confirmation() {
         let mut handler = ControlPlaneHandler::new();
@@ -361,20 +374,20 @@ mod tests {
             replica_id,
             reason: None,
         });
-        
+
         // First request - get confirmation token
         let request1 = CommandRequest::new(cmd.clone(), AuthorityContext::operator());
         let response1 = handler.handle_command(request1).unwrap();
         let token_id = response1.confirmation_token.unwrap();
-        
+
         // Second request - with confirmation token
-        let request2 = CommandRequest::new(cmd, AuthorityContext::operator())
-            .with_confirmation(token_id);
+        let request2 =
+            CommandRequest::new(cmd, AuthorityContext::operator()).with_confirmation(token_id);
         let response2 = handler.handle_command(request2).unwrap();
-        
+
         assert_eq!(response2.outcome, CommandOutcome::Success);
     }
-    
+
     #[test]
     fn test_insufficient_authority_rejected() {
         let mut handler = ControlPlaneHandler::new();
@@ -382,11 +395,11 @@ mod tests {
             replica_id: Uuid::new_v4(),
             reason: None,
         });
-        
+
         // Observer cannot execute mutating commands
         let request = CommandRequest::new(cmd, AuthorityContext::observer());
         let result = handler.handle_command(request);
-        
+
         assert!(result.is_err());
     }
 }

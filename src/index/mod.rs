@@ -23,7 +23,10 @@ mod btree;
 mod errors;
 mod manager;
 
-pub use acceleration::{AcceleratorStats, AttributeIndex, CompositeIndex, IndexAccelConfig, IndexAccelerator, IndexPath, PrefilterResult, PrefilterStats};
+pub use acceleration::{
+    AcceleratorStats, AttributeIndex, CompositeIndex, IndexAccelConfig, IndexAccelerator,
+    IndexPath, PrefilterResult, PrefilterStats,
+};
 pub use btree::{IndexKey, IndexTree};
 pub use errors::{IndexError, IndexErrorCode, IndexResult};
 pub use manager::{DocumentInfo, IndexManager};

@@ -27,7 +27,7 @@ pub fn validate_backup_structure(restore_dir: &Path) -> RestoreResult<()> {
     let snapshot_dir = restore_dir.join("snapshot");
     if !snapshot_dir.exists() || !snapshot_dir.is_dir() {
         return Err(RestoreError::invalid_backup(
-            "Missing snapshot/ directory in backup archive"
+            "Missing snapshot/ directory in backup archive",
         ));
     }
 
@@ -35,7 +35,7 @@ pub fn validate_backup_structure(restore_dir: &Path) -> RestoreResult<()> {
     let wal_dir = restore_dir.join("wal");
     if !wal_dir.exists() || !wal_dir.is_dir() {
         return Err(RestoreError::invalid_backup(
-            "Missing wal/ directory in backup archive"
+            "Missing wal/ directory in backup archive",
         ));
     }
 
@@ -43,7 +43,7 @@ pub fn validate_backup_structure(restore_dir: &Path) -> RestoreResult<()> {
     let manifest_path = restore_dir.join("backup_manifest.json");
     if !manifest_path.exists() {
         return Err(RestoreError::invalid_backup(
-            "Missing backup_manifest.json in backup archive"
+            "Missing backup_manifest.json in backup archive",
         ));
     }
 
@@ -73,7 +73,7 @@ pub fn validate_backup_manifest(restore_dir: &Path) -> RestoreResult<BackupManif
     // Validate snapshot_id present
     if manifest.snapshot_id.is_empty() {
         return Err(RestoreError::invalid_backup(
-            "Backup manifest has empty snapshot_id"
+            "Backup manifest has empty snapshot_id",
         ));
     }
 
@@ -93,32 +93,27 @@ pub fn validate_snapshot(restore_dir: &Path) -> RestoreResult<()> {
     let manifest_path = snapshot_dir.join("manifest.json");
     if !manifest_path.exists() {
         return Err(RestoreError::corruption(
-            "Missing snapshot manifest.json in backup"
+            "Missing snapshot manifest.json in backup",
         ));
     }
 
     // Read and validate manifest is valid JSON
-    let mut file = File::open(&manifest_path).map_err(|e| {
-        RestoreError::io_error_at_path(&manifest_path, e)
-    })?;
+    let mut file = File::open(&manifest_path)
+        .map_err(|e| RestoreError::io_error_at_path(&manifest_path, e))?;
 
     let mut contents = String::new();
-    file.read_to_string(&mut contents).map_err(|e| {
-        RestoreError::io_error_at_path(&manifest_path, e)
-    })?;
+    file.read_to_string(&mut contents)
+        .map_err(|e| RestoreError::io_error_at_path(&manifest_path, e))?;
 
     // Validate it's valid JSON
-    let _: serde_json::Value = serde_json::from_str(&contents).map_err(|e| {
-        RestoreError::corruption(format!(
-            "Invalid snapshot manifest JSON: {}", e
-        ))
-    })?;
+    let _: serde_json::Value = serde_json::from_str(&contents)
+        .map_err(|e| RestoreError::corruption(format!("Invalid snapshot manifest JSON: {}", e)))?;
 
     // Check storage.dat exists
     let storage_path = snapshot_dir.join("storage.dat");
     if !storage_path.exists() {
         return Err(RestoreError::corruption(
-            "Missing storage.dat in backup snapshot"
+            "Missing storage.dat in backup snapshot",
         ));
     }
 
@@ -126,7 +121,7 @@ pub fn validate_snapshot(restore_dir: &Path) -> RestoreResult<()> {
     let schemas_dir = snapshot_dir.join("schemas");
     if schemas_dir.exists() && !schemas_dir.is_dir() {
         return Err(RestoreError::corruption(
-            "schemas in backup is not a directory"
+            "schemas in backup is not a directory",
         ));
     }
 
@@ -143,7 +138,7 @@ pub fn validate_wal(restore_dir: &Path) -> RestoreResult<()> {
 
     if !wal_dir.exists() {
         return Err(RestoreError::invalid_backup(
-            "Missing wal/ directory in backup"
+            "Missing wal/ directory in backup",
         ));
     }
 
@@ -151,9 +146,7 @@ pub fn validate_wal(restore_dir: &Path) -> RestoreResult<()> {
     let wal_log = wal_dir.join("wal.log");
     if wal_log.exists() {
         // Try to open it to verify it's readable
-        File::open(&wal_log).map_err(|e| {
-            RestoreError::io_error_at_path(&wal_log, e)
-        })?;
+        File::open(&wal_log).map_err(|e| RestoreError::io_error_at_path(&wal_log, e))?;
     }
 
     Ok(())
@@ -168,7 +161,7 @@ pub fn check_not_running(data_dir: &Path) -> RestoreResult<()> {
     let lock_file = data_dir.join(".lock");
     if lock_file.exists() {
         return Err(RestoreError::failed(
-            "AeroDB appears to be running (lock file exists). Stop AeroDB before restoring."
+            "AeroDB appears to be running (lock file exists). Stop AeroDB before restoring.",
         ));
     }
 

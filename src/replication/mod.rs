@@ -21,35 +21,39 @@
 //!
 //! - Fast Read: Pre-validated snapshot reuse on replicas (optional, disabled by default)
 
-mod config;
-mod role;
 mod authority;
-mod errors;
-mod fast_read;
-mod wal_sender;
-mod wal_receiver;
-mod snapshot_transfer;
-mod replica_reads;
-mod failure_matrix;
-mod recovery;
 mod compatibility;
+mod config;
+mod errors;
+mod failure_matrix;
+mod fast_read;
+mod recovery;
+mod replica_reads;
+mod role;
+mod snapshot_transfer;
+mod wal_receiver;
+mod wal_sender;
 
+pub use authority::{
+    check_commit_authority, check_dual_primary, check_write_admission, AuthorityCheck,
+    WriteAdmission,
+};
+pub use compatibility::{
+    CompatibilityAssertion, CompatibilityCheck, MvccCompatibility, Phase1Compatibility,
+};
 pub use config::ReplicationConfig;
-pub use role::{ReplicationRole, ReplicationState, HaltReason};
-pub use authority::{AuthorityCheck, WriteAdmission, check_write_admission, check_commit_authority, check_dual_primary};
-pub use errors::{ReplicationError, ReplicationResult, ReplicationErrorKind};
-pub use fast_read::{FastReadConfig, FastReadManager, FastReadResult, FastReadStats, ReplicaReadPath, ReplicaSafetyState, SafetyCheck, SafetyValidator, SafetyViolation};
-pub use wal_sender::{WalSender, WalPosition, WalRecordEnvelope};
-pub use wal_receiver::{WalReceiver, ReceiveResult};
-pub use snapshot_transfer::{SnapshotReceiver, SnapshotMetadata, SnapshotTransferState, SnapshotEligibility, SnapshotInstallResult, check_snapshot_eligibility};
-pub use replica_reads::{ReplicaReadAdmission, ReadEligibility};
-pub use failure_matrix::{ReplicationCrashPoint, FailureOutcome, FailureState};
-pub use recovery::{PrimaryRecovery, ReplicaRecovery, RecoveryValidation, ReplicaResumeState};
-pub use compatibility::{CompatibilityCheck, CompatibilityAssertion, Phase1Compatibility, MvccCompatibility};
-
-
-
-
-
-
-
+pub use errors::{ReplicationError, ReplicationErrorKind, ReplicationResult};
+pub use failure_matrix::{FailureOutcome, FailureState, ReplicationCrashPoint};
+pub use fast_read::{
+    FastReadConfig, FastReadManager, FastReadResult, FastReadStats, ReplicaReadPath,
+    ReplicaSafetyState, SafetyCheck, SafetyValidator, SafetyViolation,
+};
+pub use recovery::{PrimaryRecovery, RecoveryValidation, ReplicaRecovery, ReplicaResumeState};
+pub use replica_reads::{ReadEligibility, ReplicaReadAdmission};
+pub use role::{HaltReason, ReplicationRole, ReplicationState};
+pub use snapshot_transfer::{
+    check_snapshot_eligibility, SnapshotEligibility, SnapshotInstallResult, SnapshotMetadata,
+    SnapshotReceiver, SnapshotTransferState,
+};
+pub use wal_receiver::{ReceiveResult, WalReceiver};
+pub use wal_sender::{WalPosition, WalRecordEnvelope, WalSender};

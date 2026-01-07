@@ -91,11 +91,8 @@ impl<'a> BoundednessAnalyzer<'a> {
 
         // 5. For range queries, limit is already checked above
         // Collect indexed fields used in predicates
-        let indexed_fields: Vec<String> = query
-            .predicates
-            .iter()
-            .map(|p| p.field.clone())
-            .collect();
+        let indexed_fields: Vec<String> =
+            query.predicates.iter().map(|p| p.field.clone()).collect();
 
         Ok(BoundednessProof::indexed_scan(limit, indexed_fields))
     }

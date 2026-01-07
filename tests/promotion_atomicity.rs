@@ -9,7 +9,7 @@
 //! - Transitions are deterministic
 //! - AuthorityTransitioning has atomic outcome
 
-use aerodb::promotion::{PromotionState, DenialReason};
+use aerodb::promotion::{DenialReason, PromotionState};
 use uuid::Uuid;
 
 // =============================================================================
@@ -29,7 +29,7 @@ fn test_default_state_is_steady() {
 fn test_steady_to_promotion_requested() {
     let state = PromotionState::new();
     let replica_id = Uuid::new_v4();
-    
+
     let next_state = state.request_promotion(replica_id).unwrap();
     assert_eq!(next_state.state_name(), "PromotionRequested");
     assert!(next_state.is_promotion_in_progress());
@@ -41,10 +41,10 @@ fn test_steady_to_promotion_requested() {
 fn test_requested_to_validating() {
     let state = PromotionState::new();
     let replica_id = Uuid::new_v4();
-    
+
     let state = state.request_promotion(replica_id).unwrap();
     let state = state.begin_validation().unwrap();
-    
+
     assert_eq!(state.state_name(), "PromotionValidating");
 }
 
@@ -53,11 +53,11 @@ fn test_requested_to_validating() {
 fn test_validating_to_approved() {
     let state = PromotionState::new();
     let replica_id = Uuid::new_v4();
-    
+
     let state = state.request_promotion(replica_id).unwrap();
     let state = state.begin_validation().unwrap();
     let state = state.approve_promotion().unwrap();
-    
+
     assert_eq!(state.state_name(), "PromotionApproved");
 }
 
@@ -66,11 +66,13 @@ fn test_validating_to_approved() {
 fn test_validating_to_denied() {
     let state = PromotionState::new();
     let replica_id = Uuid::new_v4();
-    
+
     let state = state.request_promotion(replica_id).unwrap();
     let state = state.begin_validation().unwrap();
-    let state = state.deny_promotion(DenialReason::ReplicaBehindWal).unwrap();
-    
+    let state = state
+        .deny_promotion(DenialReason::ReplicaBehindWal)
+        .unwrap();
+
     assert_eq!(state.state_name(), "PromotionDenied");
 }
 
@@ -83,12 +85,12 @@ fn test_validating_to_denied() {
 fn test_approved_to_authority_transitioning() {
     let state = PromotionState::new();
     let replica_id = Uuid::new_v4();
-    
+
     let state = state.request_promotion(replica_id).unwrap();
     let state = state.begin_validation().unwrap();
     let state = state.approve_promotion().unwrap();
     let state = state.begin_authority_transition().unwrap();
-    
+
     assert_eq!(state.state_name(), "AuthorityTransitioning");
 }
 
@@ -97,13 +99,13 @@ fn test_approved_to_authority_transitioning() {
 fn test_authority_transition_completes() {
     let state = PromotionState::new();
     let replica_id = Uuid::new_v4();
-    
+
     let state = state.request_promotion(replica_id).unwrap();
     let state = state.begin_validation().unwrap();
     let state = state.approve_promotion().unwrap();
     let state = state.begin_authority_transition().unwrap();
     let state = state.complete_transition().unwrap();
-    
+
     assert_eq!(state.state_name(), "PromotionSucceeded");
 }
 
@@ -112,14 +114,14 @@ fn test_authority_transition_completes() {
 fn test_success_acknowledged_returns_steady() {
     let state = PromotionState::new();
     let replica_id = Uuid::new_v4();
-    
+
     let state = state.request_promotion(replica_id).unwrap();
     let state = state.begin_validation().unwrap();
     let state = state.approve_promotion().unwrap();
     let state = state.begin_authority_transition().unwrap();
     let state = state.complete_transition().unwrap();
     let state = state.acknowledge_success().unwrap();
-    
+
     assert_eq!(state.state_name(), "Steady");
     assert!(!state.is_promotion_in_progress());
 }
@@ -133,12 +135,12 @@ fn test_success_acknowledged_returns_steady() {
 fn test_denied_returns_to_steady() {
     let state = PromotionState::new();
     let replica_id = Uuid::new_v4();
-    
+
     let state = state.request_promotion(replica_id).unwrap();
     let state = state.begin_validation().unwrap();
     let state = state.deny_promotion(DenialReason::InvalidRequest).unwrap();
     let state = state.acknowledge_denial().unwrap();
-    
+
     assert_eq!(state.state_name(), "Steady");
 }
 
@@ -151,15 +153,15 @@ fn test_denial_reasons_preserved() {
         DenialReason::ReplicaNotActive,
         DenialReason::MvccVisibilityViolation,
     ];
-    
+
     for reason in reasons {
         let state = PromotionState::new();
         let replica_id = Uuid::new_v4();
-        
+
         let state = state.request_promotion(replica_id).unwrap();
         let state = state.begin_validation().unwrap();
         let denied = state.deny_promotion(reason.clone()).unwrap();
-        
+
         assert_eq!(denied.state_name(), "PromotionDenied");
         // Denial reason should be extractable from the state
     }
@@ -181,7 +183,7 @@ fn test_cannot_validate_from_steady() {
 fn test_cannot_complete_from_requested() {
     let state = PromotionState::new();
     let replica_id = Uuid::new_v4();
-    
+
     let state = state.request_promotion(replica_id).unwrap();
     assert!(state.complete_transition().is_err());
 }
@@ -191,7 +193,7 @@ fn test_cannot_complete_from_requested() {
 fn test_cannot_request_when_in_progress() {
     let state = PromotionState::new();
     let replica_id = Uuid::new_v4();
-    
+
     let state = state.request_promotion(replica_id).unwrap();
     assert!(state.request_promotion(Uuid::new_v4()).is_err());
 }
@@ -208,13 +210,15 @@ fn test_cannot_request_when_in_progress() {
 fn test_mvcc_visibility_violation_denies_promotion() {
     let state = PromotionState::new();
     let replica_id = Uuid::new_v4();
-    
+
     let state = state.request_promotion(replica_id).unwrap();
     let state = state.begin_validation().unwrap();
-    
+
     // Deny due to MVCC visibility violation
-    let state = state.deny_promotion(DenialReason::MvccVisibilityViolation).unwrap();
-    
+    let state = state
+        .deny_promotion(DenialReason::MvccVisibilityViolation)
+        .unwrap();
+
     assert_eq!(state.state_name(), "PromotionDenied");
 }
 
@@ -222,7 +226,7 @@ fn test_mvcc_visibility_violation_denies_promotion() {
 #[test]
 fn test_mvcc_denial_reason_references_invariant() {
     let reason = DenialReason::MvccVisibilityViolation;
-    
+
     // Per PHASE6_INVARIANTS.md §P6-O2:
     // System MUST be able to explain which invariant blocked promotion
     assert!(reason.invariant_reference().contains("P6-S3"));
@@ -247,10 +251,9 @@ fn test_promotion_denial_reasons_complete() {
         DenialReason::InvalidRequest,
         DenialReason::InvalidReplicationState,
     ];
-    
+
     for reason in reasons {
         // Each reason should have an invariant reference
         assert!(!reason.invariant_reference().is_empty());
     }
 }
-

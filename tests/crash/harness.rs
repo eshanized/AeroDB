@@ -5,8 +5,8 @@
 //! - Injects crashes via env var
 //! - Validates post-crash state
 
-use std::process::{Command, ExitStatus};
 use std::path::Path;
+use std::process::{Command, ExitStatus};
 
 /// Result of a crash test execution
 #[derive(Debug)]
@@ -24,11 +24,7 @@ pub struct CrashTestResult {
 /// Run a function with crash point enabled
 ///
 /// This spawns a subprocess with AERODB_CRASH_POINT set
-pub fn run_with_crash_point<F>(
-    crash_point: &str,
-    data_dir: &Path,
-    test_fn: F,
-) -> CrashTestResult
+pub fn run_with_crash_point<F>(crash_point: &str, data_dir: &Path, test_fn: F) -> CrashTestResult
 where
     F: FnOnce(&Path),
 {
@@ -119,7 +115,7 @@ pub fn report_failure(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::crash::utils::{create_temp_data_dir, cleanup_temp_data_dir};
+    use crate::crash::utils::{cleanup_temp_data_dir, create_temp_data_dir};
 
     #[test]
     fn test_validate_post_crash_state_empty_dir() {

@@ -346,7 +346,7 @@ impl GroupCommitManager {
     /// Per GROUP_COMMIT.md §4.2: "No commit is acknowledged before fsync returns"
     pub fn wait_for_fsync(&self, commit_epoch: u64) -> WalResult<()> {
         let mut inner = self.inner.lock().unwrap();
-        
+
         // If epoch has advanced, fsync already completed
         while inner.epoch == commit_epoch && !inner.current_epoch_fsync_complete {
             inner = self.fsync_complete.wait(inner).unwrap();
@@ -442,12 +442,12 @@ mod tests {
     #[test]
     fn test_pending_commit_transitions() {
         let mut commit = PendingCommit::new(RecordType::Insert, test_payload());
-        
+
         // Queued -> Appended
         commit.mark_appended(42);
         assert_eq!(commit.state, PendingCommitState::Appended);
         assert_eq!(commit.sequence_number, Some(42));
-        
+
         // Appended -> Durable
         commit.mark_durable();
         assert_eq!(commit.state, PendingCommitState::Durable);
@@ -474,7 +474,7 @@ mod tests {
         let mut group = CommitGroup::new();
         group.add_commit(PendingCommit::new(RecordType::Insert, test_payload()));
         group.add_commit(PendingCommit::new(RecordType::Update, test_payload()));
-        
+
         assert!(!group.is_empty());
         assert_eq!(group.len(), 2);
     }
@@ -483,14 +483,14 @@ mod tests {
     fn test_commit_group_fsync_complete() {
         let mut group = CommitGroup::new();
         group.add_commit(PendingCommit::new(RecordType::Insert, test_payload()));
-        
+
         group.mark_commit_appended(0, 1);
         group.mark_all_appended();
         group.mark_fsync_complete();
-        
+
         assert!(group.is_fsync_complete());
         assert!(group.fsync_error().is_none());
-        
+
         let seqs = group.durable_sequence_numbers();
         assert_eq!(seqs, vec![1]);
     }
@@ -499,13 +499,13 @@ mod tests {
     fn test_commit_group_fsync_failed() {
         let mut group = CommitGroup::new();
         group.add_commit(PendingCommit::new(RecordType::Insert, test_payload()));
-        
+
         group.mark_commit_appended(0, 1);
         group.mark_fsync_failed("disk error".to_string());
-        
+
         assert!(!group.is_fsync_complete());
         assert_eq!(group.fsync_error(), Some("disk error"));
-        
+
         let seqs = group.durable_sequence_numbers();
         assert!(seqs.is_empty()); // Failed commits are not durable
     }
@@ -528,7 +528,7 @@ mod tests {
     fn test_manager_submit_commit() {
         let manager = GroupCommitManager::new(GroupCommitConfig::enabled());
         let commit = PendingCommit::new(RecordType::Insert, test_payload());
-        
+
         let (epoch, index) = manager.submit_commit(commit);
         assert_eq!(epoch, 0);
         assert_eq!(index, 0);
@@ -538,11 +538,14 @@ mod tests {
     #[test]
     fn test_manager_multiple_commits() {
         let manager = GroupCommitManager::new(GroupCommitConfig::enabled());
-        
-        let (epoch1, idx1) = manager.submit_commit(PendingCommit::new(RecordType::Insert, test_payload()));
-        let (epoch2, idx2) = manager.submit_commit(PendingCommit::new(RecordType::Update, test_payload()));
-        let (epoch3, idx3) = manager.submit_commit(PendingCommit::new(RecordType::Delete, test_payload()));
-        
+
+        let (epoch1, idx1) =
+            manager.submit_commit(PendingCommit::new(RecordType::Insert, test_payload()));
+        let (epoch2, idx2) =
+            manager.submit_commit(PendingCommit::new(RecordType::Update, test_payload()));
+        let (epoch3, idx3) =
+            manager.submit_commit(PendingCommit::new(RecordType::Delete, test_payload()));
+
         assert_eq!(epoch1, epoch2);
         assert_eq!(epoch2, epoch3);
         assert_eq!(idx1, 0);
@@ -554,23 +557,26 @@ mod tests {
     #[test]
     fn test_manager_fsync_complete_advances_epoch() {
         let manager = GroupCommitManager::new(GroupCommitConfig::enabled());
-        
-        let (epoch1, _) = manager.submit_commit(PendingCommit::new(RecordType::Insert, test_payload()));
+
+        let (epoch1, _) =
+            manager.submit_commit(PendingCommit::new(RecordType::Insert, test_payload()));
         manager.signal_fsync_complete(epoch1);
-        
-        let (epoch2, _) = manager.submit_commit(PendingCommit::new(RecordType::Insert, test_payload()));
+
+        let (epoch2, _) =
+            manager.submit_commit(PendingCommit::new(RecordType::Insert, test_payload()));
         assert_eq!(epoch2, epoch1 + 1);
     }
 
     #[test]
     fn test_manager_wait_for_fsync() {
         let manager = Arc::new(GroupCommitManager::new(GroupCommitConfig::enabled()));
-        
-        let (epoch, _) = manager.submit_commit(PendingCommit::new(RecordType::Insert, test_payload()));
-        
+
+        let (epoch, _) =
+            manager.submit_commit(PendingCommit::new(RecordType::Insert, test_payload()));
+
         // Signal completion before waiting
         manager.signal_fsync_complete(epoch);
-        
+
         // Wait should return immediately
         let result = manager.wait_for_fsync(epoch);
         assert!(result.is_ok());
@@ -597,16 +603,17 @@ mod tests {
     #[test]
     fn test_single_commit_equivalent_to_baseline() {
         let manager = GroupCommitManager::new(GroupCommitConfig::enabled());
-        
+
         // Single commit should have same behavior
-        let (epoch, index) = manager.submit_commit(PendingCommit::new(RecordType::Insert, test_payload()));
+        let (epoch, index) =
+            manager.submit_commit(PendingCommit::new(RecordType::Insert, test_payload()));
         manager.mark_appended(epoch, index, 1);
-        
+
         // Leader should be true for single commit
         assert!(manager.should_lead_fsync(epoch));
-        
+
         manager.signal_fsync_complete(epoch);
-        
+
         let result = manager.wait_for_fsync(epoch);
         assert!(result.is_ok());
     }

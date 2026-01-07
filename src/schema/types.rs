@@ -267,7 +267,19 @@ mod tests {
         assert_eq!(FieldType::Int.type_name(), "int");
         assert_eq!(FieldType::Bool.type_name(), "bool");
         assert_eq!(FieldType::Float.type_name(), "float");
-        assert_eq!(FieldType::Object { fields: HashMap::new() }.type_name(), "object");
-        assert_eq!(FieldType::Array { element_type: Box::new(FieldType::String) }.type_name(), "array");
+        assert_eq!(
+            FieldType::Object {
+                fields: HashMap::new()
+            }
+            .type_name(),
+            "object"
+        );
+        assert_eq!(
+            FieldType::Array {
+                element_type: Box::new(FieldType::String)
+            }
+            .type_name(),
+            "array"
+        );
     }
 }

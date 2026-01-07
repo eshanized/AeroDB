@@ -112,7 +112,7 @@ pub mod points {
     pub const MVCC_BEFORE_COMMIT_RECORD: &str = "mvcc_before_commit_record";
     pub const MVCC_AFTER_COMMIT_RECORD: &str = "mvcc_after_commit_record";
     pub const MVCC_AFTER_COMMIT_FSYNC: &str = "mvcc_after_commit_fsync";
-    
+
     // MVCC version persistence crash points per MVCC-03
     pub const MVCC_BEFORE_VERSION_WRITE: &str = "mvcc_before_version_write";
     pub const MVCC_AFTER_VERSION_WRITE: &str = "mvcc_after_version_write";

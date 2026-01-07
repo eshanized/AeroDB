@@ -18,16 +18,16 @@ pub const DEFAULT_LIMIT: usize = 100;
 pub struct QueryParams {
     /// Fields to select (None = all)
     pub select: Option<Vec<String>>,
-    
+
     /// Filter expressions
     pub filters: Vec<FilterExpr>,
-    
+
     /// Order by clauses
     pub order: Vec<OrderBy>,
-    
+
     /// Number of records to return
     pub limit: usize,
-    
+
     /// Number of records to skip
     pub offset: usize,
 }
@@ -58,7 +58,7 @@ impl QueryParams {
             limit: DEFAULT_LIMIT,
             ..Default::default()
         };
-        
+
         for (key, value) in params {
             match key.as_str() {
                 "select" => {
@@ -81,15 +81,15 @@ impl QueryParams {
                 }
             }
         }
-        
+
         // Enforce maximum limit
         if result.limit > MAX_LIMIT {
             return Err(RestError::LimitExceeded(result.limit, MAX_LIMIT));
         }
-        
+
         Ok(result)
     }
-    
+
     /// Check if this query is bounded
     pub fn is_bounded(&self) -> bool {
         self.limit > 0 && self.limit <= MAX_LIMIT
@@ -101,68 +101,71 @@ fn parse_select(value: &str) -> RestResult<Vec<String>> {
     if value == "*" {
         return Ok(vec!["*".to_string()]);
     }
-    
+
     let fields: Vec<String> = value
         .split(',')
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .collect();
-    
+
     if fields.is_empty() {
         return Err(RestError::InvalidQueryParam(
-            "select cannot be empty".to_string()
+            "select cannot be empty".to_string(),
         ));
     }
-    
+
     Ok(fields)
 }
 
 /// Parse order parameter (comma-separated field.direction)
 fn parse_order(value: &str) -> RestResult<Vec<OrderBy>> {
     let mut orders = Vec::new();
-    
+
     for part in value.split(',') {
         let part = part.trim();
         if part.is_empty() {
             continue;
         }
-        
+
         let (field, ascending) = if let Some(dot_pos) = part.rfind('.') {
             let field = &part[..dot_pos];
             let direction = &part[dot_pos + 1..];
-            
+
             let ascending = match direction.to_lowercase().as_str() {
                 "asc" => true,
                 "desc" => false,
-                _ => return Err(RestError::InvalidQueryParam(
-                    format!("Invalid order direction: {}", direction)
-                )),
+                _ => {
+                    return Err(RestError::InvalidQueryParam(format!(
+                        "Invalid order direction: {}",
+                        direction
+                    )))
+                }
             };
-            
+
             (field.to_string(), ascending)
         } else {
             // Default to ascending
             (part.to_string(), true)
         };
-        
+
         orders.push(OrderBy { field, ascending });
     }
-    
+
     Ok(orders)
 }
 
 /// Parse limit parameter
 fn parse_limit(value: &str) -> RestResult<usize> {
-    value.parse().map_err(|_| {
-        RestError::InvalidQueryParam(format!("Invalid limit: {}", value))
-    })
+    value
+        .parse()
+        .map_err(|_| RestError::InvalidQueryParam(format!("Invalid limit: {}", value)))
 }
 
 /// Parse offset parameter
 fn parse_offset(value: &str) -> RestResult<usize> {
-    value.parse().map_err(|_| {
-        RestError::InvalidQueryParam(format!("Invalid offset: {}", value))
-    })
+    value
+        .parse()
+        .map_err(|_| RestError::InvalidQueryParam(format!("Invalid offset: {}", value)))
 }
 
 /// Parse a filter expression from key=value
@@ -171,7 +174,7 @@ fn parse_filter(field: &str, value: &str) -> RestResult<Option<FilterExpr>> {
     let (operator, actual_value) = if let Some(dot_pos) = value.find('.') {
         let op_str = &value[..dot_pos];
         let val = &value[dot_pos + 1..];
-        
+
         let op = match op_str {
             "eq" => FilterOperator::Eq,
             "neq" => FilterOperator::Neq,
@@ -191,13 +194,13 @@ fn parse_filter(field: &str, value: &str) -> RestResult<Option<FilterExpr>> {
                 }));
             }
         };
-        
+
         (op, val)
     } else {
         // No operator, default to eq
         (FilterOperator::Eq, value)
     };
-    
+
     Ok(Some(FilterExpr {
         field: field.to_string(),
         operator,
@@ -216,12 +219,12 @@ fn parse_filter_value(value: &str) -> RestResult<serde_json::Value> {
             .collect();
         return Ok(serde_json::Value::Array(items));
     }
-    
+
     // Check for null
     if value == "null" {
         return Ok(serde_json::Value::Null);
     }
-    
+
     // Check for boolean
     if value == "true" {
         return Ok(serde_json::Value::Bool(true));
@@ -229,7 +232,7 @@ fn parse_filter_value(value: &str) -> RestResult<serde_json::Value> {
     if value == "false" {
         return Ok(serde_json::Value::Bool(false));
     }
-    
+
     // Check for number
     if let Ok(n) = value.parse::<i64>() {
         return Ok(serde_json::Value::Number(n.into()));
@@ -239,7 +242,7 @@ fn parse_filter_value(value: &str) -> RestResult<serde_json::Value> {
             return Ok(serde_json::Value::Number(num));
         }
     }
-    
+
     // Default to string
     Ok(serde_json::Value::String(value.to_string()))
 }
@@ -247,16 +250,16 @@ fn parse_filter_value(value: &str) -> RestResult<serde_json::Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_parse_select() {
         let fields = parse_select("id,name,email").unwrap();
         assert_eq!(fields, vec!["id", "name", "email"]);
-        
+
         let all = parse_select("*").unwrap();
         assert_eq!(all, vec!["*"]);
     }
-    
+
     #[test]
     fn test_parse_order() {
         let orders = parse_order("created_at.desc,name.asc").unwrap();
@@ -266,35 +269,37 @@ mod tests {
         assert_eq!(orders[1].field, "name");
         assert!(orders[1].ascending);
     }
-    
+
     #[test]
     fn test_parse_limit() {
         assert_eq!(parse_limit("50").unwrap(), 50);
         assert!(parse_limit("abc").is_err());
     }
-    
+
     #[test]
     fn test_parse_filter() {
         let filter = parse_filter("age", "gt.18").unwrap().unwrap();
         assert_eq!(filter.field, "age");
         assert_eq!(filter.operator, FilterOperator::Gt);
         assert_eq!(filter.value, serde_json::json!(18));
-        
+
         let eq_filter = parse_filter("name", "John").unwrap().unwrap();
         assert_eq!(eq_filter.operator, FilterOperator::Eq);
         assert_eq!(eq_filter.value, serde_json::json!("John"));
     }
-    
+
     #[test]
     fn test_parse_in_filter() {
-        let filter = parse_filter("status", "in.(active,pending,done)").unwrap().unwrap();
+        let filter = parse_filter("status", "in.(active,pending,done)")
+            .unwrap()
+            .unwrap();
         assert_eq!(filter.operator, FilterOperator::In);
         assert_eq!(
             filter.value,
             serde_json::json!(["active", "pending", "done"])
         );
     }
-    
+
     #[test]
     fn test_full_query_params() {
         let mut params = HashMap::new();
@@ -303,21 +308,24 @@ mod tests {
         params.insert("limit".to_string(), "20".to_string());
         params.insert("offset".to_string(), "10".to_string());
         params.insert("status".to_string(), "eq.active".to_string());
-        
+
         let query = QueryParams::parse(&params).unwrap();
-        
-        assert_eq!(query.select, Some(vec!["id".to_string(), "name".to_string()]));
+
+        assert_eq!(
+            query.select,
+            Some(vec!["id".to_string(), "name".to_string()])
+        );
         assert_eq!(query.order.len(), 1);
         assert_eq!(query.limit, 20);
         assert_eq!(query.offset, 10);
         assert_eq!(query.filters.len(), 1);
     }
-    
+
     #[test]
     fn test_limit_exceeded() {
         let mut params = HashMap::new();
         params.insert("limit".to_string(), "5000".to_string());
-        
+
         let result = QueryParams::parse(&params);
         assert!(matches!(result, Err(RestError::LimitExceeded(5000, 1000))));
     }

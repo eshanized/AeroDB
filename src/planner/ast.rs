@@ -27,7 +27,10 @@ impl FilterOp {
 
     /// Returns true if this is a range operation
     pub fn is_range(&self) -> bool {
-        matches!(self, FilterOp::Gte(_) | FilterOp::Gt(_) | FilterOp::Lte(_) | FilterOp::Lt(_))
+        matches!(
+            self,
+            FilterOp::Gte(_) | FilterOp::Gt(_) | FilterOp::Lte(_) | FilterOp::Lt(_)
+        )
     }
 
     /// Returns the operation name for explain output

@@ -180,10 +180,17 @@ impl PlannerError {
     }
 
     /// Create an unknown schema version error
-    pub fn unknown_schema_version(schema_id: impl Into<String>, version: impl Into<String>) -> Self {
+    pub fn unknown_schema_version(
+        schema_id: impl Into<String>,
+        version: impl Into<String>,
+    ) -> Self {
         Self {
             code: PlannerErrorCode::AeroUnknownSchemaVersion,
-            message: format!("Schema '{}' version '{}' not found", schema_id.into(), version.into()),
+            message: format!(
+                "Schema '{}' version '{}' not found",
+                schema_id.into(),
+                version.into()
+            ),
             field: None,
         }
     }
@@ -216,7 +223,13 @@ impl PlannerError {
 
 impl fmt::Display for PlannerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}] {}: {}", self.code.severity(), self.code.code(), self.message)?;
+        write!(
+            f,
+            "[{}] {}: {}",
+            self.code.severity(),
+            self.code.code(),
+            self.message
+        )?;
         write!(f, " [violates {}]", self.code.invariant())?;
         Ok(())
     }
@@ -233,11 +246,26 @@ mod tests {
 
     #[test]
     fn test_error_codes_match_spec() {
-        assert_eq!(PlannerErrorCode::AeroQueryInvalid.code(), "AERO_QUERY_INVALID");
-        assert_eq!(PlannerErrorCode::AeroQueryUnbounded.code(), "AERO_QUERY_UNBOUNDED");
-        assert_eq!(PlannerErrorCode::AeroQueryUnindexedField.code(), "AERO_QUERY_UNINDEXED_FIELD");
-        assert_eq!(PlannerErrorCode::AeroQueryLimitRequired.code(), "AERO_QUERY_LIMIT_REQUIRED");
-        assert_eq!(PlannerErrorCode::AeroQuerySortNotIndexed.code(), "AERO_QUERY_SORT_NOT_INDEXED");
+        assert_eq!(
+            PlannerErrorCode::AeroQueryInvalid.code(),
+            "AERO_QUERY_INVALID"
+        );
+        assert_eq!(
+            PlannerErrorCode::AeroQueryUnbounded.code(),
+            "AERO_QUERY_UNBOUNDED"
+        );
+        assert_eq!(
+            PlannerErrorCode::AeroQueryUnindexedField.code(),
+            "AERO_QUERY_UNINDEXED_FIELD"
+        );
+        assert_eq!(
+            PlannerErrorCode::AeroQueryLimitRequired.code(),
+            "AERO_QUERY_LIMIT_REQUIRED"
+        );
+        assert_eq!(
+            PlannerErrorCode::AeroQuerySortNotIndexed.code(),
+            "AERO_QUERY_SORT_NOT_INDEXED"
+        );
     }
 
     #[test]

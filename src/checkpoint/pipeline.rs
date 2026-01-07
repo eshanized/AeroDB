@@ -659,13 +659,19 @@ mod tests {
     #[test]
     fn test_path_sequential() {
         let config = PipelineConfig::disabled();
-        assert_eq!(CheckpointPath::from_config(&config), CheckpointPath::Sequential);
+        assert_eq!(
+            CheckpointPath::from_config(&config),
+            CheckpointPath::Sequential
+        );
     }
 
     #[test]
     fn test_path_pipelined() {
         let config = PipelineConfig::enabled();
-        assert_eq!(CheckpointPath::from_config(&config), CheckpointPath::Pipelined);
+        assert_eq!(
+            CheckpointPath::from_config(&config),
+            CheckpointPath::Pipelined
+        );
     }
 
     // ==================== Crash Equivalence Tests ====================

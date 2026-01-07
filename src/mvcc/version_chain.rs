@@ -128,7 +128,11 @@ mod tests {
     #[test]
     fn test_version_chain_versions_accessor() {
         let mut chain = VersionChain::new("k".to_string());
-        chain.push(Version::with_document("k".to_string(), b"d".to_vec(), CommitId::new(1)));
+        chain.push(Version::with_document(
+            "k".to_string(),
+            b"d".to_vec(),
+            CommitId::new(1),
+        ));
 
         let versions = chain.versions();
         assert_eq!(versions.len(), 1);

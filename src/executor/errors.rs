@@ -142,7 +142,13 @@ impl ExecutorError {
 
 impl fmt::Display for ExecutorError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}] {}: {}", self.code.severity(), self.code.code(), self.message)?;
+        write!(
+            f,
+            "[{}] {}: {}",
+            self.code.severity(),
+            self.code.code(),
+            self.message
+        )?;
         write!(f, " [violates {}]", self.code.invariant())?;
         Ok(())
     }
@@ -159,9 +165,18 @@ mod tests {
 
     #[test]
     fn test_error_codes_match_spec() {
-        assert_eq!(ExecutorErrorCode::AeroExecutionFailed.code(), "AERO_EXECUTION_FAILED");
-        assert_eq!(ExecutorErrorCode::AeroDataCorruption.code(), "AERO_DATA_CORRUPTION");
-        assert_eq!(ExecutorErrorCode::AeroExecutionLimit.code(), "AERO_EXECUTION_LIMIT");
+        assert_eq!(
+            ExecutorErrorCode::AeroExecutionFailed.code(),
+            "AERO_EXECUTION_FAILED"
+        );
+        assert_eq!(
+            ExecutorErrorCode::AeroDataCorruption.code(),
+            "AERO_DATA_CORRUPTION"
+        );
+        assert_eq!(
+            ExecutorErrorCode::AeroExecutionLimit.code(),
+            "AERO_EXECUTION_LIMIT"
+        );
     }
 
     #[test]

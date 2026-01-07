@@ -333,9 +333,9 @@ mod tests {
     fn test_batch_add_record() {
         let mut batch = WalBatch::new();
         let record = test_record(1);
-        
+
         batch.add_record(&record, 1);
-        
+
         assert!(!batch.is_empty());
         assert_eq!(batch.record_count(), 1);
         assert_eq!(batch.buffer_size(), 8); // u64 = 8 bytes
@@ -345,11 +345,11 @@ mod tests {
     #[test]
     fn test_batch_multiple_records() {
         let mut batch = WalBatch::new();
-        
+
         batch.add_record(&test_record(1), 1);
         batch.add_record(&test_record(2), 2);
         batch.add_record(&test_record(3), 3);
-        
+
         assert_eq!(batch.record_count(), 3);
         assert_eq!(batch.buffer_size(), 24); // 3 * 8 bytes
         assert_eq!(batch.sequence_numbers(), &[1, 2, 3]);
@@ -360,9 +360,9 @@ mod tests {
         let mut batch = WalBatch::new();
         batch.add_record(&test_record(1), 1);
         batch.add_record(&test_record(2), 2);
-        
+
         batch.clear();
-        
+
         assert!(batch.is_empty());
         assert_eq!(batch.record_count(), 0);
         assert_eq!(batch.buffer_size(), 0);
@@ -373,14 +373,15 @@ mod tests {
         let mut batch = WalBatch::new();
         batch.add_record(&test_record(1), 1);
         batch.add_record(&test_record(2), 2);
-        
+
         // Buffer should be concatenation of records
-        let expected: Vec<u8> = 1u64.to_le_bytes()
+        let expected: Vec<u8> = 1u64
+            .to_le_bytes()
             .iter()
             .chain(2u64.to_le_bytes().iter())
             .copied()
             .collect();
-        
+
         assert_eq!(batch.buffer(), &expected[..]);
     }
 
@@ -408,10 +409,10 @@ mod tests {
     #[test]
     fn test_batcher_flush_on_record_limit() {
         let mut batcher = WalBatcher::new(WalBatchConfig::enabled(2, 1024));
-        
+
         batcher.add_record(&test_record(1), 1);
         assert!(!batcher.should_flush(8));
-        
+
         batcher.add_record(&test_record(2), 2);
         assert!(batcher.should_flush(8)); // Now at limit
     }
@@ -419,12 +420,12 @@ mod tests {
     #[test]
     fn test_batcher_flush_on_byte_limit() {
         let mut batcher = WalBatcher::new(WalBatchConfig::enabled(100, 20));
-        
+
         batcher.add_record(&test_record(1), 1); // 8 bytes
         assert!(!batcher.should_flush(8));
-        
+
         batcher.add_record(&test_record(2), 2); // 16 bytes total
-        // Next record would make it 24 bytes, over 20 limit
+                                                // Next record would make it 24 bytes, over 20 limit
         assert!(batcher.should_flush(8));
     }
 
@@ -433,10 +434,10 @@ mod tests {
         let mut batcher = WalBatcher::new(WalBatchConfig::enabled(16, 1024));
         batcher.add_record(&test_record(1), 1);
         batcher.add_record(&test_record(2), 2);
-        
+
         let mut writer = Cursor::new(Vec::new());
         let bytes = batcher.flush(&mut writer).unwrap();
-        
+
         assert_eq!(bytes, 16);
         assert!(batcher.pending_records() == 0);
         assert_eq!(writer.into_inner().len(), 16);
@@ -445,10 +446,10 @@ mod tests {
     #[test]
     fn test_batcher_flush_empty() {
         let mut batcher = WalBatcher::new(WalBatchConfig::enabled(16, 1024));
-        
+
         let mut writer = Cursor::new(Vec::new());
         let bytes = batcher.flush(&mut writer).unwrap();
-        
+
         assert_eq!(bytes, 0);
     }
 
@@ -458,7 +459,7 @@ mod tests {
         batcher.add_record(&test_record(5), 5);
         batcher.add_record(&test_record(6), 6);
         batcher.add_record(&test_record(7), 7);
-        
+
         let seqs = batcher.pending_sequence_numbers();
         assert_eq!(seqs, vec![5, 6, 7]);
     }
@@ -495,7 +496,7 @@ mod tests {
         batcher.add_record(&test_record(1), 1);
         batcher.add_record(&test_record(2), 2);
         batcher.add_record(&test_record(3), 3);
-        
+
         let mut batched_writer = Cursor::new(Vec::new());
         batcher.flush(&mut batched_writer).unwrap();
         let batched_bytes = batched_writer.into_inner();
@@ -511,13 +512,13 @@ mod tests {
         let mut batch = WalBatch::new();
         batch.add_record(&test_record(100), 100);
         batch.add_record(&test_record(200), 200);
-        
+
         let buffer = batch.buffer();
-        
+
         // Should be able to parse each record from the buffer
         let record1 = u64::from_le_bytes(buffer[0..8].try_into().unwrap());
         let record2 = u64::from_le_bytes(buffer[8..16].try_into().unwrap());
-        
+
         assert_eq!(record1, 100);
         assert_eq!(record2, 200);
     }

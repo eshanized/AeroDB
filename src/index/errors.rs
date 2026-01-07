@@ -122,7 +122,13 @@ impl IndexError {
 
 impl fmt::Display for IndexError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}] {}: {}", self.code.severity(), self.code.code(), self.message)?;
+        write!(
+            f,
+            "[{}] {}: {}",
+            self.code.severity(),
+            self.code.code(),
+            self.message
+        )?;
         write!(f, " [violates {}]", self.code.invariant())?;
         Ok(())
     }
@@ -139,8 +145,14 @@ mod tests {
 
     #[test]
     fn test_error_codes_match_spec() {
-        assert_eq!(IndexErrorCode::AeroIndexBuildFailed.code(), "AERO_INDEX_BUILD_FAILED");
-        assert_eq!(IndexErrorCode::AeroDataCorruption.code(), "AERO_DATA_CORRUPTION");
+        assert_eq!(
+            IndexErrorCode::AeroIndexBuildFailed.code(),
+            "AERO_INDEX_BUILD_FAILED"
+        );
+        assert_eq!(
+            IndexErrorCode::AeroDataCorruption.code(),
+            "AERO_DATA_CORRUPTION"
+        );
     }
 
     #[test]

@@ -225,7 +225,7 @@ impl PackedKeyValue {
 
     /// Size of this packed struct.
     pub const fn size() -> usize {
-        16  // 8 + 4 + 2 + 2 = 16 bytes, no padding
+        16 // 8 + 4 + 2 + 2 = 16 bytes, no padding
     }
 }
 
@@ -329,7 +329,7 @@ mod tests {
         let mut arena = Arena::with_capacity(3);
         let idx0 = arena.alloc("first").unwrap();
         let idx1 = arena.alloc("second").unwrap();
-        
+
         assert_eq!(idx0, 0);
         assert_eq!(idx1, 1);
         assert_eq!(arena.len(), 2);
@@ -349,7 +349,7 @@ mod tests {
         let mut arena = Arena::with_capacity(10);
         arena.alloc("hello");
         arena.alloc("world");
-        
+
         assert_eq!(arena.get(0), Some(&"hello"));
         assert_eq!(arena.get(1), Some(&"world"));
         assert_eq!(arena.get(2), None);
@@ -360,9 +360,9 @@ mod tests {
         let mut arena = Arena::with_capacity(10);
         arena.alloc(1);
         arena.alloc(2);
-        
+
         arena.clear();
-        
+
         assert!(arena.is_empty());
         assert_eq!(arena.remaining_capacity(), 10);
     }
@@ -372,7 +372,7 @@ mod tests {
         let mut arena = Arena::with_capacity(5);
         arena.alloc(1);
         arena.alloc(2);
-        
+
         assert_eq!(arena.remaining_capacity(), 3);
     }
 
@@ -423,9 +423,9 @@ mod tests {
         let key_hash: u64 = 0x1234567890ABCDEF;
         let value_offset: u32 = 1000;
         let value_len: u16 = 500;
-        
+
         let packed = PackedKeyValue::new(key_hash, value_offset, value_len);
-        
+
         // Semantic equivalence: same values accessible
         assert_eq!(packed.key_hash, key_hash);
         assert_eq!(packed.value_offset, value_offset);
@@ -438,10 +438,10 @@ mod tests {
     fn test_alignment_irrelevant_to_correctness() {
         // Unaligned value
         let unaligned = 42u64;
-        
+
         // Aligned value
         let aligned = CacheAligned::new(42u64);
-        
+
         // Both must be semantically identical
         assert_eq!(unaligned, *aligned.inner());
     }

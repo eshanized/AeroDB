@@ -131,12 +131,13 @@ impl VisibilityExplainer {
             evidence.add("version_id", version.version_id);
             evidence.add("version_commit_id", version.created_at_commit_id);
             evidence.add("snapshot_commit_id", snapshot_commit_id);
-            evidence.add("commit_comparison", format!(
-                "{} <= {} = {}",
-                version.created_at_commit_id,
-                snapshot_commit_id,
-                is_created_visible
-            ));
+            evidence.add(
+                "commit_comparison",
+                format!(
+                    "{} <= {} = {}",
+                    version.created_at_commit_id, snapshot_commit_id, is_created_visible
+                ),
+            );
 
             if is_created_visible && !is_deleted && !version.is_tombstone {
                 builder = builder.rule(RuleApplication::satisfied(
@@ -193,7 +194,10 @@ mod tests {
 
         let explanation = explainer.explain("doc-1", 100, &versions);
 
-        assert_eq!(explanation.explanation_type, ExplanationType::MvccReadVisibility);
+        assert_eq!(
+            explanation.explanation_type,
+            ExplanationType::MvccReadVisibility
+        );
         assert!(!explanation.rules_applied.is_empty());
     }
 
@@ -203,7 +207,10 @@ mod tests {
         let explanation = explainer.explain("doc-1", 100, &[]);
 
         // Should have undetermined or NotVisible result
-        assert_eq!(explanation.explanation_type, ExplanationType::MvccReadVisibility);
+        assert_eq!(
+            explanation.explanation_type,
+            ExplanationType::MvccReadVisibility
+        );
     }
 
     #[test]
@@ -217,7 +224,7 @@ mod tests {
         }];
 
         let explanation = explainer.explain("doc-1", 100, &versions);
-        
+
         // Should have rule application showing not satisfied
         assert!(!explanation.rules_applied.is_empty());
     }
@@ -236,7 +243,10 @@ mod tests {
         let exp1 = explainer.explain("doc-1", 100, &versions);
         let exp2 = explainer.explain("doc-1", 100, &versions);
 
-        assert_eq!(exp1.observed_snapshot.commit_id, exp2.observed_snapshot.commit_id);
+        assert_eq!(
+            exp1.observed_snapshot.commit_id,
+            exp2.observed_snapshot.commit_id
+        );
         assert_eq!(exp1.rules_applied.len(), exp2.rules_applied.len());
     }
 }

@@ -19,13 +19,13 @@ use super::errors::{AuthError, AuthResult};
 pub struct RlsContext {
     /// The authenticated user's ID (None if anonymous)
     pub user_id: Option<Uuid>,
-    
+
     /// Whether the request is authenticated
     pub is_authenticated: bool,
-    
+
     /// Whether using service role (bypasses RLS)
     pub is_service_role: bool,
-    
+
     /// Custom claims from JWT (for advanced policies)
     pub claims: HashMap<String, serde_json::Value>,
 }
@@ -40,7 +40,7 @@ impl RlsContext {
             claims: HashMap::new(),
         }
     }
-    
+
     /// Create context for anonymous access
     pub fn anonymous() -> Self {
         Self {
@@ -50,7 +50,7 @@ impl RlsContext {
             claims: HashMap::new(),
         }
     }
-    
+
     /// Create context for service role (bypasses RLS)
     pub fn service_role() -> Self {
         Self {
@@ -60,12 +60,12 @@ impl RlsContext {
             claims: HashMap::new(),
         }
     }
-    
+
     /// Check if this context allows RLS bypass
     pub fn can_bypass_rls(&self) -> bool {
         self.is_service_role
     }
-    
+
     /// Get the user ID or error if not authenticated
     pub fn require_user_id(&self) -> AuthResult<Uuid> {
         self.user_id.ok_or(AuthError::AuthenticationRequired)
@@ -79,21 +79,21 @@ pub enum RlsPolicy {
     /// No RLS - allow all access
     #[serde(rename = "none")]
     None,
-    
+
     /// Ownership-based policy
     #[serde(rename = "ownership")]
     Ownership {
         /// Field containing owner ID
         owner_field: String,
     },
-    
+
     /// Public read, owner write
     #[serde(rename = "public_read")]
     PublicRead {
         /// Field containing owner ID for writes
         owner_field: String,
     },
-    
+
     /// Custom predicate policy (future)
     #[serde(rename = "custom")]
     Custom {
@@ -124,14 +124,10 @@ pub struct RlsFilter {
 /// RLS enforcer trait
 pub trait RlsEnforcer: Send + Sync {
     /// Get the RLS filter to apply to a read query
-    /// 
+    ///
     /// Returns None if no filter is needed (e.g., service role or public policy)
-    fn get_read_filter(
-        &self,
-        collection: &str,
-        ctx: &RlsContext,
-    ) -> AuthResult<Option<RlsFilter>>;
-    
+    fn get_read_filter(&self, collection: &str, ctx: &RlsContext) -> AuthResult<Option<RlsFilter>>;
+
     /// Validate a document can be written with the given context
     fn validate_write(
         &self,
@@ -139,7 +135,7 @@ pub trait RlsEnforcer: Send + Sync {
         document: &serde_json::Value,
         ctx: &RlsContext,
     ) -> AuthResult<()>;
-    
+
     /// Prepare a document for insertion (set owner field)
     fn prepare_insert(
         &self,
@@ -153,7 +149,7 @@ pub trait RlsEnforcer: Send + Sync {
 pub struct DefaultRlsEnforcer {
     /// Policies per collection
     policies: HashMap<String, RlsPolicy>,
-    
+
     /// Default policy for collections without explicit policy
     default_policy: RlsPolicy,
 }
@@ -165,19 +161,21 @@ impl DefaultRlsEnforcer {
             default_policy: RlsPolicy::default(),
         }
     }
-    
+
     pub fn with_policy(mut self, collection: &str, policy: RlsPolicy) -> Self {
         self.policies.insert(collection.to_string(), policy);
         self
     }
-    
+
     pub fn with_default_policy(mut self, policy: RlsPolicy) -> Self {
         self.default_policy = policy;
         self
     }
-    
+
     fn get_policy(&self, collection: &str) -> &RlsPolicy {
-        self.policies.get(collection).unwrap_or(&self.default_policy)
+        self.policies
+            .get(collection)
+            .unwrap_or(&self.default_policy)
     }
 }
 
@@ -188,21 +186,17 @@ impl Default for DefaultRlsEnforcer {
 }
 
 impl RlsEnforcer for DefaultRlsEnforcer {
-    fn get_read_filter(
-        &self,
-        collection: &str,
-        ctx: &RlsContext,
-    ) -> AuthResult<Option<RlsFilter>> {
+    fn get_read_filter(&self, collection: &str, ctx: &RlsContext) -> AuthResult<Option<RlsFilter>> {
         // Service role bypasses RLS
         if ctx.is_service_role {
             return Ok(None);
         }
-        
+
         let policy = self.get_policy(collection);
-        
+
         match policy {
             RlsPolicy::None => Ok(None),
-            
+
             RlsPolicy::Ownership { owner_field } => {
                 let user_id = ctx.require_user_id()?;
                 Ok(Some(RlsFilter {
@@ -210,17 +204,17 @@ impl RlsEnforcer for DefaultRlsEnforcer {
                     value: serde_json::json!(user_id.to_string()),
                 }))
             }
-            
+
             RlsPolicy::PublicRead { .. } => {
                 // Public read - no filter
                 Ok(None)
             }
-            
+
             RlsPolicy::Custom { read_predicate, .. } => {
                 if read_predicate.is_some() {
                     // Custom predicates not yet implemented
                     Err(AuthError::InvalidPolicy(
-                        "Custom predicates not yet supported".to_string()
+                        "Custom predicates not yet supported".to_string(),
                     ))
                 } else {
                     Ok(None)
@@ -228,7 +222,7 @@ impl RlsEnforcer for DefaultRlsEnforcer {
             }
         }
     }
-    
+
     fn validate_write(
         &self,
         collection: &str,
@@ -239,32 +233,34 @@ impl RlsEnforcer for DefaultRlsEnforcer {
         if ctx.is_service_role {
             return Ok(());
         }
-        
+
         let policy = self.get_policy(collection);
-        
+
         match policy {
             RlsPolicy::None => Ok(()),
-            
-            RlsPolicy::Ownership { owner_field } | 
-            RlsPolicy::PublicRead { owner_field } => {
+
+            RlsPolicy::Ownership { owner_field } | RlsPolicy::PublicRead { owner_field } => {
                 let user_id = ctx.require_user_id()?;
-                
+
                 // Check if document has owner field
-                let doc_owner = document.get(owner_field)
+                let doc_owner = document
+                    .get(owner_field)
                     .and_then(|v| v.as_str())
                     .and_then(|s| Uuid::parse_str(s).ok());
-                
+
                 match doc_owner {
                     Some(owner) if owner == user_id => Ok(()),
                     Some(_) => Err(AuthError::Unauthorized),
                     None => Err(AuthError::MissingOwnerField(owner_field.clone())),
                 }
             }
-            
-            RlsPolicy::Custom { write_predicate, .. } => {
+
+            RlsPolicy::Custom {
+                write_predicate, ..
+            } => {
                 if write_predicate.is_some() {
                     Err(AuthError::InvalidPolicy(
-                        "Custom predicates not yet supported".to_string()
+                        "Custom predicates not yet supported".to_string(),
                     ))
                 } else {
                     Ok(())
@@ -272,7 +268,7 @@ impl RlsEnforcer for DefaultRlsEnforcer {
             }
         }
     }
-    
+
     fn prepare_insert(
         &self,
         collection: &str,
@@ -283,24 +279,23 @@ impl RlsEnforcer for DefaultRlsEnforcer {
         if ctx.is_service_role {
             return Ok(());
         }
-        
+
         let policy = self.get_policy(collection);
-        
+
         match policy {
             RlsPolicy::None => Ok(()),
-            
-            RlsPolicy::Ownership { owner_field } |
-            RlsPolicy::PublicRead { owner_field } => {
+
+            RlsPolicy::Ownership { owner_field } | RlsPolicy::PublicRead { owner_field } => {
                 let user_id = ctx.require_user_id()?;
-                
+
                 // Set owner field if document is an object
                 if let Some(obj) = document.as_object_mut() {
                     obj.insert(owner_field.clone(), serde_json::json!(user_id.to_string()));
                 }
-                
+
                 Ok(())
             }
-            
+
             RlsPolicy::Custom { .. } => Ok(()),
         }
     }
@@ -315,131 +310,131 @@ pub enum RlsEvent {
         user_id: Uuid,
         filter_field: String,
     },
-    
+
     /// Access was denied by RLS
     AccessDenied {
         collection: String,
         user_id: Option<Uuid>,
         reason: String,
     },
-    
+
     /// RLS was bypassed (service role)
-    Bypassed {
-        collection: String,
-    },
+    Bypassed { collection: String },
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_rls_context_authenticated() {
         let user_id = Uuid::new_v4();
         let ctx = RlsContext::authenticated(user_id);
-        
+
         assert!(ctx.is_authenticated);
         assert!(!ctx.is_service_role);
         assert_eq!(ctx.user_id, Some(user_id));
     }
-    
+
     #[test]
     fn test_rls_context_service_role_bypass() {
         let ctx = RlsContext::service_role();
-        
+
         assert!(ctx.can_bypass_rls());
     }
-    
+
     #[test]
     fn test_ownership_policy_read_filter() {
         let enforcer = DefaultRlsEnforcer::new();
         let user_id = Uuid::new_v4();
         let ctx = RlsContext::authenticated(user_id);
-        
+
         let filter = enforcer.get_read_filter("posts", &ctx).unwrap();
-        
+
         assert!(filter.is_some());
         let filter = filter.unwrap();
         assert_eq!(filter.field, "owner_id");
         assert_eq!(filter.value, serde_json::json!(user_id.to_string()));
     }
-    
+
     #[test]
     fn test_service_role_no_filter() {
         let enforcer = DefaultRlsEnforcer::new();
         let ctx = RlsContext::service_role();
-        
+
         let filter = enforcer.get_read_filter("posts", &ctx).unwrap();
-        
+
         assert!(filter.is_none());
     }
-    
+
     #[test]
     fn test_anonymous_read_denied_with_ownership_policy() {
         let enforcer = DefaultRlsEnforcer::new();
         let ctx = RlsContext::anonymous();
-        
+
         let result = enforcer.get_read_filter("posts", &ctx);
-        
+
         assert!(matches!(result, Err(AuthError::AuthenticationRequired)));
     }
-    
+
     #[test]
     fn test_public_read_policy_allows_anonymous() {
-        let enforcer = DefaultRlsEnforcer::new()
-            .with_policy("public_posts", RlsPolicy::PublicRead {
+        let enforcer = DefaultRlsEnforcer::new().with_policy(
+            "public_posts",
+            RlsPolicy::PublicRead {
                 owner_field: "author_id".to_string(),
-            });
-        
+            },
+        );
+
         let ctx = RlsContext::anonymous();
         let filter = enforcer.get_read_filter("public_posts", &ctx).unwrap();
-        
+
         assert!(filter.is_none());
     }
-    
+
     #[test]
     fn test_write_validation_owner_match() {
         let enforcer = DefaultRlsEnforcer::new();
         let user_id = Uuid::new_v4();
         let ctx = RlsContext::authenticated(user_id);
-        
+
         let doc = serde_json::json!({
             "title": "My Post",
             "owner_id": user_id.to_string()
         });
-        
+
         let result = enforcer.validate_write("posts", &doc, &ctx);
         assert!(result.is_ok());
     }
-    
+
     #[test]
     fn test_write_validation_owner_mismatch() {
         let enforcer = DefaultRlsEnforcer::new();
         let user_id = Uuid::new_v4();
         let other_user_id = Uuid::new_v4();
         let ctx = RlsContext::authenticated(user_id);
-        
+
         let doc = serde_json::json!({
             "title": "My Post",
             "owner_id": other_user_id.to_string()
         });
-        
+
         let result = enforcer.validate_write("posts", &doc, &ctx);
         assert!(matches!(result, Err(AuthError::Unauthorized)));
     }
-    
+
     #[test]
     fn test_prepare_insert_sets_owner() {
         let enforcer = DefaultRlsEnforcer::new();
         let user_id = Uuid::new_v4();
         let ctx = RlsContext::authenticated(user_id);
-        
+
         let mut doc = serde_json::json!({
             "title": "New Post"
         });
-        
+
         enforcer.prepare_insert("posts", &mut doc, &ctx).unwrap();
-        
+
         assert_eq!(
             doc.get("owner_id").unwrap().as_str().unwrap(),
             user_id.to_string()

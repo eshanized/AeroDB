@@ -149,9 +149,8 @@ impl SnapshotManifest {
     ///
     /// Returns `SnapshotError::manifest_error` if parsing fails.
     pub fn from_json(json: &str) -> SnapshotResult<Self> {
-        serde_json::from_str(json).map_err(|e| {
-            SnapshotError::manifest_error(format!("Failed to parse manifest: {}", e))
-        })
+        serde_json::from_str(json)
+            .map_err(|e| SnapshotError::manifest_error(format!("Failed to parse manifest: {}", e)))
     }
 
     /// Writes the manifest to a file with fsync.
@@ -245,12 +244,7 @@ mod tests {
 
     #[test]
     fn test_manifest_format_version_always_one() {
-        let manifest = SnapshotManifest::new(
-            "test",
-            "test",
-            "crc32:00000000",
-            HashMap::new(),
-        );
+        let manifest = SnapshotManifest::new("test", "test", "crc32:00000000", HashMap::new());
         assert_eq!(manifest.format_version, 1);
     }
 
@@ -405,7 +399,7 @@ mod tests {
         );
 
         let json = manifest.to_json().unwrap();
-        
+
         // Phase-1 manifests should NOT contain commit_boundary
         assert!(!json.contains("commit_boundary"));
     }
@@ -422,7 +416,7 @@ mod tests {
         }"#;
 
         let manifest = SnapshotManifest::from_json(phase1_json).unwrap();
-        
+
         // Should parse successfully with None boundary
         assert_eq!(manifest.format_version, 1);
         assert_eq!(manifest.commit_boundary(), None);

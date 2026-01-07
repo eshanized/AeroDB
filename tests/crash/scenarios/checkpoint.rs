@@ -8,8 +8,8 @@ use std::fs::{self, File};
 use std::io::Write;
 
 use crate::crash::utils::{
-    create_temp_data_dir, cleanup_temp_data_dir,
-    write_test_wal_record, read_wal_contents, validate_wal_integrity,
+    cleanup_temp_data_dir, create_temp_data_dir, read_wal_contents, validate_wal_integrity,
+    write_test_wal_record,
 };
 use aerodb::crash_point::points;
 
@@ -42,7 +42,8 @@ fn test_checkpoint_crash_after_truncate_uses_snapshot() {
     f.write_all(b"snapshot data").unwrap();
 
     let mut f = File::create(snapshot_dir.join("manifest.json")).unwrap();
-    f.write_all(br#"{"snapshot_id":"20260204T120000Z"}"#).unwrap();
+    f.write_all(br#"{"snapshot_id":"20260204T120000Z"}"#)
+        .unwrap();
 
     // Empty WAL (simulating truncation)
     File::create(data_dir.join("wal/wal.log")).unwrap();
@@ -61,7 +62,16 @@ fn test_checkpoint_crash_after_truncate_uses_snapshot() {
 #[test]
 fn test_checkpoint_crash_points_defined() {
     assert_eq!(points::CHECKPOINT_START, "checkpoint_start");
-    assert_eq!(points::CHECKPOINT_AFTER_SNAPSHOT, "checkpoint_after_snapshot");
-    assert_eq!(points::CHECKPOINT_BEFORE_WAL_TRUNCATE, "checkpoint_before_wal_truncate");
-    assert_eq!(points::CHECKPOINT_AFTER_WAL_TRUNCATE, "checkpoint_after_wal_truncate");
+    assert_eq!(
+        points::CHECKPOINT_AFTER_SNAPSHOT,
+        "checkpoint_after_snapshot"
+    );
+    assert_eq!(
+        points::CHECKPOINT_BEFORE_WAL_TRUNCATE,
+        "checkpoint_before_wal_truncate"
+    );
+    assert_eq!(
+        points::CHECKPOINT_AFTER_WAL_TRUNCATE,
+        "checkpoint_after_wal_truncate"
+    );
 }

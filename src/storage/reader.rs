@@ -46,7 +46,8 @@ impl StorageReader {
             }
         })?;
 
-        let file_size = file.metadata()
+        let file_size = file
+            .metadata()
             .map_err(|e| StorageError::read_failed("Failed to read file metadata", e))?
             .len();
 
@@ -146,9 +147,7 @@ impl StorageReader {
 
         // Parse and validate (includes checksum verification)
         let (record, bytes_consumed) = DocumentRecord::deserialize(&record_buf)
-            .map_err(|e| {
-                StorageError::corruption_at_offset(self.current_offset, e.to_string())
-            })?;
+            .map_err(|e| StorageError::corruption_at_offset(self.current_offset, e.to_string()))?;
 
         self.current_offset += bytes_consumed as u64;
 
@@ -225,7 +224,9 @@ impl StorageReader {
     /// Builds a map of document_id -> latest record by scanning the file.
     ///
     /// This resolves overwrites: only the latest record per document is returned.
-    pub fn build_document_map(&mut self) -> StorageResult<std::collections::HashMap<String, DocumentRecord>> {
+    pub fn build_document_map(
+        &mut self,
+    ) -> StorageResult<std::collections::HashMap<String, DocumentRecord>> {
         use std::collections::HashMap;
 
         self.reset()?;
@@ -248,9 +249,9 @@ impl StorageReader {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use super::super::writer::StorageWriter;
     use super::super::record::StoragePayload;
+    use super::super::writer::StorageWriter;
+    use super::*;
     use tempfile::TempDir;
 
     fn create_test_payload(doc_id: &str) -> StoragePayload {
@@ -268,7 +269,9 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
 
         // Create empty storage
-        { let _writer = StorageWriter::open(temp_dir.path()).unwrap(); }
+        {
+            let _writer = StorageWriter::open(temp_dir.path()).unwrap();
+        }
 
         let storage_path = temp_dir.path().join("data").join("documents.dat");
         let mut reader = StorageReader::open(&storage_path).unwrap();
@@ -328,10 +331,7 @@ mod tests {
             use std::fs::OpenOptions;
             use std::io::{Seek, SeekFrom, Write};
 
-            let mut file = OpenOptions::new()
-                .write(true)
-                .open(&storage_path)
-                .unwrap();
+            let mut file = OpenOptions::new().write(true).open(&storage_path).unwrap();
             file.seek(SeekFrom::Start(10)).unwrap();
             file.write_all(&[0xFF]).unwrap();
         }
@@ -351,18 +351,33 @@ mod tests {
 
         {
             let mut writer = StorageWriter::open(temp_dir.path()).unwrap();
-            writer.write(&StoragePayload::new(
-                "users", "doc1", "schema", "v1",
-                b"first".to_vec(),
-            )).unwrap();
-            writer.write(&StoragePayload::new(
-                "users", "doc1", "schema", "v1",
-                b"second".to_vec(),
-            )).unwrap();
-            writer.write(&StoragePayload::new(
-                "users", "doc1", "schema", "v1",
-                b"third".to_vec(),
-            )).unwrap();
+            writer
+                .write(&StoragePayload::new(
+                    "users",
+                    "doc1",
+                    "schema",
+                    "v1",
+                    b"first".to_vec(),
+                ))
+                .unwrap();
+            writer
+                .write(&StoragePayload::new(
+                    "users",
+                    "doc1",
+                    "schema",
+                    "v1",
+                    b"second".to_vec(),
+                ))
+                .unwrap();
+            writer
+                .write(&StoragePayload::new(
+                    "users",
+                    "doc1",
+                    "schema",
+                    "v1",
+                    b"third".to_vec(),
+                ))
+                .unwrap();
         }
 
         let storage_path = temp_dir.path().join("data").join("documents.dat");
@@ -380,10 +395,15 @@ mod tests {
             let mut writer = StorageWriter::open(temp_dir.path()).unwrap();
             writer.write(&create_test_payload("doc1")).unwrap();
             writer.write(&create_test_payload("doc2")).unwrap();
-            writer.write(&StoragePayload::new(
-                "test_collection", "doc1", "test_schema", "v1",
-                b"updated".to_vec(),
-            )).unwrap();
+            writer
+                .write(&StoragePayload::new(
+                    "test_collection",
+                    "doc1",
+                    "test_schema",
+                    "v1",
+                    b"updated".to_vec(),
+                ))
+                .unwrap();
         }
 
         let storage_path = temp_dir.path().join("data").join("documents.dat");
@@ -391,7 +411,10 @@ mod tests {
 
         let map = reader.build_document_map().unwrap();
         assert_eq!(map.len(), 2);
-        assert_eq!(map.get("test_collection:doc1").unwrap().document_body, b"updated");
+        assert_eq!(
+            map.get("test_collection:doc1").unwrap().document_body,
+            b"updated"
+        );
     }
 
     #[test]
@@ -419,7 +442,9 @@ mod tests {
         {
             let mut writer = StorageWriter::open(temp_dir.path()).unwrap();
             writer.write(&create_test_payload("doc1")).unwrap();
-            writer.write_tombstone("test_collection", "doc1", "test_schema", "v1").unwrap();
+            writer
+                .write_tombstone("test_collection", "doc1", "test_schema", "v1")
+                .unwrap();
         }
 
         let storage_path = temp_dir.path().join("data").join("documents.dat");

@@ -16,10 +16,10 @@ use super::role::ReplicationState;
 pub enum AuthorityCheck {
     /// Authority confirmed, operation may proceed
     Authorized,
-    
+
     /// Not authorized, operation must be rejected
     NotAuthorized,
-    
+
     /// Authority is ambiguous, system must halt
     Ambiguous,
 }
@@ -29,13 +29,13 @@ pub enum AuthorityCheck {
 pub enum WriteAdmission {
     /// Write is admitted
     Admitted,
-    
+
     /// Write is rejected - node is a Replica
     RejectedReplica,
-    
+
     /// Write is rejected - node is halted
     RejectedHalted,
-    
+
     /// Write is rejected - node is uninitialized
     RejectedUninitialized,
 }
@@ -45,19 +45,19 @@ impl WriteAdmission {
     pub fn is_admitted(&self) -> bool {
         matches!(self, Self::Admitted)
     }
-    
+
     /// Convert to result.
     pub fn to_result(&self) -> ReplicationResult<()> {
         match self {
             Self::Admitted => Ok(()),
             Self::RejectedReplica => Err(ReplicationError::write_rejected(
-                "writes are not allowed on Replica nodes"
+                "writes are not allowed on Replica nodes",
             )),
             Self::RejectedHalted => Err(ReplicationError::write_rejected(
-                "writes are not allowed when replication is halted"
+                "writes are not allowed when replication is halted",
             )),
             Self::RejectedUninitialized => Err(ReplicationError::write_rejected(
-                "writes are not allowed before initialization"
+                "writes are not allowed before initialization",
             )),
         }
     }
@@ -92,14 +92,14 @@ pub fn check_commit_authority(state: &ReplicationState) -> ReplicationResult<()>
     match state {
         ReplicationState::Disabled => Ok(()),
         ReplicationState::PrimaryActive => Ok(()),
-        ReplicationState::ReplicaActive { .. } => Err(ReplicationError::commit_authority_violation(
-            "Replicas must never assign CommitIds"
-        )),
+        ReplicationState::ReplicaActive { .. } => Err(
+            ReplicationError::commit_authority_violation("Replicas must never assign CommitIds"),
+        ),
         ReplicationState::ReplicationHalted { .. } => Err(ReplicationError::halted(
-            "cannot assign CommitId when replication is halted"
+            "cannot assign CommitId when replication is halted",
         )),
         ReplicationState::Uninitialized => Err(ReplicationError::commit_authority_violation(
-            "cannot assign CommitId before initialization"
+            "cannot assign CommitId before initialization",
         )),
     }
 }
@@ -141,8 +141,8 @@ pub fn check_dual_primary(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::role::HaltReason;
+    use super::*;
     use uuid::Uuid;
 
     #[test]
@@ -217,18 +217,15 @@ mod tests {
     fn test_dual_primary_detection() {
         // Per REPLICATION_MODEL.md §5
         let state = ReplicationState::PrimaryActive;
-        
+
         // No other primary → authorized
         assert_eq!(
             check_dual_primary(&state, false),
             AuthorityCheck::Authorized
         );
-        
+
         // Another primary detected → ambiguous
-        assert_eq!(
-            check_dual_primary(&state, true),
-            AuthorityCheck::Ambiguous
-        );
+        assert_eq!(check_dual_primary(&state, true), AuthorityCheck::Ambiguous);
     }
 
     #[test]
@@ -245,7 +242,7 @@ mod tests {
     fn test_replica_never_authorized_for_writes() {
         let replica_id = Uuid::new_v4();
         let state = ReplicationState::ReplicaActive { replica_id };
-        
+
         // Even if no other primary exists, replica is not authorized
         assert_eq!(
             check_dual_primary(&state, false),

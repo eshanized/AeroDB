@@ -97,9 +97,9 @@ impl SchemaLoader {
         })?;
 
         // Validate schema structure
-        schema.validate_structure().map_err(|e| {
-            SchemaError::malformed_schema(path.display().to_string(), e)
-        })?;
+        schema
+            .validate_structure()
+            .map_err(|e| SchemaError::malformed_schema(path.display().to_string(), e))?;
 
         // Store in registry
         let key = (schema.schema_id.clone(), schema.schema_version.clone());
@@ -110,9 +110,9 @@ impl SchemaLoader {
 
     /// Registers a schema directly (for testing or programmatic creation).
     pub fn register(&mut self, schema: Schema) -> SchemaResult<()> {
-        schema.validate_structure().map_err(|e| {
-            SchemaError::malformed_schema("<in-memory>", e)
-        })?;
+        schema
+            .validate_structure()
+            .map_err(|e| SchemaError::malformed_schema("<in-memory>", e))?;
 
         let key = (schema.schema_id.clone(), schema.schema_version.clone());
 
@@ -130,7 +130,8 @@ impl SchemaLoader {
 
     /// Gets a schema by ID and version.
     pub fn get(&self, schema_id: &str, schema_version: &str) -> Option<&Schema> {
-        self.schemas.get(&(schema_id.to_string(), schema_version.to_string()))
+        self.schemas
+            .get(&(schema_id.to_string(), schema_version.to_string()))
     }
 
     /// Checks if a schema exists.
@@ -157,10 +158,7 @@ impl SchemaLoader {
     ///
     /// Creates the schema file at the standard location.
     pub fn save_schema(&self, schema: &Schema) -> SchemaResult<PathBuf> {
-        let filename = format!(
-            "schema_{}_{}.json",
-            schema.schema_id, schema.schema_version
-        );
+        let filename = format!("schema_{}_{}.json", schema.schema_id, schema.schema_version);
         let path = self.schema_dir.join(&filename);
 
         // Check if file already exists (immutability)
@@ -213,8 +211,8 @@ impl crate::planner::SchemaRegistry for SchemaLoader {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::types::FieldDef;
+    use super::*;
     use tempfile::TempDir;
 
     fn sample_schema() -> Schema {

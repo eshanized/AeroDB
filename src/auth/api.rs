@@ -43,30 +43,26 @@ impl<U: UserRepository, S: SessionRepository> AuthService<U, S> {
             password_policy,
         }
     }
-    
+
     /// Register a new user
     pub fn signup(&self, request: SignupRequest) -> AuthResult<(User, TokenResponse)> {
         // Check if email already exists
         if self.user_repo.email_exists(&request.email)? {
             return Err(AuthError::EmailAlreadyExists);
         }
-        
+
         // Create user
         let mut user = User::new(request.email, &request.password, &self.password_policy)?;
         if let Some(metadata) = request.metadata {
             user.metadata = Some(metadata);
         }
-        
+
         // Store user
         self.user_repo.create(&user)?;
-        
+
         // Create session
-        let (_, refresh_token) = self.session_manager.create_session(
-            user.id,
-            None,
-            None,
-        )?;
-        
+        let (_, refresh_token) = self.session_manager.create_session(user.id, None, None)?;
+
         // Generate tokens
         let access_token = self.jwt_manager.generate_access_token(&user)?;
         let token_response = TokenResponse::new(
@@ -74,28 +70,26 @@ impl<U: UserRepository, S: SessionRepository> AuthService<U, S> {
             refresh_token,
             self.jwt_manager.get_expiration(),
         );
-        
+
         Ok((user, token_response))
     }
-    
+
     /// Authenticate a user
     pub fn login(&self, request: LoginRequest) -> AuthResult<(User, TokenResponse)> {
         // Find user by email
-        let user = self.user_repo.find_by_email(&request.email)?
+        let user = self
+            .user_repo
+            .find_by_email(&request.email)?
             .ok_or(AuthError::InvalidCredentials)?;
-        
+
         // Verify password
         if !user.verify_password(&request.password)? {
             return Err(AuthError::InvalidCredentials);
         }
-        
+
         // Create session
-        let (_, refresh_token) = self.session_manager.create_session(
-            user.id,
-            None,
-            None,
-        )?;
-        
+        let (_, refresh_token) = self.session_manager.create_session(user.id, None, None)?;
+
         // Generate tokens
         let access_token = self.jwt_manager.generate_access_token(&user)?;
         let token_response = TokenResponse::new(
@@ -103,125 +97,134 @@ impl<U: UserRepository, S: SessionRepository> AuthService<U, S> {
             refresh_token,
             self.jwt_manager.get_expiration(),
         );
-        
+
         Ok((user, token_response))
     }
-    
+
     /// Refresh access token
     pub fn refresh(&self, refresh_token: &str) -> AuthResult<TokenResponse> {
         // Refresh session (invalidates old token)
         let (_, new_refresh_token) = self.session_manager.refresh_session(refresh_token)?;
-        
+
         // Get session to find user
-        let session = self.session_manager.validate_refresh_token(&new_refresh_token)?;
-        
+        let session = self
+            .session_manager
+            .validate_refresh_token(&new_refresh_token)?;
+
         // Get user
-        let user = self.user_repo.find_by_id(session.user_id)?
+        let user = self
+            .user_repo
+            .find_by_id(session.user_id)?
             .ok_or(AuthError::InvalidCredentials)?;
-        
+
         // Generate new access token
         let access_token = self.jwt_manager.generate_access_token(&user)?;
-        
+
         Ok(TokenResponse::new(
             access_token,
             new_refresh_token,
             self.jwt_manager.get_expiration(),
         ))
     }
-    
+
     /// Logout (invalidate session)
     pub fn logout(&self, refresh_token: &str) -> AuthResult<()> {
         let session = self.session_manager.validate_refresh_token(refresh_token)?;
         self.session_manager.revoke_session(session.id)
     }
-    
+
     /// Get user by ID
     pub fn get_user(&self, user_id: Uuid) -> AuthResult<User> {
-        self.user_repo.find_by_id(user_id)?
+        self.user_repo
+            .find_by_id(user_id)?
             .ok_or(AuthError::InvalidCredentials)
     }
-    
+
     /// Update user profile (non-password fields)
     pub fn update_user(&self, user_id: Uuid, update: UpdateUserRequest) -> AuthResult<User> {
-        let mut user = self.user_repo.find_by_id(user_id)?
+        let mut user = self
+            .user_repo
+            .find_by_id(user_id)?
             .ok_or(AuthError::InvalidCredentials)?;
-        
+
         // Update metadata if provided
         if let Some(metadata) = update.metadata {
             user.metadata = Some(metadata);
         }
-        
+
         user.updated_at = chrono::Utc::now();
         self.user_repo.update(&user)?;
-        
+
         Ok(user)
     }
-    
+
     /// Change password for authenticated user
     pub fn change_password(
-        &self, 
-        user_id: Uuid, 
-        current_password: &str, 
-        new_password: &str
+        &self,
+        user_id: Uuid,
+        current_password: &str,
+        new_password: &str,
     ) -> AuthResult<()> {
-        let mut user = self.user_repo.find_by_id(user_id)?
+        let mut user = self
+            .user_repo
+            .find_by_id(user_id)?
             .ok_or(AuthError::InvalidCredentials)?;
-        
+
         // Verify current password
         if !user.verify_password(current_password)? {
             return Err(AuthError::InvalidCredentials);
         }
-        
+
         // Validate new password
         self.password_policy.validate(new_password)?;
-        
+
         // Update password
         user.set_password(new_password)?;
         user.updated_at = chrono::Utc::now();
         self.user_repo.update(&user)?;
-        
+
         Ok(())
     }
-    
+
     /// Request password reset (sends email)
     pub fn forgot_password(&self, email: &str) -> AuthResult<String> {
         // Check if user exists (but don't reveal this to caller)
         let user = self.user_repo.find_by_email(email)?;
-        
+
         if user.is_none() {
             // Return fake token to prevent email enumeration
             // In production, this would not send an email
             return Ok(super::crypto::generate_token());
         }
-        
+
         // Generate reset token
         let reset_token = super::crypto::generate_token();
-        
+
         // In production: store token hash with expiry and send email
         // For now, return the token (would be sent via email)
-        
+
         Ok(reset_token)
     }
-    
+
     /// Reset password using token
     pub fn reset_password(&self, token: &str, new_password: &str) -> AuthResult<()> {
         // Validate password
         self.password_policy.validate(new_password)?;
-        
+
         // In production: look up token in reset_tokens collection
         // Verify token is valid and not expired
         // Get associated user_id
         // Update password
         // Invalidate token
-        
+
         // For now, this is a stub that validates the password format
         if token.is_empty() {
             return Err(AuthError::InvalidToken);
         }
-        
+
         Ok(())
     }
-    
+
     /// Validate an access token and return RLS context
     pub fn validate_access_token(&self, token: &str) -> AuthResult<RlsContext> {
         let claims = self.jwt_manager.validate_token(token)?;
@@ -325,10 +328,9 @@ impl IntoResponse for AuthError {
     fn into_response(self) -> axum::response::Response {
         let code = self.status_code();
         let body = Json(ErrorResponse::from(self));
-        
-        let status = StatusCode::from_u16(code)
-            .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
-        
+
+        let status = StatusCode::from_u16(code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+
         (status, body).into_response()
     }
 }
@@ -338,7 +340,7 @@ mod tests {
     use super::*;
     use crate::auth::session::InMemorySessionRepository;
     use crate::auth::user::InMemoryUserRepository;
-    
+
     fn create_test_service() -> AuthService<InMemoryUserRepository, InMemorySessionRepository> {
         AuthService::new(
             InMemoryUserRepository::new(),
@@ -348,44 +350,44 @@ mod tests {
             PasswordPolicy::default(),
         )
     }
-    
+
     #[test]
     fn test_signup() {
         let service = create_test_service();
-        
+
         let request = SignupRequest {
             email: "test@example.com".to_string(),
             password: "password123".to_string(),
             metadata: None,
         };
-        
+
         let (user, tokens) = service.signup(request).unwrap();
-        
+
         assert_eq!(user.email, "test@example.com");
         assert!(!tokens.access_token.is_empty());
         assert!(!tokens.refresh_token.is_empty());
     }
-    
+
     #[test]
     fn test_signup_duplicate_email() {
         let service = create_test_service();
-        
+
         let request = SignupRequest {
             email: "test@example.com".to_string(),
             password: "password123".to_string(),
             metadata: None,
         };
-        
+
         service.signup(request.clone()).unwrap();
         let result = service.signup(request);
-        
+
         assert!(matches!(result, Err(AuthError::EmailAlreadyExists)));
     }
-    
+
     #[test]
     fn test_login() {
         let service = create_test_service();
-        
+
         // Signup first
         let signup = SignupRequest {
             email: "test@example.com".to_string(),
@@ -393,22 +395,22 @@ mod tests {
             metadata: None,
         };
         service.signup(signup).unwrap();
-        
+
         // Login
         let login = LoginRequest {
             email: "test@example.com".to_string(),
             password: "password123".to_string(),
         };
         let (user, tokens) = service.login(login).unwrap();
-        
+
         assert_eq!(user.email, "test@example.com");
         assert!(!tokens.access_token.is_empty());
     }
-    
+
     #[test]
     fn test_login_wrong_password() {
         let service = create_test_service();
-        
+
         // Signup first
         let signup = SignupRequest {
             email: "test@example.com".to_string(),
@@ -416,21 +418,21 @@ mod tests {
             metadata: None,
         };
         service.signup(signup).unwrap();
-        
+
         // Login with wrong password
         let login = LoginRequest {
             email: "test@example.com".to_string(),
             password: "wrong_password".to_string(),
         };
         let result = service.login(login);
-        
+
         assert!(matches!(result, Err(AuthError::InvalidCredentials)));
     }
-    
+
     #[test]
     fn test_refresh_token_flow() {
         let service = create_test_service();
-        
+
         // Signup
         let signup = SignupRequest {
             email: "test@example.com".to_string(),
@@ -438,18 +440,18 @@ mod tests {
             metadata: None,
         };
         let (_, tokens) = service.signup(signup).unwrap();
-        
+
         // Refresh
         let new_tokens = service.refresh(&tokens.refresh_token).unwrap();
-        
+
         assert!(!new_tokens.access_token.is_empty());
         assert_ne!(new_tokens.refresh_token, tokens.refresh_token);
     }
-    
+
     #[test]
     fn test_logout() {
         let service = create_test_service();
-        
+
         // Signup
         let signup = SignupRequest {
             email: "test@example.com".to_string(),
@@ -457,19 +459,19 @@ mod tests {
             metadata: None,
         };
         let (_, tokens) = service.signup(signup).unwrap();
-        
+
         // Logout
         service.logout(&tokens.refresh_token).unwrap();
-        
+
         // Refresh should fail
         let result = service.refresh(&tokens.refresh_token);
         assert!(matches!(result, Err(AuthError::SessionRevoked)));
     }
-    
+
     #[test]
     fn test_access_token_validation() {
         let service = create_test_service();
-        
+
         // Signup
         let signup = SignupRequest {
             email: "test@example.com".to_string(),
@@ -477,10 +479,10 @@ mod tests {
             metadata: None,
         };
         let (user, tokens) = service.signup(signup).unwrap();
-        
+
         // Validate access token
         let ctx = service.validate_access_token(&tokens.access_token).unwrap();
-        
+
         assert!(ctx.is_authenticated);
         assert_eq!(ctx.user_id, Some(user.id));
     }

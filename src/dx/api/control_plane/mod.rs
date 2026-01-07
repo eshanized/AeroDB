@@ -10,26 +10,22 @@
 //! - Phase 7 MUST NOT alter kernel timing, execution order, or durability
 //! - Kernel behavior must be identical with or without Phase 7
 
+mod authority;
 mod commands;
 mod confirmation;
 mod errors;
 mod handlers;
 mod types;
-mod authority;
 
-pub use commands::{
-    ControlPlaneCommand, InspectionCommand, DiagnosticCommand, ControlCommand,
-};
+pub use authority::{AuthorityContext, AuthorityLevel};
+pub use commands::{ControlCommand, ControlPlaneCommand, DiagnosticCommand, InspectionCommand};
 pub use confirmation::{
-    ConfirmationFlow, ConfirmationStatus, ConfirmationToken,
-    EnhancedConfirmation, ConfirmationResult,
+    ConfirmationFlow, ConfirmationResult, ConfirmationStatus, ConfirmationToken,
+    EnhancedConfirmation,
 };
-pub use errors::{
-    ControlPlaneError, ControlPlaneErrorDomain, ControlPlaneResult,
-};
+pub use errors::{ControlPlaneError, ControlPlaneErrorDomain, ControlPlaneResult};
 pub use handlers::ControlPlaneHandler;
 pub use types::{
-    CommandRequest, CommandResponse, CommandOutcome,
-    ClusterState, NodeState, ReplicationStatus, PromotionStateView,
+    ClusterState, CommandOutcome, CommandRequest, CommandResponse, NodeState, PromotionStateView,
+    ReplicationStatus,
 };
-pub use authority::{AuthorityLevel, AuthorityContext};

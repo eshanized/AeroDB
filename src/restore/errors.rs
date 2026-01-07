@@ -116,7 +116,11 @@ impl RestoreError {
 
     /// Creates an invalid backup error with source
     pub fn invalid_backup_with_source(message: impl Into<String>, source: io::Error) -> Self {
-        Self::new(RestoreErrorCode::AeroRestoreInvalidBackup, message, Some(source))
+        Self::new(
+            RestoreErrorCode::AeroRestoreInvalidBackup,
+            message,
+            Some(source),
+        )
     }
 
     /// Returns the error code
@@ -159,7 +163,9 @@ impl fmt::Display for RestoreError {
 
 impl std::error::Error for RestoreError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.source.as_ref().map(|e| e as &(dyn std::error::Error + 'static))
+        self.source
+            .as_ref()
+            .map(|e| e as &(dyn std::error::Error + 'static))
     }
 }
 
@@ -176,10 +182,7 @@ mod tests {
             RestoreErrorCode::AeroRestoreFailed.as_str(),
             "AERO_RESTORE_FAILED"
         );
-        assert_eq!(
-            RestoreErrorCode::AeroRestoreIo.as_str(),
-            "AERO_RESTORE_IO"
-        );
+        assert_eq!(RestoreErrorCode::AeroRestoreIo.as_str(), "AERO_RESTORE_IO");
         assert_eq!(
             RestoreErrorCode::AeroRestoreCorruption.as_str(),
             "AERO_RESTORE_CORRUPTION"

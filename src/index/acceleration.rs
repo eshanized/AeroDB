@@ -151,10 +151,7 @@ impl AttributeIndex {
     pub fn insert(&mut self, value: impl Into<String>, doc_key: impl Into<String>) {
         let value = value.into();
         let doc_key = doc_key.into();
-        self.value_to_keys
-            .entry(value)
-            .or_default()
-            .insert(doc_key);
+        self.value_to_keys.entry(value).or_default().insert(doc_key);
         self.entry_count += 1;
     }
 
@@ -180,10 +177,7 @@ impl AttributeIndex {
     /// - False positives allowed (but we return exact matches here)
     /// - False negatives forbidden
     pub fn find_exact(&self, value: &str) -> HashSet<String> {
-        self.value_to_keys
-            .get(value)
-            .cloned()
-            .unwrap_or_default()
+        self.value_to_keys.get(value).cloned().unwrap_or_default()
     }
 
     /// Find all document keys with values in a set.
@@ -532,7 +526,7 @@ mod tests {
     #[test]
     fn test_composite_index_mismatched_values() {
         let mut index = CompositeIndex::new(vec!["a".to_string(), "b".to_string()]);
-        
+
         // Wrong number of values - should be ignored
         index.insert(&["only_one".to_string()], "doc1");
         assert!(index.is_empty());
@@ -566,14 +560,14 @@ mod tests {
     #[test]
     fn test_accelerator_prefilter_enabled() {
         let mut acc = IndexAccelerator::new(IndexAccelConfig::enabled());
-        
+
         // Create and populate index
         {
             let index = acc.get_or_create_attribute_index("city");
             index.insert("NYC", "doc1");
             index.insert("NYC", "doc2");
         }
-        
+
         let result = acc.prefilter_equality("city", "NYC");
         assert!(result.filter_applied);
         assert_eq!(result.candidates.len(), 2);
@@ -589,10 +583,11 @@ mod tests {
     #[test]
     fn test_accelerator_clear() {
         let mut acc = IndexAccelerator::new(IndexAccelConfig::enabled());
-        acc.get_or_create_attribute_index("city").insert("NYC", "doc1");
-        
+        acc.get_or_create_attribute_index("city")
+            .insert("NYC", "doc1");
+
         acc.clear();
-        
+
         assert!(acc.get_attribute_index("city").is_none());
         assert_eq!(acc.stats().rebuilds, 1);
     }
@@ -625,17 +620,22 @@ mod tests {
 
         // With index: get active documents
         let with_index = index.find_exact("active");
-        
+
         // Without index: would scan all, then filter
         // All "active" docs must be in with_index result
         let all_docs = vec!["doc1", "doc2", "doc3"];
-        let active_docs: Vec<_> = all_docs.into_iter()
+        let active_docs: Vec<_> = all_docs
+            .into_iter()
             .filter(|d| *d == "doc1" || *d == "doc2")
             .collect();
 
         // Index result must be SUPERSET
         for doc in &active_docs {
-            assert!(with_index.contains(*doc), "Index missed valid candidate: {}", doc);
+            assert!(
+                with_index.contains(*doc),
+                "Index missed valid candidate: {}",
+                doc
+            );
         }
     }
 }

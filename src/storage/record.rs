@@ -320,12 +320,8 @@ mod tests {
 
     #[test]
     fn test_payload_from_wal_record_delete() {
-        let wal_payload = crate::wal::WalPayload::tombstone(
-            "users",
-            "user_123",
-            "user_schema",
-            "v1",
-        );
+        let wal_payload =
+            crate::wal::WalPayload::tombstone("users", "user_123", "user_schema", "v1");
         let wal_record = crate::wal::WalRecord::delete(1, wal_payload);
 
         let storage_payload = StoragePayload::from_wal_record(&wal_record);
@@ -369,7 +365,10 @@ mod tests {
 
         let result = DocumentRecord::deserialize(&serialized);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Checksum mismatch"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Checksum mismatch"));
     }
 
     #[test]

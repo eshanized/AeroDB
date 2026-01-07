@@ -5,8 +5,8 @@
 //! - Crash after fsync → write preserved
 
 use crate::crash::utils::{
-    create_temp_data_dir, cleanup_temp_data_dir,
-    write_test_wal_record, read_wal_contents, validate_wal_integrity,
+    cleanup_temp_data_dir, create_temp_data_dir, read_wal_contents, validate_wal_integrity,
+    write_test_wal_record,
 };
 use aerodb::crash_point::points;
 

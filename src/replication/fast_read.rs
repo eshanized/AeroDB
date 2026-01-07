@@ -149,11 +149,7 @@ impl SafetyValidator {
     /// 4. No WAL gaps exist
     /// 5. Replica is not mid-recovery
     /// 6. Replica is not mid-snapshot-bootstrap
-    pub fn validate(
-        &self,
-        state: &ReplicaSafetyState,
-        snapshot_commit_id: u64,
-    ) -> SafetyCheck {
+    pub fn validate(&self, state: &ReplicaSafetyState, snapshot_commit_id: u64) -> SafetyCheck {
         // Check if fast path is enabled
         if !self.config.enabled {
             return SafetyCheck::Unsafe(SafetyViolation::Disabled);
@@ -290,7 +286,9 @@ impl FastReadManager {
                     SafetyViolation::MidRecovery => self.stats.fallback_mid_recovery += 1,
                     SafetyViolation::MidSnapshotBootstrap => self.stats.fallback_mid_bootstrap += 1,
                     SafetyViolation::WalGapDetected => self.stats.fallback_wal_gap += 1,
-                    SafetyViolation::SnapshotAheadOfWal { .. } => self.stats.fallback_snapshot_ahead += 1,
+                    SafetyViolation::SnapshotAheadOfWal { .. } => {
+                        self.stats.fallback_snapshot_ahead += 1
+                    }
                     SafetyViolation::SnapshotNotImmutable => {}
                 }
                 FastReadResult {
@@ -408,7 +406,10 @@ mod tests {
         let mut state = ReplicaSafetyState::safe_at(100);
         state.in_snapshot_bootstrap = true;
         let result = validator.validate(&state, 50);
-        assert_eq!(result, SafetyCheck::Unsafe(SafetyViolation::MidSnapshotBootstrap));
+        assert_eq!(
+            result,
+            SafetyCheck::Unsafe(SafetyViolation::MidSnapshotBootstrap)
+        );
     }
 
     #[test]
@@ -434,7 +435,7 @@ mod tests {
     fn test_manager_enabled_and_safe() {
         let mut manager = FastReadManager::new(FastReadConfig::enabled());
         manager.update_state(ReplicaSafetyState::safe_at(100));
-        
+
         let result = manager.try_fast_read(50);
         assert!(result.fast_path_used);
         assert_eq!(manager.stats().fast_path_hits, 1);
@@ -452,7 +453,7 @@ mod tests {
         let mut manager = FastReadManager::new(FastReadConfig::enabled());
         manager.update_state(ReplicaSafetyState::safe_at(100));
         manager.set_recovery_mode(true);
-        
+
         let result = manager.try_fast_read(50);
         assert!(!result.fast_path_used);
         assert_eq!(manager.stats().fallback_mid_recovery, 1);
@@ -462,11 +463,11 @@ mod tests {
     fn test_manager_stats_accumulate() {
         let mut manager = FastReadManager::new(FastReadConfig::enabled());
         manager.update_state(ReplicaSafetyState::safe_at(100));
-        
+
         manager.try_fast_read(50);
         manager.try_fast_read(60);
         manager.try_fast_read(70);
-        
+
         assert_eq!(manager.stats().fast_path_hits, 3);
     }
 
@@ -475,13 +476,19 @@ mod tests {
     #[test]
     fn test_path_baseline() {
         let config = FastReadConfig::disabled();
-        assert_eq!(ReplicaReadPath::from_config(&config), ReplicaReadPath::Baseline);
+        assert_eq!(
+            ReplicaReadPath::from_config(&config),
+            ReplicaReadPath::Baseline
+        );
     }
 
     #[test]
     fn test_path_fast() {
         let config = FastReadConfig::enabled();
-        assert_eq!(ReplicaReadPath::from_config(&config), ReplicaReadPath::FastPath);
+        assert_eq!(
+            ReplicaReadPath::from_config(&config),
+            ReplicaReadPath::FastPath
+        );
     }
 
     // ==================== Equivalence Tests ====================
@@ -492,7 +499,7 @@ mod tests {
     fn test_fast_path_never_reads_unreplicated() {
         let mut manager = FastReadManager::new(FastReadConfig::enabled());
         manager.update_state(ReplicaSafetyState::safe_at(100));
-        
+
         // Trying to read snapshot ahead of replicated data should fail
         let result = manager.try_fast_read(150);
         assert!(!result.fast_path_used);
@@ -505,7 +512,7 @@ mod tests {
     fn test_fallback_on_lag() {
         let mut manager = FastReadManager::new(FastReadConfig::enabled());
         manager.update_state(ReplicaSafetyState::safe_at(50));
-        
+
         // Snapshot is ahead of our WAL state
         let result = manager.try_fast_read(100);
         assert!(!result.fast_path_used);

@@ -21,13 +21,13 @@ use std::fmt;
 pub enum ControlPlaneErrorDomain {
     /// Invalid or incomplete operator input.
     OperatorInput,
-    
+
     /// Phase 7 invariant enforcement or precondition check.
     ValidationError,
-    
+
     /// Error returned by the correctness kernel (Phases 0–6).
     KernelRejection,
-    
+
     /// Network, crash, or timeout errors.
     TransportError,
 }
@@ -58,10 +58,10 @@ impl fmt::Display for ControlPlaneErrorDomain {
 pub enum ExecutionOutcome {
     /// Action was definitely not executed.
     NotExecuted,
-    
+
     /// Action was executed (error occurred after).
     Executed,
-    
+
     /// Execution outcome is unknown (treat as not executed per PHASE7_FAILURE_MODEL.md).
     Unknown,
 }
@@ -85,16 +85,16 @@ impl fmt::Display for ExecutionOutcome {
 pub struct ControlPlaneError {
     /// Error domain classification.
     domain: ControlPlaneErrorDomain,
-    
+
     /// Stable error code (PHASE7_category_name format).
     code: String,
-    
+
     /// Human-readable error message.
     message: String,
-    
+
     /// Referenced Phase 7 invariant, if applicable.
     invariant: Option<String>,
-    
+
     /// Execution outcome.
     outcome: ExecutionOutcome,
 }
@@ -103,7 +103,7 @@ impl ControlPlaneError {
     // =========================================================================
     // OPERATOR INPUT ERRORS (§4)
     // =========================================================================
-    
+
     /// Create an error for missing required argument.
     pub fn missing_argument(field: &str) -> Self {
         Self {
@@ -114,7 +114,7 @@ impl ControlPlaneError {
             outcome: ExecutionOutcome::NotExecuted,
         }
     }
-    
+
     /// Create an error for invalid node identifier.
     pub fn invalid_node_id(id: &str) -> Self {
         Self {
@@ -125,7 +125,7 @@ impl ControlPlaneError {
             outcome: ExecutionOutcome::NotExecuted,
         }
     }
-    
+
     /// Create an error for malformed request.
     pub fn malformed_request(reason: &str) -> Self {
         Self {
@@ -136,11 +136,11 @@ impl ControlPlaneError {
             outcome: ExecutionOutcome::NotExecuted,
         }
     }
-    
+
     // =========================================================================
     // PHASE 7 VALIDATION ERRORS (§5)
     // =========================================================================
-    
+
     /// Create an error for missing confirmation.
     ///
     /// Per PHASE7_CONFIRMATION_MODEL.md:
@@ -154,7 +154,7 @@ impl ControlPlaneError {
             outcome: ExecutionOutcome::NotExecuted,
         }
     }
-    
+
     /// Create an error for invalid authority level.
     pub fn insufficient_authority(required: &str, actual: &str) -> Self {
         Self {
@@ -165,7 +165,7 @@ impl ControlPlaneError {
             outcome: ExecutionOutcome::NotExecuted,
         }
     }
-    
+
     /// Create an error for confirmation reuse attempt.
     pub fn confirmation_reused() -> Self {
         Self {
@@ -176,7 +176,7 @@ impl ControlPlaneError {
             outcome: ExecutionOutcome::NotExecuted,
         }
     }
-    
+
     /// Create an error for confirmation expiry.
     pub fn confirmation_expired() -> Self {
         Self {
@@ -187,7 +187,7 @@ impl ControlPlaneError {
             outcome: ExecutionOutcome::NotExecuted,
         }
     }
-    
+
     /// Create an error for incomplete enhanced confirmation.
     pub fn incomplete_enhanced_confirmation() -> Self {
         Self {
@@ -198,7 +198,7 @@ impl ControlPlaneError {
             outcome: ExecutionOutcome::NotExecuted,
         }
     }
-    
+
     /// Create an error for scope violation.
     pub fn scope_violation(feature: &str) -> Self {
         Self {
@@ -209,11 +209,11 @@ impl ControlPlaneError {
             outcome: ExecutionOutcome::NotExecuted,
         }
     }
-    
+
     // =========================================================================
     // KERNEL REJECTION ERRORS (§6)
     // =========================================================================
-    
+
     /// Create an error from a kernel rejection.
     ///
     /// Per PHASE7_ERROR_MODEL.md §6.2:
@@ -227,11 +227,11 @@ impl ControlPlaneError {
             outcome: ExecutionOutcome::NotExecuted,
         }
     }
-    
+
     // =========================================================================
     // TRANSPORT ERRORS (§7)
     // =========================================================================
-    
+
     /// Create an error for transport failure.
     ///
     /// Per PHASE7_ERROR_MODEL.md §7.2:
@@ -240,52 +240,56 @@ impl ControlPlaneError {
         Self {
             domain: ControlPlaneErrorDomain::TransportError,
             code: "PHASE7_TRANSPORT_FAILURE".to_string(),
-            message: format!("Transport failure: {}. Execution outcome unknown; verify kernel state.", reason),
+            message: format!(
+                "Transport failure: {}. Execution outcome unknown; verify kernel state.",
+                reason
+            ),
             invariant: None,
             outcome: ExecutionOutcome::Unknown,
         }
     }
-    
+
     /// Create an error for timeout.
     pub fn timeout() -> Self {
         Self {
             domain: ControlPlaneErrorDomain::TransportError,
             code: "PHASE7_TIMEOUT".to_string(),
-            message: "Request timed out. Execution outcome unknown; verify kernel state.".to_string(),
+            message: "Request timed out. Execution outcome unknown; verify kernel state."
+                .to_string(),
             invariant: None,
             outcome: ExecutionOutcome::Unknown,
         }
     }
-    
+
     // =========================================================================
     // ACCESSORS
     // =========================================================================
-    
+
     /// Get the error domain.
     pub fn domain(&self) -> ControlPlaneErrorDomain {
         self.domain
     }
-    
+
     /// Get the error code.
     pub fn code(&self) -> &str {
         &self.code
     }
-    
+
     /// Get the error message.
     pub fn message(&self) -> &str {
         &self.message
     }
-    
+
     /// Get the referenced invariant, if any.
     pub fn invariant(&self) -> Option<&str> {
         self.invariant.as_deref()
     }
-    
+
     /// Get the execution outcome.
     pub fn outcome(&self) -> ExecutionOutcome {
         self.outcome
     }
-    
+
     /// Check if execution definitely did not occur.
     pub fn definitely_not_executed(&self) -> bool {
         matches!(self.outcome, ExecutionOutcome::NotExecuted)
@@ -314,21 +318,21 @@ pub type ControlPlaneResult<T> = Result<T, ControlPlaneError>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_operator_input_error() {
         let err = ControlPlaneError::missing_argument("replica_id");
         assert_eq!(err.domain(), ControlPlaneErrorDomain::OperatorInput);
         assert!(err.definitely_not_executed());
     }
-    
+
     #[test]
     fn test_validation_error_with_invariant() {
         let err = ControlPlaneError::missing_confirmation("request_promotion");
         assert_eq!(err.domain(), ControlPlaneErrorDomain::ValidationError);
         assert_eq!(err.invariant(), Some("P7-A2"));
     }
-    
+
     #[test]
     fn test_kernel_rejection_passthrough() {
         let err = ControlPlaneError::from_kernel_rejection(
@@ -338,7 +342,7 @@ mod tests {
         assert_eq!(err.domain(), ControlPlaneErrorDomain::KernelRejection);
         assert_eq!(err.code(), "AERO_PROMOTION_ALREADY_IN_PROGRESS");
     }
-    
+
     #[test]
     fn test_transport_error_unknown_outcome() {
         let err = ControlPlaneError::transport_failure("connection reset");
@@ -346,7 +350,7 @@ mod tests {
         assert!(!err.definitely_not_executed());
         assert_eq!(err.outcome(), ExecutionOutcome::Unknown);
     }
-    
+
     #[test]
     fn test_error_display() {
         let err = ControlPlaneError::missing_confirmation("request_promotion");

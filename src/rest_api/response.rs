@@ -16,7 +16,12 @@ pub struct ListResponse<T: Serialize> {
 impl<T: Serialize> ListResponse<T> {
     pub fn new(data: Vec<T>, limit: usize, offset: usize) -> Self {
         let count = data.len();
-        Self { data, count, limit, offset }
+        Self {
+            data,
+            count,
+            limit,
+            offset,
+        }
     }
 }
 
@@ -44,9 +49,12 @@ impl<T: Serialize> InsertResponse<T> {
         let count = data.len();
         Self { data, count }
     }
-    
+
     pub fn single(data: T) -> Self {
-        Self { data: vec![data], count: 1 }
+        Self {
+            data: vec![data],
+            count: 1,
+        }
     }
 }
 
@@ -90,25 +98,21 @@ impl CountResponse {
 mod tests {
     use super::*;
     use serde_json::json;
-    
+
     #[test]
     fn test_list_response_serialization() {
-        let response = ListResponse::new(
-            vec![json!({"id": 1}), json!({"id": 2})],
-            20,
-            0,
-        );
-        
+        let response = ListResponse::new(vec![json!({"id": 1}), json!({"id": 2})], 20, 0);
+
         let json = serde_json::to_value(&response).unwrap();
         assert_eq!(json["count"], 2);
         assert_eq!(json["limit"], 20);
         assert_eq!(json["offset"], 0);
     }
-    
+
     #[test]
     fn test_single_response_serialization() {
         let response = SingleResponse::new(json!({"id": 1, "name": "Test"}));
-        
+
         let json = serde_json::to_value(&response).unwrap();
         assert_eq!(json["data"]["id"], 1);
     }

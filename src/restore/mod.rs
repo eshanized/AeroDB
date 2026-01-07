@@ -42,11 +42,14 @@ pub use errors::{RestoreError, RestoreErrorCode, RestoreResult, Severity};
 
 use std::path::Path;
 
-use extractor::{cleanup_temp_dir, create_temp_restore_dir, extract_archive, cleanup_old_dir, get_old_data_dir_path};
+use extractor::{
+    cleanup_old_dir, cleanup_temp_dir, create_temp_restore_dir, extract_archive,
+    get_old_data_dir_path,
+};
 use restorer::{atomic_replace, fsync_recursive, reorganize_extracted_files};
 use validator::{
-    validate_backup_manifest, validate_backup_structure, validate_preconditions,
-    validate_snapshot, validate_wal,
+    validate_backup_manifest, validate_backup_structure, validate_preconditions, validate_snapshot,
+    validate_wal,
 };
 
 /// Restore manager for restoring from backup archives.
@@ -108,10 +111,7 @@ impl RestoreManager {
     /// - Truncate WAL
     /// - Spawn threads
     /// - Perform async IO
-    pub fn restore_from_backup(
-        data_dir: &Path,
-        backup_path: &Path,
-    ) -> Result<(), RestoreError> {
+    pub fn restore_from_backup(data_dir: &Path, backup_path: &Path) -> Result<(), RestoreError> {
         // Step 1: Validate preconditions
         validate_preconditions(data_dir, backup_path)?;
 
@@ -127,7 +127,10 @@ impl RestoreManager {
 
             // Clean up reorganized directory if it exists
             if let Some(parent) = temp_dir.parent() {
-                let reorganized = parent.join(format!("{}.reorganized", temp_dir.file_name().unwrap().to_string_lossy()));
+                let reorganized = parent.join(format!(
+                    "{}.reorganized",
+                    temp_dir.file_name().unwrap().to_string_lossy()
+                ));
                 cleanup_temp_dir(&reorganized);
             }
         }
@@ -190,7 +193,8 @@ mod tests {
         fs::create_dir_all(&snapshot_dir).unwrap();
 
         let mut f = File::create(snapshot_dir.join("manifest.json")).unwrap();
-        f.write_all(br#"{"snapshot_id":"20260204T163000Z"}"#).unwrap();
+        f.write_all(br#"{"snapshot_id":"20260204T163000Z"}"#)
+            .unwrap();
 
         let mut f = File::create(snapshot_dir.join("storage.dat")).unwrap();
         f.write_all(b"test storage data").unwrap();
@@ -216,7 +220,9 @@ mod tests {
 
         let manifest_path = temp.path().join("backup_manifest.json");
         let mut manifest_file = File::open(&manifest_path).unwrap();
-        builder.append_file("backup_manifest.json", &mut manifest_file).unwrap();
+        builder
+            .append_file("backup_manifest.json", &mut manifest_file)
+            .unwrap();
 
         builder.finish().unwrap();
     }

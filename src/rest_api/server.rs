@@ -2,8 +2,8 @@
 //!
 //! Axum-based HTTP server for REST endpoints.
 
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use axum::{
     extract::{Path, Query, State},
@@ -19,7 +19,9 @@ use crate::auth::rls::RlsContext;
 use super::errors::{RestError, RestResult};
 use super::handler::RestHandler;
 use super::parser::QueryParams;
-use super::response::{DeleteResponse, InsertResponse, ListResponse, SingleResponse, UpdateResponse};
+use super::response::{
+    DeleteResponse, InsertResponse, ListResponse, SingleResponse, UpdateResponse,
+};
 
 /// REST API server state
 pub struct RestServer<H: RestHandler> {
@@ -34,11 +36,11 @@ impl<H: RestHandler + 'static> RestServer<H> {
             jwt_manager: JwtManager::new(jwt_config),
         }
     }
-    
+
     /// Build the Axum router
     pub fn router(self) -> Router {
         let state = Arc::new(self);
-        
+
         Router::new()
             .route("/rest/v1/{collection}", get(list_handler))
             .route("/rest/v1/{collection}", post(insert_handler))
@@ -64,18 +66,19 @@ fn extract_context<H: RestHandler>(
             return Ok(RlsContext::service_role());
         }
     }
-    
+
     // Check for bearer token
     if let Some(auth) = headers.get("authorization").and_then(|v| v.to_str().ok()) {
         if let Some(token) = auth.strip_prefix("Bearer ") {
-            let claims = server.jwt_manager.validate_token(token)
+            let claims = server
+                .jwt_manager
+                .validate_token(token)
                 .map_err(|e| RestError::Auth(e))?;
-            let user_id = JwtManager::get_user_id(&claims)
-                .map_err(|e| RestError::Auth(e))?;
+            let user_id = JwtManager::get_user_id(&claims).map_err(|e| RestError::Auth(e))?;
             return Ok(RlsContext::authenticated(user_id));
         }
     }
-    
+
     // Anonymous access
     Ok(RlsContext::anonymous())
 }
@@ -89,7 +92,7 @@ async fn list_handler<H: RestHandler + 'static>(
 ) -> Result<Json<ListResponse<Value>>, RestError> {
     let ctx = extract_context(&server, &headers)?;
     let params = QueryParams::parse(&query)?;
-    
+
     let result = server.handler.list(&collection, params, &ctx)?;
     Ok(Json(result))
 }
@@ -101,7 +104,7 @@ async fn get_handler<H: RestHandler + 'static>(
     headers: HeaderMap,
 ) -> Result<Json<SingleResponse<Value>>, RestError> {
     let ctx = extract_context(&server, &headers)?;
-    
+
     let result = server.handler.get(&collection, &id, &ctx)?;
     Ok(Json(result))
 }
@@ -114,7 +117,7 @@ async fn insert_handler<H: RestHandler + 'static>(
     Json(body): Json<Value>,
 ) -> Result<(StatusCode, Json<InsertResponse<Value>>), RestError> {
     let ctx = extract_context(&server, &headers)?;
-    
+
     let result = server.handler.insert(&collection, body, &ctx)?;
     Ok((StatusCode::CREATED, Json(result)))
 }
@@ -127,7 +130,7 @@ async fn update_handler<H: RestHandler + 'static>(
     Json(body): Json<Value>,
 ) -> Result<Json<UpdateResponse<Value>>, RestError> {
     let ctx = extract_context(&server, &headers)?;
-    
+
     let result = server.handler.update(&collection, &id, body, &ctx)?;
     Ok(Json(result))
 }
@@ -139,22 +142,22 @@ async fn delete_handler<H: RestHandler + 'static>(
     headers: HeaderMap,
 ) -> Result<Json<DeleteResponse>, RestError> {
     let ctx = extract_context(&server, &headers)?;
-    
+
     let result = server.handler.delete(&collection, &id, &ctx)?;
     Ok(Json(result))
 }
 
 #[cfg(test)]
 mod tests {
+    use super::super::handler::InMemoryRestHandler;
     use super::*;
     use crate::auth::rls::DefaultRlsEnforcer;
-    use super::super::handler::InMemoryRestHandler;
-    
+
     fn create_test_server() -> RestServer<InMemoryRestHandler<DefaultRlsEnforcer>> {
         let handler = InMemoryRestHandler::new(DefaultRlsEnforcer::new());
         RestServer::new(handler, JwtConfig::default())
     }
-    
+
     #[test]
     fn test_server_creation() {
         let server = create_test_server();

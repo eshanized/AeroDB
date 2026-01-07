@@ -19,55 +19,52 @@ pub enum RestError {
     // ==================
     // Client Errors (4xx)
     // ==================
-    
     /// Invalid query parameter
     #[error("Invalid query parameter: {0}")]
     InvalidQueryParam(String),
-    
+
     /// Invalid filter expression
     #[error("Invalid filter: {0}")]
     InvalidFilter(String),
-    
+
     /// Missing required parameter
     #[error("Missing required parameter: {0}")]
     MissingParam(String),
-    
+
     /// Invalid request body
     #[error("Invalid request body: {0}")]
     InvalidBody(String),
-    
+
     /// Resource not found
     #[error("Resource not found")]
     NotFound,
-    
+
     /// Collection not found
     #[error("Collection not found: {0}")]
     CollectionNotFound(String),
-    
+
     /// Unbounded query not allowed
     #[error("Query must include limit (max: {0})")]
     UnboundedQuery(usize),
-    
+
     /// Limit exceeds maximum
     #[error("Limit {0} exceeds maximum {1}")]
     LimitExceeded(usize, usize),
-    
+
     // ==================
     // Auth Errors
     // ==================
-    
     /// Authentication error
     #[error("{0}")]
     Auth(#[from] AuthError),
-    
+
     // ==================
     // Server Errors (5xx)
     // ==================
-    
     /// Internal error during query execution
     #[error("Internal error: {0}")]
     Internal(String),
-    
+
     /// Schema loading error
     #[error("Schema error: {0}")]
     SchemaError(String),
@@ -84,17 +81,16 @@ impl RestError {
             RestError::InvalidBody(_) => StatusCode::BAD_REQUEST,
             RestError::UnboundedQuery(_) => StatusCode::BAD_REQUEST,
             RestError::LimitExceeded(_, _) => StatusCode::BAD_REQUEST,
-            
+
             // 401/403 from auth
             RestError::Auth(auth_err) => {
-                StatusCode::from_u16(auth_err.status_code())
-                    .unwrap_or(StatusCode::UNAUTHORIZED)
+                StatusCode::from_u16(auth_err.status_code()).unwrap_or(StatusCode::UNAUTHORIZED)
             }
-            
+
             // 404 Not Found
             RestError::NotFound => StatusCode::NOT_FOUND,
             RestError::CollectionNotFound(_) => StatusCode::NOT_FOUND,
-            
+
             // 500 Internal Server Error
             RestError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
             RestError::SchemaError(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -129,7 +125,7 @@ impl IntoResponse for RestError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_status_codes() {
         assert_eq!(
@@ -142,7 +138,7 @@ mod tests {
             StatusCode::INTERNAL_SERVER_ERROR
         );
     }
-    
+
     #[test]
     fn test_auth_error_propagation() {
         let auth_err = AuthError::InvalidCredentials;

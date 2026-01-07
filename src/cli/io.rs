@@ -15,13 +15,13 @@ use super::errors::{CliError, CliResult};
 pub fn read_request() -> CliResult<Value> {
     let stdin = io::stdin();
     let mut line = String::new();
-    
+
     stdin.lock().read_line(&mut line)?;
-    
+
     if line.trim().is_empty() {
         return Err(CliError::io_error("Empty input"));
     }
-    
+
     let value: Value = serde_json::from_str(&line)?;
     Ok(value)
 }
@@ -44,12 +44,12 @@ pub fn write_response(data: Value) -> CliResult<()> {
         "status": "ok",
         "data": data
     });
-    
+
     let mut stdout = io::stdout();
     serde_json::to_writer(&mut stdout, &response)?;
     writeln!(stdout)?;
     stdout.flush()?;
-    
+
     Ok(())
 }
 
@@ -60,12 +60,12 @@ pub fn write_error(code: &str, message: &str) -> CliResult<()> {
         "code": code,
         "message": message
     });
-    
+
     let mut stdout = io::stdout();
     serde_json::to_writer(&mut stdout, &response)?;
     writeln!(stdout)?;
     stdout.flush()?;
-    
+
     Ok(())
 }
 
@@ -74,6 +74,6 @@ pub fn write_json(json_str: &str) -> CliResult<()> {
     let mut stdout = io::stdout();
     writeln!(stdout, "{}", json_str)?;
     stdout.flush()?;
-    
+
     Ok(())
 }

@@ -10,8 +10,8 @@
 //! 2. Diagnostic Commands (read-only but potentially expensive)
 //! 3. Control Commands (mutating, high-risk)
 
-use uuid::Uuid;
 use std::fmt;
+use uuid::Uuid;
 
 /// All Phase 7 control plane commands.
 ///
@@ -21,10 +21,10 @@ use std::fmt;
 pub enum ControlPlaneCommand {
     /// Read-only inspection command.
     Inspection(InspectionCommand),
-    
+
     /// Read-only diagnostic command (potentially expensive).
     Diagnostic(DiagnosticCommand),
-    
+
     /// Mutating control command (requires confirmation).
     Control(ControlCommand),
 }
@@ -41,12 +41,12 @@ impl ControlPlaneCommand {
             ControlPlaneCommand::Control(_) => true,
         }
     }
-    
+
     /// Returns whether this command is mutating.
     pub fn is_mutating(&self) -> bool {
         matches!(self, ControlPlaneCommand::Control(_))
     }
-    
+
     /// Returns the command name for audit logging.
     pub fn command_name(&self) -> &'static str {
         match self {
@@ -65,13 +65,13 @@ impl ControlPlaneCommand {
 pub enum InspectionCommand {
     /// Retrieve current cluster topology and roles.
     InspectClusterState,
-    
+
     /// Inspect a specific node's role, WAL position, and health.
     InspectNode { node_id: Uuid },
-    
+
     /// View replication lag and replica health.
     InspectReplicationStatus,
-    
+
     /// View current promotion/demotion state machine status.
     InspectPromotionState,
 }
@@ -97,10 +97,10 @@ pub enum DiagnosticCommand {
     /// Collect kernel diagnostic information.
     /// Requires confirmation due to potential cost.
     RunDiagnostics,
-    
+
     /// Inspect WAL metadata and boundaries.
     InspectWal,
-    
+
     /// Inspect available snapshots and checkpoints.
     InspectSnapshots,
 }
@@ -114,7 +114,7 @@ impl DiagnosticCommand {
             DiagnosticCommand::InspectSnapshots => "inspect_snapshots",
         }
     }
-    
+
     /// Returns whether this diagnostic command requires confirmation.
     ///
     /// Per PHASE7_COMMAND_MODEL.md §5.1:
@@ -136,14 +136,14 @@ pub enum ControlCommand {
         replica_id: Uuid,
         reason: Option<String>,
     },
-    
+
     /// Request demotion of a primary.
     /// Confirmation required: Yes.
     RequestDemotion {
         node_id: Uuid,
         reason: Option<String>,
     },
-    
+
     /// Explicit operator override for promotion.
     /// Requires enhanced confirmation with risk acknowledgement.
     ForcePromotion {
@@ -163,7 +163,7 @@ impl ControlCommand {
             ControlCommand::ForcePromotion { .. } => "force_promotion",
         }
     }
-    
+
     /// Returns whether this command requires enhanced confirmation.
     ///
     /// Per PHASE7_CONFIRMATION_MODEL.md §8:
@@ -171,7 +171,7 @@ impl ControlCommand {
     pub fn requires_enhanced_confirmation(&self) -> bool {
         matches!(self, ControlCommand::ForcePromotion { .. })
     }
-    
+
     /// Returns the target node/replica ID for this command.
     pub fn target_id(&self) -> Uuid {
         match self {
@@ -191,27 +191,27 @@ impl fmt::Display for ControlPlaneCommand {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_inspection_commands_no_confirmation() {
         let cmd = ControlPlaneCommand::Inspection(InspectionCommand::InspectClusterState);
         assert!(!cmd.requires_confirmation());
         assert!(!cmd.is_mutating());
     }
-    
+
     #[test]
     fn test_diagnostic_run_diagnostics_requires_confirmation() {
         let cmd = ControlPlaneCommand::Diagnostic(DiagnosticCommand::RunDiagnostics);
         assert!(cmd.requires_confirmation());
         assert!(!cmd.is_mutating());
     }
-    
+
     #[test]
     fn test_diagnostic_inspect_wal_no_confirmation() {
         let cmd = ControlPlaneCommand::Diagnostic(DiagnosticCommand::InspectWal);
         assert!(!cmd.requires_confirmation());
     }
-    
+
     #[test]
     fn test_control_commands_require_confirmation() {
         let cmd = ControlPlaneCommand::Control(ControlCommand::RequestPromotion {
@@ -221,7 +221,7 @@ mod tests {
         assert!(cmd.requires_confirmation());
         assert!(cmd.is_mutating());
     }
-    
+
     #[test]
     fn test_force_promotion_requires_enhanced_confirmation() {
         let cmd = ControlCommand::ForcePromotion {
@@ -231,7 +231,7 @@ mod tests {
         };
         assert!(cmd.requires_enhanced_confirmation());
     }
-    
+
     #[test]
     fn test_command_names() {
         assert_eq!(
@@ -246,7 +246,8 @@ mod tests {
             ControlCommand::RequestPromotion {
                 replica_id: Uuid::nil(),
                 reason: None
-            }.command_name(),
+            }
+            .command_name(),
             "request_promotion"
         );
     }

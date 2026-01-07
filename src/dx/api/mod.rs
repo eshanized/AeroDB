@@ -14,10 +14,10 @@
 //! - Confirmation-gated mutating commands
 //! - Audit logging and observability
 
+pub mod control_plane;
 pub mod handlers;
 pub mod response;
 pub mod server;
-pub mod control_plane;
 
 pub use response::{ApiResponse, ObservedAt, SnapshotType};
 pub use server::ObservabilityServer;

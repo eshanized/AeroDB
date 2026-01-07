@@ -49,17 +49,13 @@ impl<'a> ObservationScope<'a> {
     /// Create a new observation scope with additional fields
     pub fn with_fields(name: &'a str, fields: &[(&'a str, &str)]) -> Self {
         let event = format!("{}_BEGIN", name);
-        let field_refs: Vec<(&str, &str)> = fields.iter()
-            .map(|(k, v)| (*k, *v))
-            .collect();
+        let field_refs: Vec<(&str, &str)> = fields.iter().map(|(k, v)| (*k, *v)).collect();
         Logger::info(&event, &field_refs);
 
         Self {
             name,
             completed: Cell::new(false),
-            fields: fields.iter()
-                .map(|(k, v)| (*k, v.to_string()))
-                .collect(),
+            fields: fields.iter().map(|(k, v)| (*k, v.to_string())).collect(),
         }
     }
 
@@ -69,9 +65,8 @@ impl<'a> ObservationScope<'a> {
     pub fn complete(self) {
         self.completed.set(true);
         let event = format!("{}_COMPLETE", self.name);
-        let field_refs: Vec<(&str, &str)> = self.fields.iter()
-            .map(|(k, v)| (*k, v.as_str()))
-            .collect();
+        let field_refs: Vec<(&str, &str)> =
+            self.fields.iter().map(|(k, v)| (*k, v.as_str())).collect();
         Logger::info(&event, &field_refs);
     }
 
@@ -80,9 +75,8 @@ impl<'a> ObservationScope<'a> {
         self.completed.set(true);
         let event = format!("{}_COMPLETE", self.name);
 
-        let mut all_fields: Vec<(&str, &str)> = self.fields.iter()
-            .map(|(k, v)| (*k, v.as_str()))
-            .collect();
+        let mut all_fields: Vec<(&str, &str)> =
+            self.fields.iter().map(|(k, v)| (*k, v.as_str())).collect();
         all_fields.extend(extra_fields.iter().copied());
 
         Logger::info(&event, &all_fields);
@@ -168,10 +162,7 @@ mod tests {
 
     #[test]
     fn test_scope_with_fields() {
-        let scope = ObservationScope::with_fields(
-            "TEST",
-            &[("key", "value")],
-        );
+        let scope = ObservationScope::with_fields("TEST", &[("key", "value")]);
         scope.complete();
     }
 

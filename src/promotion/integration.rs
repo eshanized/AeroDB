@@ -12,9 +12,9 @@
 //! - Phase 6 may NOT modify Phase 5 state machines
 //! - Phase 6 may NOT add hidden transitions
 
-use crate::replication::{ReplicationState, HaltReason};
-use super::errors::{PromotionError, PromotionResult, PromotionErrorKind};
+use super::errors::{PromotionError, PromotionErrorKind, PromotionResult};
 use super::state::DenialReason;
+use crate::replication::{HaltReason, ReplicationState};
 use uuid::Uuid;
 
 /// Result of role rebinding after promotion.
@@ -25,11 +25,9 @@ pub enum RebindResult {
         old_state: ReplicationState,
         new_state: ReplicationState,
     },
-    
+
     /// Role rebinding failed.
-    Failed {
-        reason: String,
-    },
+    Failed { reason: String },
 }
 
 impl RebindResult {
@@ -40,11 +38,11 @@ impl RebindResult {
 }
 
 /// Replication Integration Layer
-/// 
+///
 /// Per PHASE6_ARCHITECTURE.md §4.1:
 /// Phase 6 reads replication role and state, validates replica readiness,
 /// and updates replication role ONLY through allowed transitions.
-/// 
+///
 /// Phase 6 MUST NOT:
 /// - Modify replication protocol
 /// - Introduce new replication states
@@ -53,7 +51,7 @@ pub struct ReplicationIntegration;
 
 impl ReplicationIntegration {
     /// Validate that a replica is eligible for promotion.
-    /// 
+    ///
     /// Per PHASE6_INVARIANTS.md §P6-A3:
     /// Authority is granted only via explicit promotion.
     pub fn validate_replica_eligibility(
@@ -61,12 +59,8 @@ impl ReplicationIntegration {
         current_state: &ReplicationState,
     ) -> Result<(), DenialReason> {
         match current_state {
-            ReplicationState::Disabled => {
-                Err(DenialReason::ReplicationDisabled)
-            }
-            ReplicationState::Uninitialized => {
-                Err(DenialReason::ReplicaNotActive)
-            }
+            ReplicationState::Disabled => Err(DenialReason::ReplicationDisabled),
+            ReplicationState::Uninitialized => Err(DenialReason::ReplicaNotActive),
             ReplicationState::PrimaryActive => {
                 // Already primary
                 Err(DenialReason::InvalidRequest)
@@ -87,12 +81,12 @@ impl ReplicationIntegration {
             }
         }
     }
-    
+
     /// Rebind replication role after promotion approval.
-    /// 
+    ///
     /// Per PHASE6_INVARIANTS.md §P6-A2:
     /// Authority transfer is atomic. All-or-nothing.
-    /// 
+    ///
     /// This method transitions the replica from ReplicaActive to PrimaryActive.
     pub fn rebind_role(
         _replica_id: Uuid,
@@ -103,25 +97,23 @@ impl ReplicationIntegration {
             ReplicationState::ReplicaActive { .. } => {
                 // Transition to PrimaryActive
                 let new_state = ReplicationState::PrimaryActive;
-                
+
                 Ok(RebindResult::Success {
                     old_state: current_state.clone(),
                     new_state,
                 })
             }
-            _ => {
-                Ok(RebindResult::Failed {
-                    reason: format!("cannot rebind from state: {:?}", current_state),
-                })
-            }
+            _ => Ok(RebindResult::Failed {
+                reason: format!("cannot rebind from state: {:?}", current_state),
+            }),
         }
     }
-    
+
     /// Invalidate the old primary after successful promotion.
-    /// 
+    ///
     /// Per PHASE6_INVARIANTS.md §P6-A1:
     /// At any point in time, at most one node may hold write authority.
-    /// 
+    ///
     /// This would be called on the old primary to transition it to a non-writable state.
     /// In a real distributed system, this would involve network communication.
     pub fn invalidate_old_primary() -> ReplicationState {
@@ -132,7 +124,7 @@ impl ReplicationIntegration {
             reason: HaltReason::AuthorityAmbiguity,
         }
     }
-    
+
     /// Get the current replication state description for observability.
     pub fn describe_state(state: &ReplicationState) -> &'static str {
         match state {
@@ -148,46 +140,48 @@ impl ReplicationIntegration {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     fn test_uuid() -> Uuid {
         Uuid::new_v4()
     }
-    
+
     #[test]
     fn test_validate_replica_eligibility_valid() {
         let replica_id = test_uuid();
         let state = ReplicationState::ReplicaActive { replica_id };
-        
+
         let result = ReplicationIntegration::validate_replica_eligibility(replica_id, &state);
         assert!(result.is_ok());
     }
-    
+
     #[test]
     fn test_validate_replica_eligibility_disabled() {
         let replica_id = test_uuid();
         let state = ReplicationState::Disabled;
-        
+
         let result = ReplicationIntegration::validate_replica_eligibility(replica_id, &state);
         assert_eq!(result, Err(DenialReason::ReplicationDisabled));
     }
-    
+
     #[test]
     fn test_validate_replica_eligibility_wrong_id() {
         let replica_id = test_uuid();
         let other_id = test_uuid();
-        let state = ReplicationState::ReplicaActive { replica_id: other_id };
-        
+        let state = ReplicationState::ReplicaActive {
+            replica_id: other_id,
+        };
+
         let result = ReplicationIntegration::validate_replica_eligibility(replica_id, &state);
         assert_eq!(result, Err(DenialReason::InvalidRequest));
     }
-    
+
     #[test]
     fn test_rebind_role_success() {
         let replica_id = test_uuid();
         let state = ReplicationState::ReplicaActive { replica_id };
-        
+
         let result = ReplicationIntegration::rebind_role(replica_id, &state).unwrap();
-        
+
         assert!(result.is_success());
         match result {
             RebindResult::Success { new_state, .. } => {
@@ -196,22 +190,26 @@ mod tests {
             _ => panic!("expected success"),
         }
     }
-    
+
     #[test]
     fn test_rebind_role_from_disabled_fails() {
         let replica_id = test_uuid();
         let state = ReplicationState::Disabled;
-        
+
         let result = ReplicationIntegration::rebind_role(replica_id, &state).unwrap();
-        
+
         assert!(!result.is_success());
     }
-    
+
     #[test]
     fn test_describe_state() {
-        assert!(ReplicationIntegration::describe_state(&ReplicationState::Disabled)
-            .contains("disabled"));
-        assert!(ReplicationIntegration::describe_state(&ReplicationState::PrimaryActive)
-            .contains("Primary"));
+        assert!(
+            ReplicationIntegration::describe_state(&ReplicationState::Disabled)
+                .contains("disabled")
+        );
+        assert!(
+            ReplicationIntegration::describe_state(&ReplicationState::PrimaryActive)
+                .contains("Primary")
+        );
     }
 }

@@ -123,7 +123,10 @@ impl CheckpointMarker {
         if let Some(parent) = path.parent() {
             let dir = OpenOptions::new().read(true).open(parent).map_err(|e| {
                 CheckpointError::marker_failed(
-                    format!("Failed to open marker directory for fsync: {}", parent.display()),
+                    format!(
+                        "Failed to open marker directory for fsync: {}",
+                        parent.display()
+                    ),
                     e,
                 )
             })?;
@@ -187,22 +190,16 @@ mod tests {
 
     #[test]
     fn test_marker_with_truncation() {
-        let marker = CheckpointMarker::with_truncation(
-            "20260204T163000Z",
-            "2026-02-04T16:30:00Z",
-            true,
-        );
+        let marker =
+            CheckpointMarker::with_truncation("20260204T163000Z", "2026-02-04T16:30:00Z", true);
 
         assert!(marker.wal_truncated);
     }
 
     #[test]
     fn test_marker_json_roundtrip() {
-        let marker = CheckpointMarker::with_truncation(
-            "20260204T163000Z",
-            "2026-02-04T16:30:00Z",
-            true,
-        );
+        let marker =
+            CheckpointMarker::with_truncation("20260204T163000Z", "2026-02-04T16:30:00Z", true);
 
         let json = marker.to_json().unwrap();
         let parsed = CheckpointMarker::from_json(&json).unwrap();
@@ -212,11 +209,8 @@ mod tests {
 
     #[test]
     fn test_marker_json_format_matches_spec() {
-        let marker = CheckpointMarker::with_truncation(
-            "20260204T113000Z",
-            "2026-02-04T11:30:00Z",
-            true,
-        );
+        let marker =
+            CheckpointMarker::with_truncation("20260204T113000Z", "2026-02-04T11:30:00Z", true);
 
         let json = marker.to_json().unwrap();
 
@@ -236,11 +230,8 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let marker_path = temp_dir.path().join("checkpoint.json");
 
-        let marker = CheckpointMarker::with_truncation(
-            "20260204T163000Z",
-            "2026-02-04T16:30:00Z",
-            true,
-        );
+        let marker =
+            CheckpointMarker::with_truncation("20260204T163000Z", "2026-02-04T16:30:00Z", true);
 
         // Write
         marker.write_to_file(&marker_path).unwrap();

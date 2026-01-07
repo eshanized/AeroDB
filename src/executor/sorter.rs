@@ -2,8 +2,8 @@
 //!
 //! Sorts results by indexed fields only, deterministically.
 
-use crate::planner::{SortDirection, SortSpec};
 use super::result::ResultDocument;
+use crate::planner::{SortDirection, SortSpec};
 
 /// Sorts result documents
 pub struct ResultSorter;
@@ -31,7 +31,10 @@ impl ResultSorter {
     /// Ordering rules:
     /// - null < bool < number < string
     /// - For same types, natural ordering
-    fn compare_values(a: Option<&serde_json::Value>, b: Option<&serde_json::Value>) -> std::cmp::Ordering {
+    fn compare_values(
+        a: Option<&serde_json::Value>,
+        b: Option<&serde_json::Value>,
+    ) -> std::cmp::Ordering {
         use serde_json::Value;
         use std::cmp::Ordering;
 
@@ -82,22 +85,12 @@ mod tests {
     use serde_json::json;
 
     fn make_doc(id: &str, age: i64) -> ResultDocument {
-        ResultDocument::new(
-            id,
-            "users",
-            "v1",
-            json!({"_id": id, "age": age}),
-            0,
-        )
+        ResultDocument::new(id, "users", "v1", json!({"_id": id, "age": age}), 0)
     }
 
     #[test]
     fn test_sort_ascending() {
-        let mut docs = vec![
-            make_doc("c", 30),
-            make_doc("a", 20),
-            make_doc("b", 25),
-        ];
+        let mut docs = vec![make_doc("c", 30), make_doc("a", 20), make_doc("b", 25)];
 
         ResultSorter::sort(&mut docs, &SortSpec::asc("age"));
 
@@ -108,11 +101,7 @@ mod tests {
 
     #[test]
     fn test_sort_descending() {
-        let mut docs = vec![
-            make_doc("c", 30),
-            make_doc("a", 20),
-            make_doc("b", 25),
-        ];
+        let mut docs = vec![make_doc("c", 30), make_doc("a", 20), make_doc("b", 25)];
 
         ResultSorter::sort(&mut docs, &SortSpec::desc("age"));
 
@@ -124,11 +113,7 @@ mod tests {
     #[test]
     fn test_sort_stable() {
         // Same age, original order preserved
-        let mut docs = vec![
-            make_doc("a", 25),
-            make_doc("b", 25),
-            make_doc("c", 25),
-        ];
+        let mut docs = vec![make_doc("a", 25), make_doc("b", 25), make_doc("c", 25)];
 
         ResultSorter::sort(&mut docs, &SortSpec::asc("age"));
 
@@ -141,13 +126,7 @@ mod tests {
     #[test]
     fn test_sort_by_string() {
         fn make_doc_with_name(id: &str, name: &str) -> ResultDocument {
-            ResultDocument::new(
-                id,
-                "users",
-                "v1",
-                json!({"_id": id, "name": name}),
-                0,
-            )
+            ResultDocument::new(id, "users", "v1", json!({"_id": id, "name": name}), 0)
         }
 
         let mut docs = vec![

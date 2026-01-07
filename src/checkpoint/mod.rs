@@ -52,8 +52,10 @@ mod pipeline;
 
 pub use errors::{CheckpointError, CheckpointErrorCode, CheckpointResult, Severity};
 pub use marker::{marker_path, CheckpointMarker};
-pub use pipeline::{CheckpointPath, CheckpointPipeline, CheckpointPipelineError, PhaseA, PhaseAResult, PhaseB, PhaseBResult, PipelineConfig, PipelineState, PipelineStats};
-
+pub use pipeline::{
+    CheckpointPath, CheckpointPipeline, CheckpointPipelineError, PhaseA, PhaseAResult, PhaseB,
+    PhaseBResult, PipelineConfig, PipelineState, PipelineStats,
+};
 
 use std::path::Path;
 
@@ -198,7 +200,9 @@ mod tests {
 
         let schema_path = schema_dir.join("user_v1.json");
         let mut schema_file = File::create(&schema_path).unwrap();
-        schema_file.write_all(br#"{"name": "user", "version": 1}"#).unwrap();
+        schema_file
+            .write_all(br#"{"name": "user", "version": 1}"#)
+            .unwrap();
         schema_file.sync_all().unwrap();
 
         (temp_dir, storage_path, schema_dir, wal)
@@ -280,7 +284,8 @@ mod tests {
             &snapshot_mgr,
             &mut wal,
             &lock,
-        ).unwrap();
+        )
+        .unwrap();
 
         // Verify RFC3339 basic format: YYYYMMDDTHHMMSSZ
         assert_eq!(checkpoint_id.len(), 16);
@@ -296,8 +301,10 @@ mod tests {
         let snapshot_mgr = SnapshotManager;
 
         // Write WAL records
-        wal.append(RecordType::Insert, create_test_payload("doc1")).unwrap();
-        wal.append(RecordType::Insert, create_test_payload("doc2")).unwrap();
+        wal.append(RecordType::Insert, create_test_payload("doc1"))
+            .unwrap();
+        wal.append(RecordType::Insert, create_test_payload("doc2"))
+            .unwrap();
         assert_eq!(wal.next_sequence_number(), 3);
 
         // Checkpoint
@@ -308,7 +315,8 @@ mod tests {
             &snapshot_mgr,
             &mut wal,
             &lock,
-        ).unwrap();
+        )
+        .unwrap();
 
         // Sequence should be reset
         assert_eq!(wal.next_sequence_number(), 1);
@@ -322,7 +330,8 @@ mod tests {
         let snapshot_mgr = SnapshotManager;
 
         // Write WAL records
-        wal.append(RecordType::Insert, create_test_payload("doc1")).unwrap();
+        wal.append(RecordType::Insert, create_test_payload("doc1"))
+            .unwrap();
 
         // Checkpoint
         CheckpointManager::create_checkpoint(
@@ -332,7 +341,8 @@ mod tests {
             &snapshot_mgr,
             &mut wal,
             &lock,
-        ).unwrap();
+        )
+        .unwrap();
 
         // WAL should be empty
         let wal_path = data_dir.join("wal").join("wal.log");
@@ -354,7 +364,8 @@ mod tests {
             &snapshot_mgr,
             &mut wal,
             &lock,
-        ).unwrap();
+        )
+        .unwrap();
 
         let mp = marker_path(data_dir);
         let marker = CheckpointMarker::read_from_file(&mp).unwrap();
@@ -372,7 +383,8 @@ mod tests {
         let snapshot_mgr = SnapshotManager;
 
         // Write to WAL
-        wal.append(RecordType::Insert, create_test_payload("important_doc")).unwrap();
+        wal.append(RecordType::Insert, create_test_payload("important_doc"))
+            .unwrap();
         let original_seq = wal.next_sequence_number();
 
         // Non-existent storage - checkpoint should fail

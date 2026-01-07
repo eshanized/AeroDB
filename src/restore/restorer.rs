@@ -50,8 +50,9 @@ pub fn fsync_recursive(dir: &Path) -> RestoreResult<()> {
                 .open(&path)
                 .map_err(|e| RestoreError::io_error_at_path(&path, e))?;
 
-            file.sync_all()
-                .map_err(|e| RestoreError::io_error(format!("Failed to fsync {}", path.display()), e))?;
+            file.sync_all().map_err(|e| {
+                RestoreError::io_error(format!("Failed to fsync {}", path.display()), e)
+            })?;
         }
     }
 
@@ -75,21 +76,26 @@ fn copy_file_with_fsync(src: &Path, dst: &Path) -> RestoreResult<()> {
     // Read source
     let mut src_file = File::open(src).map_err(|e| RestoreError::io_error_at_path(src, e))?;
     let mut contents = Vec::new();
-    src_file.read_to_end(&mut contents).map_err(|e| RestoreError::io_error_at_path(src, e))?;
+    src_file
+        .read_to_end(&mut contents)
+        .map_err(|e| RestoreError::io_error_at_path(src, e))?;
 
     // Write to destination
     let mut dst_file = File::create(dst).map_err(|e| RestoreError::io_error_at_path(dst, e))?;
-    dst_file.write_all(&contents).map_err(|e| RestoreError::io_error_at_path(dst, e))?;
-    dst_file.sync_all().map_err(|e| RestoreError::io_error_at_path(dst, e))?;
+    dst_file
+        .write_all(&contents)
+        .map_err(|e| RestoreError::io_error_at_path(dst, e))?;
+    dst_file
+        .sync_all()
+        .map_err(|e| RestoreError::io_error_at_path(dst, e))?;
 
     Ok(())
 }
 
 /// Copy directory recursively with fsync
 fn copy_dir_recursive(src: &Path, dst: &Path) -> RestoreResult<()> {
-    fs::create_dir_all(dst).map_err(|e| {
-        RestoreError::io_error(format!("Failed to create {}", dst.display()), e)
-    })?;
+    fs::create_dir_all(dst)
+        .map_err(|e| RestoreError::io_error(format!("Failed to create {}", dst.display()), e))?;
 
     let entries = fs::read_dir(src).map_err(|e| RestoreError::io_error_at_path(src, e))?;
 
@@ -125,9 +131,13 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> RestoreResult<()> {
 /// - wal/wal.log
 /// - checkpoint.json (optional, created from backup manifest)
 pub fn reorganize_extracted_files(temp_dir: &Path, snapshot_id: &str) -> RestoreResult<PathBuf> {
-    let reorganized = temp_dir.parent()
+    let reorganized = temp_dir
+        .parent()
         .ok_or_else(|| RestoreError::failed("Invalid temp directory"))?
-        .join(format!("{}.reorganized", temp_dir.file_name().unwrap().to_string_lossy()));
+        .join(format!(
+            "{}.reorganized",
+            temp_dir.file_name().unwrap().to_string_lossy()
+        ));
 
     if reorganized.exists() {
         fs::remove_dir_all(&reorganized).map_err(|e| {
@@ -229,7 +239,11 @@ pub fn atomic_replace(data_dir: &Path, reorganized_dir: &Path) -> RestoreResult<
     // Step 1: Move data_dir → data_dir.old
     fs::rename(data_dir, &old_dir).map_err(|e| {
         RestoreError::io_error(
-            format!("Failed to move {} to {}", data_dir.display(), old_dir.display()),
+            format!(
+                "Failed to move {} to {}",
+                data_dir.display(),
+                old_dir.display()
+            ),
             e,
         )
     })?;
@@ -240,7 +254,11 @@ pub fn atomic_replace(data_dir: &Path, reorganized_dir: &Path) -> RestoreResult<
         // Rollback: restore old_dir to data_dir
         let _ = fs::rename(&old_dir, data_dir);
         return Err(RestoreError::io_error(
-            format!("Failed to move {} to {} (rolled back)", reorganized_dir.display(), data_dir.display()),
+            format!(
+                "Failed to move {} to {} (rolled back)",
+                reorganized_dir.display(),
+                data_dir.display()
+            ),
             e,
         ));
     }
@@ -267,7 +285,8 @@ mod tests {
         fs::create_dir_all(&snapshot_dir).unwrap();
 
         let mut f = File::create(snapshot_dir.join("manifest.json")).unwrap();
-        f.write_all(br#"{"snapshot_id":"20260204T163000Z"}"#).unwrap();
+        f.write_all(br#"{"snapshot_id":"20260204T163000Z"}"#)
+            .unwrap();
 
         let mut f = File::create(snapshot_dir.join("storage.dat")).unwrap();
         f.write_all(b"test storage data").unwrap();
@@ -327,7 +346,10 @@ mod tests {
         // Verify structure
         assert!(reorganized.join("data").join("storage.dat").exists());
         assert!(reorganized.join("metadata").join("schemas").exists());
-        assert!(reorganized.join("snapshots").join("20260204T163000Z").exists());
+        assert!(reorganized
+            .join("snapshots")
+            .join("20260204T163000Z")
+            .exists());
         assert!(reorganized.join("wal").exists());
     }
 

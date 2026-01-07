@@ -31,11 +31,15 @@ mod visibility;
 pub use commit_authority::{CommitAuthority, CommitAuthorityError};
 pub use commit_id::CommitId;
 pub use gc::{GcEligibility, GcRecordPayload, VersionLifecycleState, VisibilityFloor};
-pub use read_cache::{CachedVisibility, CacheStats, ReadPath, ReadPathConfig, ShortCircuitTraversal, SnapshotVisibilityCache, TraversalDecision, VisibilityCacheKey};
+pub use read_cache::{
+    CacheStats, CachedVisibility, ReadPath, ReadPathConfig, ShortCircuitTraversal,
+    SnapshotVisibilityCache, TraversalDecision, VisibilityCacheKey,
+};
 pub use read_view::ReadView;
 pub use version::{Version, VersionPayload};
 pub use version_chain::VersionChain;
 pub use version_storage::{
-    PersistedVersion, VersionExpectations, VersionStorageError, VersionStorageResult, VersionValidator,
+    PersistedVersion, VersionExpectations, VersionStorageError, VersionStorageResult,
+    VersionValidator,
 };
 pub use visibility::{Visibility, VisibilityResult};

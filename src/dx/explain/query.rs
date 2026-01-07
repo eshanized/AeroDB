@@ -122,10 +122,7 @@ impl QueryExplainer {
         let mut index_evidence = Evidence::empty();
         index_evidence.add("uses_index", uses_index);
         if uses_index {
-            let indexes: Vec<_> = plan
-                .iter()
-                .filter_map(|n| n.index_used.clone())
-                .collect();
+            let indexes: Vec<_> = plan.iter().filter_map(|n| n.index_used.clone()).collect();
             index_evidence.add("indexes_used", indexes);
         }
 
@@ -136,10 +133,7 @@ impl QueryExplainer {
         ));
 
         // Calculate estimated cost
-        let estimated_cost: u64 = plan
-            .iter()
-            .map(|n| n.estimated_rows.unwrap_or(1))
-            .sum();
+        let estimated_cost: u64 = plan.iter().map(|n| n.estimated_rows.unwrap_or(1)).sum();
 
         builder.conclude(QueryExecutionOutput {
             plan,
@@ -177,7 +171,10 @@ mod tests {
             vec!["LIMIT 100".to_string()],
         );
 
-        assert_eq!(explanation.explanation_type, ExplanationType::QueryExecution);
+        assert_eq!(
+            explanation.explanation_type,
+            ExplanationType::QueryExecution
+        );
         assert!(!explanation.rules_applied.is_empty());
     }
 
@@ -191,7 +188,12 @@ mod tests {
             index_used: None,
         }];
 
-        let exp1 = explainer.explain("SELECT * FROM t", 100, plan.clone(), vec!["LIMIT 10".to_string()]);
+        let exp1 = explainer.explain(
+            "SELECT * FROM t",
+            100,
+            plan.clone(),
+            vec!["LIMIT 10".to_string()],
+        );
         let exp2 = explainer.explain("SELECT * FROM t", 100, plan, vec!["LIMIT 10".to_string()]);
 
         // Per P4-6: Deterministic

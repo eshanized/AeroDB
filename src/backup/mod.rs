@@ -132,9 +132,8 @@ impl BackupManager {
         _lock: &GlobalExecutionLock,
     ) -> Result<BackupId, BackupError> {
         // Step 2: fsync WAL to ensure all pending writes are durable
-        wal.fsync().map_err(|e| {
-            BackupError::failed(format!("Failed to fsync WAL: {}", e))
-        })?;
+        wal.fsync()
+            .map_err(|e| BackupError::failed(format!("Failed to fsync WAL: {}", e)))?;
 
         // Step 3: Identify latest valid snapshot
         let snapshots_dir = data_dir.join("snapshots");
@@ -209,7 +208,9 @@ mod tests {
 
         let schema_path = schema_dir.join("user_v1.json");
         let mut schema_file = File::create(&schema_path).unwrap();
-        schema_file.write_all(br#"{"name": "user", "version": 1}"#).unwrap();
+        schema_file
+            .write_all(br#"{"name": "user", "version": 1}"#)
+            .unwrap();
         schema_file.sync_all().unwrap();
 
         // Initialize WAL
@@ -234,7 +235,8 @@ mod tests {
         // Create manifest.json
         let manifest_path = snapshot_dir.join("manifest.json");
         let mut f = File::create(&manifest_path).unwrap();
-        f.write_all(format!(r#"{{"snapshot_id":"{}"}}"#, snapshot_id).as_bytes()).unwrap();
+        f.write_all(format!(r#"{{"snapshot_id":"{}"}}"#, snapshot_id).as_bytes())
+            .unwrap();
         f.sync_all().unwrap();
 
         // Create schemas directory
@@ -263,12 +265,7 @@ mod tests {
 
         let output_path = data_dir.join("backup.tar");
 
-        let result = BackupManager::create_backup(
-            data_dir,
-            &output_path,
-            &wal,
-            &lock,
-        );
+        let result = BackupManager::create_backup(data_dir, &output_path, &wal, &lock);
 
         assert!(result.is_ok());
         assert!(output_path.exists());
@@ -289,12 +286,7 @@ mod tests {
 
         let output_path = data_dir.join("backup.tar");
 
-        let backup_id = BackupManager::create_backup(
-            data_dir,
-            &output_path,
-            &wal,
-            &lock,
-        ).unwrap();
+        let backup_id = BackupManager::create_backup(data_dir, &output_path, &wal, &lock).unwrap();
 
         // Backup ID must equal snapshot ID
         assert_eq!(backup_id, "20260204T163000Z");
@@ -315,12 +307,7 @@ mod tests {
 
         let output_path = data_dir.join("backup.tar");
 
-        let backup_id = BackupManager::create_backup(
-            data_dir,
-            &output_path,
-            &wal,
-            &lock,
-        ).unwrap();
+        let backup_id = BackupManager::create_backup(data_dir, &output_path, &wal, &lock).unwrap();
 
         // Should select the latest snapshot
         assert_eq!(backup_id, "20260103T100000Z");
@@ -338,12 +325,7 @@ mod tests {
 
         let output_path = data_dir.join("backup.tar");
 
-        BackupManager::create_backup(
-            data_dir,
-            &output_path,
-            &wal,
-            &lock,
-        ).unwrap();
+        BackupManager::create_backup(data_dir, &output_path, &wal, &lock).unwrap();
 
         // Read archive and verify contents
         let file = File::open(&output_path).unwrap();
@@ -375,12 +357,7 @@ mod tests {
 
         let output_path = data_dir.join("backup.tar");
 
-        BackupManager::create_backup(
-            data_dir,
-            &output_path,
-            &wal,
-            &lock,
-        ).unwrap();
+        BackupManager::create_backup(data_dir, &output_path, &wal, &lock).unwrap();
 
         // Extract and verify backup manifest
         let file = File::open(&output_path).unwrap();
@@ -420,12 +397,7 @@ mod tests {
 
         let output_path = data_dir.join("backup.tar");
 
-        let result = BackupManager::create_backup(
-            data_dir,
-            &output_path,
-            &wal,
-            &lock,
-        );
+        let result = BackupManager::create_backup(data_dir, &output_path, &wal, &lock);
 
         assert!(result.is_err());
         // No partial archive should exist
@@ -445,12 +417,7 @@ mod tests {
 
         let output_path = data_dir.join("backup.tar");
 
-        let result = BackupManager::create_backup(
-            data_dir,
-            &output_path,
-            &wal,
-            &lock,
-        );
+        let result = BackupManager::create_backup(data_dir, &output_path, &wal, &lock);
 
         assert!(result.is_err());
 
@@ -478,12 +445,7 @@ mod tests {
 
         let output_path = data_dir.join("backup.tar");
 
-        let _ = BackupManager::create_backup(
-            data_dir,
-            &output_path,
-            &wal,
-            &lock,
-        );
+        let _ = BackupManager::create_backup(data_dir, &output_path, &wal, &lock);
 
         // If this compiles, the test passes
     }

@@ -309,7 +309,10 @@ pub fn handle_mvcc(commit_id: u64, mvcc_data: MvccData) -> ApiResponse<MvccData>
 ///
 /// Read-only, Phase 4-5, no semantic authority.
 #[allow(dead_code)]
-pub fn handle_replication(commit_id: u64, state: &ReplicationState) -> ApiResponse<ReplicationData> {
+pub fn handle_replication(
+    commit_id: u64,
+    state: &ReplicationState,
+) -> ApiResponse<ReplicationData> {
     let (role, replica_id, read_safety, blocking_reason) = match state {
         ReplicationState::Disabled => (
             ReplicationRole::Standalone,
@@ -342,7 +345,7 @@ pub fn handle_replication(commit_id: u64, state: &ReplicationState) -> ApiRespon
             Some(format!("halted: {:?}", reason)),
         ),
     };
-    
+
     let data = ReplicationData {
         role,
         replica_state: state.state_name().to_string(),
@@ -355,7 +358,7 @@ pub fn handle_replication(commit_id: u64, state: &ReplicationState) -> ApiRespon
         replica_lag: None,
         snapshot_bootstrap_active: false,
     };
-    
+
     ApiResponse::new(ObservedAt::live(commit_id), data)
 }
 
@@ -367,16 +370,19 @@ mod tests {
     fn test_status_response_deterministic() {
         let resp1 = handle_status(LifecycleState::Running, 100, 95);
         let resp2 = handle_status(LifecycleState::Running, 100, 95);
-        
+
         // Per OAPI-3: Given identical state, responses MUST be identical
         assert_eq!(resp1.data.lifecycle_state, resp2.data.lifecycle_state);
-        assert_eq!(resp1.data.commit_id_high_water, resp2.data.commit_id_high_water);
+        assert_eq!(
+            resp1.data.commit_id_high_water,
+            resp2.data.commit_id_high_water
+        );
     }
 
     #[test]
     fn test_response_includes_commit_id() {
         let resp = handle_status(LifecycleState::Running, 42, 40);
-        
+
         // Per OAPI-2: Every response MUST state which snapshot it observes
         assert_eq!(resp.observed_at.commit_id, 42);
     }
@@ -394,13 +400,13 @@ mod tests {
     }
 
     // ===== Stage 1: DX Replication Endpoint Tests =====
-    
+
     #[test]
     fn test_replication_disabled_returns_standalone() {
         // Per P5-I16: Disabled replication returns standalone role
         let state = ReplicationState::Disabled;
         let resp = handle_replication(100, &state);
-        
+
         assert_eq!(resp.data.role, ReplicationRole::Standalone);
         assert_eq!(resp.data.replica_state, "disabled");
         assert!(!resp.data.replication_enabled);
@@ -412,7 +418,7 @@ mod tests {
     fn test_replication_primary_returns_correct_role() {
         let state = ReplicationState::PrimaryActive;
         let resp = handle_replication(100, &state);
-        
+
         assert_eq!(resp.data.role, ReplicationRole::Primary);
         assert_eq!(resp.data.replica_state, "primary_active");
         assert!(resp.data.replication_enabled);
@@ -424,7 +430,7 @@ mod tests {
         let replica_id = uuid::Uuid::new_v4();
         let state = ReplicationState::ReplicaActive { replica_id };
         let resp = handle_replication(100, &state);
-        
+
         assert_eq!(resp.data.role, ReplicationRole::Replica);
         assert_eq!(resp.data.replica_state, "replica_active");
         assert!(resp.data.replication_enabled);
@@ -435,15 +441,20 @@ mod tests {
     #[test]
     fn test_replication_halted_returns_blocking_reason() {
         use crate::replication::HaltReason;
-        
+
         let state = ReplicationState::ReplicationHalted {
             reason: HaltReason::WalGapDetected,
         };
         let resp = handle_replication(100, &state);
-        
+
         assert_eq!(resp.data.role, ReplicationRole::Standalone);
         assert!(resp.data.blocking_reason.is_some());
-        assert!(resp.data.blocking_reason.as_ref().unwrap().contains("halted"));
+        assert!(resp
+            .data
+            .blocking_reason
+            .as_ref()
+            .unwrap()
+            .contains("halted"));
     }
 
     #[test]
@@ -452,9 +463,12 @@ mod tests {
         let state = ReplicationState::PrimaryActive;
         let resp1 = handle_replication(100, &state);
         let resp2 = handle_replication(100, &state);
-        
+
         assert_eq!(resp1.data.role, resp2.data.role);
         assert_eq!(resp1.data.replica_state, resp2.data.replica_state);
-        assert_eq!(resp1.data.replication_enabled, resp2.data.replication_enabled);
+        assert_eq!(
+            resp1.data.replication_enabled,
+            resp2.data.replication_enabled
+        );
     }
 }

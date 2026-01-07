@@ -7,9 +7,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
-use crate::crash::utils::{
-    create_temp_data_dir, cleanup_temp_data_dir, validate_backup_integrity,
-};
+use crate::crash::utils::{cleanup_temp_data_dir, create_temp_data_dir, validate_backup_integrity};
 use aerodb::crash_point::points;
 
 /// Helper to create a valid backup archive
@@ -31,14 +29,19 @@ fn create_valid_backup(backup_path: &Path) {
     f.write_all(b"test data").unwrap();
 
     let mut f = File::create(temp.join("backup_manifest.json")).unwrap();
-    f.write_all(br#"{"backup_id":"test","snapshot_id":"test","format_version":1}"#).unwrap();
+    f.write_all(br#"{"backup_id":"test","snapshot_id":"test","format_version":1}"#)
+        .unwrap();
 
-    builder.append_dir_all("snapshot", temp.join("snapshot")).unwrap();
+    builder
+        .append_dir_all("snapshot", temp.join("snapshot"))
+        .unwrap();
     builder.append_dir_all("wal", temp.join("wal")).unwrap();
 
     let manifest_path = temp.join("backup_manifest.json");
     let mut manifest_file = File::open(&manifest_path).unwrap();
-    builder.append_file("backup_manifest.json", &mut manifest_file).unwrap();
+    builder
+        .append_file("backup_manifest.json", &mut manifest_file)
+        .unwrap();
 
     builder.finish().unwrap();
 
@@ -77,7 +80,10 @@ fn test_backup_missing_valid() {
 #[test]
 fn test_backup_crash_points_defined() {
     assert_eq!(points::BACKUP_START, "backup_start");
-    assert_eq!(points::BACKUP_AFTER_SNAPSHOT_COPY, "backup_after_snapshot_copy");
+    assert_eq!(
+        points::BACKUP_AFTER_SNAPSHOT_COPY,
+        "backup_after_snapshot_copy"
+    );
     assert_eq!(points::BACKUP_AFTER_WAL_COPY, "backup_after_wal_copy");
     assert_eq!(points::BACKUP_BEFORE_ARCHIVE, "backup_before_archive");
 }

@@ -13,12 +13,12 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::auth::jwt::{JwtConfig, JwtManager, TokenResponse};
+use crate::auth::api::AuthService;
 use crate::auth::crypto::PasswordPolicy;
+use crate::auth::errors::AuthError;
+use crate::auth::jwt::{JwtConfig, JwtManager, TokenResponse};
 use crate::auth::session::{InMemorySessionRepository, SessionConfig};
 use crate::auth::user::{InMemoryUserRepository, LoginRequest, SignupRequest, User};
-use crate::auth::api::AuthService;
-use crate::auth::errors::AuthError;
 
 /// Shared auth state
 pub struct AuthState {
@@ -138,8 +138,8 @@ async fn signup_handler(
             Ok((StatusCode::CREATED, Json(response)))
         }
         Err(e) => {
-            let status = StatusCode::from_u16(e.status_code())
-                .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+            let status =
+                StatusCode::from_u16(e.status_code()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
             Err((status, Json(ErrorResponse::from(e))))
         }
     }
@@ -161,8 +161,7 @@ async fn login_handler(
             Ok(Json(response))
         }
         Err(e) => {
-            let status = StatusCode::from_u16(e.status_code())
-                .unwrap_or(StatusCode::UNAUTHORIZED);
+            let status = StatusCode::from_u16(e.status_code()).unwrap_or(StatusCode::UNAUTHORIZED);
             Err((status, Json(ErrorResponse::from(e))))
         }
     }
@@ -183,8 +182,7 @@ async fn refresh_handler(
             Ok(Json(response))
         }
         Err(e) => {
-            let status = StatusCode::from_u16(e.status_code())
-                .unwrap_or(StatusCode::UNAUTHORIZED);
+            let status = StatusCode::from_u16(e.status_code()).unwrap_or(StatusCode::UNAUTHORIZED);
             Err((status, Json(ErrorResponse::from(e))))
         }
     }
@@ -198,8 +196,7 @@ async fn logout_handler(
     match state.service.logout(&request.refresh_token) {
         Ok(_) => Ok(StatusCode::NO_CONTENT),
         Err(e) => {
-            let status = StatusCode::from_u16(e.status_code())
-                .unwrap_or(StatusCode::BAD_REQUEST);
+            let status = StatusCode::from_u16(e.status_code()).unwrap_or(StatusCode::BAD_REQUEST);
             Err((status, Json(ErrorResponse::from(e))))
         }
     }
@@ -215,7 +212,7 @@ async fn get_user_handler(
         .get("authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|s| s.strip_prefix("Bearer "));
-    
+
     let token = match auth_header {
         Some(t) => t,
         None => {
@@ -228,7 +225,7 @@ async fn get_user_handler(
             ))
         }
     };
-    
+
     // Validate token and get user
     match state.service.validate_access_token(token) {
         Ok(ctx) => {
@@ -236,8 +233,8 @@ async fn get_user_handler(
                 match state.service.get_user(user_id) {
                     Ok(user) => Ok(Json(UserResponse::from(&user))),
                     Err(e) => {
-                        let status = StatusCode::from_u16(e.status_code())
-                            .unwrap_or(StatusCode::NOT_FOUND);
+                        let status =
+                            StatusCode::from_u16(e.status_code()).unwrap_or(StatusCode::NOT_FOUND);
                         Err((status, Json(ErrorResponse::from(e))))
                     }
                 }
@@ -252,8 +249,7 @@ async fn get_user_handler(
             }
         }
         Err(e) => {
-            let status = StatusCode::from_u16(e.status_code())
-                .unwrap_or(StatusCode::UNAUTHORIZED);
+            let status = StatusCode::from_u16(e.status_code()).unwrap_or(StatusCode::UNAUTHORIZED);
             Err((status, Json(ErrorResponse::from(e))))
         }
     }
@@ -262,7 +258,7 @@ async fn get_user_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_auth_state_creation() {
         let state = AuthState::new();

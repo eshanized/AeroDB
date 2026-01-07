@@ -120,7 +120,11 @@ pub struct RuleApplication {
 
 impl RuleApplication {
     /// Create a rule application with true evaluation.
-    pub fn satisfied(rule_id: impl Into<String>, description: impl Into<String>, evidence: Evidence) -> Self {
+    pub fn satisfied(
+        rule_id: impl Into<String>,
+        description: impl Into<String>,
+        evidence: Evidence,
+    ) -> Self {
         Self {
             rule_id: rule_id.into(),
             description: description.into(),
@@ -130,7 +134,11 @@ impl RuleApplication {
     }
 
     /// Create a rule application with false evaluation.
-    pub fn not_satisfied(rule_id: impl Into<String>, description: impl Into<String>, evidence: Evidence) -> Self {
+    pub fn not_satisfied(
+        rule_id: impl Into<String>,
+        description: impl Into<String>,
+        evidence: Evidence,
+    ) -> Self {
         Self {
             rule_id: rule_id.into(),
             description: description.into(),
@@ -308,20 +316,19 @@ mod tests {
 
     #[test]
     fn test_explanation_builder() {
-        let explanation = Explanation::builder(
-            ExplanationType::MvccReadVisibility,
-            "snap-1",
-            100,
-        )
-        .input("doc_id", "doc-123")
-        .rule(RuleApplication::satisfied(
-            "MVCC-1",
-            "Visibility check",
-            Evidence::empty(),
-        ))
-        .conclude("visible");
+        let explanation = Explanation::builder(ExplanationType::MvccReadVisibility, "snap-1", 100)
+            .input("doc_id", "doc-123")
+            .rule(RuleApplication::satisfied(
+                "MVCC-1",
+                "Visibility check",
+                Evidence::empty(),
+            ))
+            .conclude("visible");
 
-        assert_eq!(explanation.explanation_type, ExplanationType::MvccReadVisibility);
+        assert_eq!(
+            explanation.explanation_type,
+            ExplanationType::MvccReadVisibility
+        );
         assert_eq!(explanation.observed_snapshot.commit_id, 100);
         assert_eq!(explanation.rules_applied.len(), 1);
         assert_eq!(explanation.conclusion.status, ConclusionStatus::Determined);
@@ -329,14 +336,16 @@ mod tests {
 
     #[test]
     fn test_undetermined_conclusion() {
-        let explanation = Explanation::builder(
-            ExplanationType::RecoveryProcess,
-            "snap-1",
-            100,
-        )
-        .undetermined("WAL segment missing");
+        let explanation = Explanation::builder(ExplanationType::RecoveryProcess, "snap-1", 100)
+            .undetermined("WAL segment missing");
 
-        assert_eq!(explanation.conclusion.status, ConclusionStatus::Undetermined);
-        assert_eq!(explanation.conclusion.reason, Some("WAL segment missing".to_string()));
+        assert_eq!(
+            explanation.conclusion.status,
+            ConclusionStatus::Undetermined
+        );
+        assert_eq!(
+            explanation.conclusion.reason,
+            Some("WAL segment missing".to_string())
+        );
     }
 }

@@ -23,12 +23,15 @@ impl WalPosition {
     pub fn new(sequence: u64, offset: u64) -> Self {
         Self { sequence, offset }
     }
-    
+
     /// Genesis position (start of WAL).
     pub fn genesis() -> Self {
-        Self { sequence: 0, offset: 0 }
+        Self {
+            sequence: 0,
+            offset: 0,
+        }
     }
-    
+
     /// Advance to next position.
     pub fn advance(&self, record_size: u64) -> Self {
         Self {
@@ -58,37 +61,37 @@ impl WalSender {
             active: false,
         }
     }
-    
+
     /// Create a new WAL sender from genesis.
     pub fn from_genesis() -> Self {
         Self::new(WalPosition::genesis())
     }
-    
+
     /// Start the sender.
     pub fn start(&mut self) {
         self.active = true;
     }
-    
+
     /// Stop the sender.
     pub fn stop(&mut self) {
         self.active = false;
     }
-    
+
     /// Check if sender is active.
     pub fn is_active(&self) -> bool {
         self.active
     }
-    
+
     /// Get current sending position.
     pub fn current_position(&self) -> WalPosition {
         self.current_position
     }
-    
+
     /// Get last acknowledged position.
     pub fn ack_position(&self) -> WalPosition {
         self.ack_position
     }
-    
+
     /// Prepare a record for sending.
     ///
     /// Per REPLICATION_LOG_FLOW.md §2.1:
@@ -97,41 +100,44 @@ impl WalSender {
     pub fn prepare_record(&self, record: &WalRecord) -> ReplicationResult<WalRecordEnvelope> {
         if !self.active {
             return Err(ReplicationError::configuration_error(
-                "WAL sender is not active"
+                "WAL sender is not active",
             ));
         }
-        
-        Ok(WalRecordEnvelope::new(self.current_position, record.clone()))
+
+        Ok(WalRecordEnvelope::new(
+            self.current_position,
+            record.clone(),
+        ))
     }
-    
+
     /// Mark a record as sent and advance position.
     pub fn record_sent(&mut self, record_size: u64) {
         self.current_position = self.current_position.advance(record_size);
     }
-    
+
     /// Handle acknowledgment from replica.
     pub fn handle_ack(&mut self, acked_position: WalPosition) -> ReplicationResult<()> {
         // Ack must be monotonically increasing
         if acked_position < self.ack_position {
             return Err(ReplicationError::history_divergence(
-                "received acknowledgment for already-acked position"
+                "received acknowledgment for already-acked position",
             ));
         }
-        
+
         // Ack cannot be ahead of what we sent
         if acked_position > self.current_position {
             return Err(ReplicationError::history_divergence(
-                "received acknowledgment for position not yet sent"
+                "received acknowledgment for position not yet sent",
             ));
         }
-        
+
         self.ack_position = acked_position;
         Ok(())
     }
 }
 
 /// Envelope for WAL record transmission
-/// 
+///
 /// Per Stage 3: Includes checksum for validation before application.
 #[derive(Debug, Clone)]
 pub struct WalRecordEnvelope {
@@ -149,11 +155,15 @@ impl WalRecordEnvelope {
         // Simple checksum based on sequence for now
         // Real implementation would compute CRC32 of serialized record
         let checksum = compute_record_checksum(&record, position.sequence);
-        Self { position, record, checksum }
+        Self {
+            position,
+            record,
+            checksum,
+        }
     }
-    
+
     /// Validate the envelope's checksum.
-    /// 
+    ///
     /// Per Stage 3: Must validate before application.
     pub fn validate_checksum(&self) -> bool {
         let expected = compute_record_checksum(&self.record, self.position.sequence);
@@ -166,8 +176,12 @@ fn compute_record_checksum(record: &WalRecord, sequence: u64) -> u32 {
     // Simple hash combining sequence and record fields
     let mut hash = sequence as u32;
     hash = hash.wrapping_add(record.sequence_number as u32);
-    hash = hash.wrapping_mul(31).wrapping_add(record.payload.collection_id.len() as u32);
-    hash = hash.wrapping_mul(31).wrapping_add(record.payload.document_id.len() as u32);
+    hash = hash
+        .wrapping_mul(31)
+        .wrapping_add(record.payload.collection_id.len() as u32);
+    hash = hash
+        .wrapping_mul(31)
+        .wrapping_add(record.payload.document_id.len() as u32);
     hash
 }
 
@@ -179,7 +193,7 @@ mod tests {
     fn test_wal_position_advance() {
         let pos = WalPosition::new(10, 1000);
         let next = pos.advance(50);
-        
+
         assert_eq!(next.sequence, 11);
         assert_eq!(next.offset, 1050);
     }
@@ -203,10 +217,10 @@ mod tests {
     fn test_ack_must_be_monotonic() {
         let mut sender = WalSender::new(WalPosition::new(5, 500));
         sender.start();
-        
+
         // First ack at position 5
         assert!(sender.handle_ack(WalPosition::new(5, 500)).is_ok());
-        
+
         // Cannot ack an earlier position
         assert!(sender.handle_ack(WalPosition::new(3, 300)).is_err());
     }
@@ -215,7 +229,7 @@ mod tests {
     fn test_ack_cannot_exceed_sent() {
         let mut sender = WalSender::new(WalPosition::new(5, 500));
         sender.start();
-        
+
         // Cannot ack a position we haven't sent yet
         assert!(sender.handle_ack(WalPosition::new(10, 1000)).is_err());
     }

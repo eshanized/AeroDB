@@ -61,12 +61,18 @@ impl CliError {
 
     /// Already initialized
     pub fn already_initialized() -> Self {
-        Self::new(CliErrorCode::AlreadyInitialized, "Data directory already initialized")
+        Self::new(
+            CliErrorCode::AlreadyInitialized,
+            "Data directory already initialized",
+        )
     }
 
     /// Not initialized
     pub fn not_initialized() -> Self {
-        Self::new(CliErrorCode::NotInitialized, "Data directory not initialized. Run 'aerodb init' first.")
+        Self::new(
+            CliErrorCode::NotInitialized,
+            "Data directory not initialized. Run 'aerodb init' first.",
+        )
     }
 
     /// Boot failed

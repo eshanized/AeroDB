@@ -52,8 +52,9 @@ fn fsync_dir(path: &Path) -> SnapshotResult<()> {
         .open(path)
         .map_err(|e| SnapshotError::io_error_at_path(path, e))?;
 
-    dir.sync_all()
-        .map_err(|e| SnapshotError::io_error(format!("fsync directory failed: {}", path.display()), e))
+    dir.sync_all().map_err(|e| {
+        SnapshotError::io_error(format!("fsync directory failed: {}", path.display()), e)
+    })
 }
 
 /// Copy a file byte-for-byte with fsync.
@@ -67,7 +68,10 @@ fn copy_file_with_fsync(src: &Path, dst: &Path) -> SnapshotResult<()> {
     })?;
 
     let mut dst_file = File::create(dst).map_err(|e| {
-        SnapshotError::io_error(format!("Failed to create destination file: {}", dst.display()), e)
+        SnapshotError::io_error(
+            format!("Failed to create destination file: {}", dst.display()),
+            e,
+        )
     })?;
 
     // Copy in chunks for large files
@@ -87,9 +91,9 @@ fn copy_file_with_fsync(src: &Path, dst: &Path) -> SnapshotResult<()> {
     }
 
     // fsync is mandatory
-    dst_file.sync_all().map_err(|e| {
-        SnapshotError::io_error(format!("fsync failed for: {}", dst.display()), e)
-    })
+    dst_file
+        .sync_all()
+        .map_err(|e| SnapshotError::io_error(format!("fsync failed for: {}", dst.display()), e))
 }
 
 /// Recursively copy a directory.
@@ -108,7 +112,10 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> SnapshotResult<()> {
 
     for entry in entries {
         let entry = entry.map_err(|e| {
-            SnapshotError::io_error(format!("Failed to read directory entry in: {}", src.display()), e)
+            SnapshotError::io_error(
+                format!("Failed to read directory entry in: {}", src.display()),
+                e,
+            )
         })?;
 
         let src_path = entry.path();
@@ -171,7 +178,10 @@ pub fn create_snapshot_impl(
     // Create snapshot directory
     fs::create_dir_all(&snapshot_dir).map_err(|e| {
         SnapshotError::io_error(
-            format!("Failed to create snapshot directory: {}", snapshot_dir.display()),
+            format!(
+                "Failed to create snapshot directory: {}",
+                snapshot_dir.display()
+            ),
             e,
         )
     })?;
@@ -217,7 +227,10 @@ fn create_snapshot_contents(
         // Create empty schemas directory if source doesn't exist
         fs::create_dir_all(&snapshot_schemas).map_err(|e| {
             SnapshotError::io_error(
-                format!("Failed to create schemas directory: {}", snapshot_schemas.display()),
+                format!(
+                    "Failed to create schemas directory: {}",
+                    snapshot_schemas.display()
+                ),
                 e,
             )
         })?;
@@ -290,7 +303,10 @@ pub fn create_mvcc_snapshot_impl(
     // Create snapshot directory
     fs::create_dir_all(&snapshot_dir).map_err(|e| {
         SnapshotError::io_error(
-            format!("Failed to create snapshot directory: {}", snapshot_dir.display()),
+            format!(
+                "Failed to create snapshot directory: {}",
+                snapshot_dir.display()
+            ),
             e,
         )
     })?;
@@ -379,7 +395,9 @@ mod tests {
 
         let schema_path = schema_dir.join("user_v1.json");
         let mut schema_file = File::create(&schema_path).unwrap();
-        schema_file.write_all(br#"{"name": "user", "version": 1}"#).unwrap();
+        schema_file
+            .write_all(br#"{"name": "user", "version": 1}"#)
+            .unwrap();
         schema_file.sync_all().unwrap();
 
         (temp_dir, storage_path, schema_dir)
@@ -435,7 +453,10 @@ mod tests {
 
         let snapshot_id = create_snapshot_impl(data_dir, &storage_path, &schema_dir).unwrap();
 
-        let manifest_path = data_dir.join("snapshots").join(&snapshot_id).join("manifest.json");
+        let manifest_path = data_dir
+            .join("snapshots")
+            .join(&snapshot_id)
+            .join("manifest.json");
         let manifest = SnapshotManifest::read_from_file(&manifest_path).unwrap();
 
         assert_eq!(manifest.snapshot_id, snapshot_id);
@@ -453,7 +474,10 @@ mod tests {
         let snapshot_id = create_snapshot_impl(data_dir, &storage_path, &schema_dir).unwrap();
 
         // Read checksums
-        let manifest_path = data_dir.join("snapshots").join(&snapshot_id).join("manifest.json");
+        let manifest_path = data_dir
+            .join("snapshots")
+            .join(&snapshot_id)
+            .join("manifest.json");
         let manifest = SnapshotManifest::read_from_file(&manifest_path).unwrap();
 
         // Compute checksums of copied files
@@ -471,11 +495,17 @@ mod tests {
         let snapshot_id = create_snapshot_impl(data_dir, &storage_path, &schema_dir).unwrap();
 
         // Verify schema file copied
-        let snapshot_schemas = data_dir.join("snapshots").join(&snapshot_id).join("schemas");
+        let snapshot_schemas = data_dir
+            .join("snapshots")
+            .join(&snapshot_id)
+            .join("schemas");
         assert!(snapshot_schemas.join("user_v1.json").exists());
 
         // Verify manifest has schema checksum
-        let manifest_path = data_dir.join("snapshots").join(&snapshot_id).join("manifest.json");
+        let manifest_path = data_dir
+            .join("snapshots")
+            .join(&snapshot_id)
+            .join("manifest.json");
         let manifest = SnapshotManifest::read_from_file(&manifest_path).unwrap();
         assert!(manifest.schema_checksums.contains_key("user_v1.json"));
     }
@@ -489,7 +519,13 @@ mod tests {
 
         // Compare original and copied storage
         let original = fs::read(&storage_path).unwrap();
-        let copied = fs::read(data_dir.join("snapshots").join(&snapshot_id).join("storage.dat")).unwrap();
+        let copied = fs::read(
+            data_dir
+                .join("snapshots")
+                .join(&snapshot_id)
+                .join("storage.dat"),
+        )
+        .unwrap();
 
         assert_eq!(original, copied);
     }
@@ -533,7 +569,10 @@ mod tests {
         let snapshot_id = create_snapshot_impl(data_dir, &storage_path, &schema_dir).unwrap();
 
         // Verify manifest has empty schema checksums
-        let manifest_path = data_dir.join("snapshots").join(&snapshot_id).join("manifest.json");
+        let manifest_path = data_dir
+            .join("snapshots")
+            .join(&snapshot_id)
+            .join("manifest.json");
         let manifest = SnapshotManifest::read_from_file(&manifest_path).unwrap();
         assert!(manifest.schema_checksums.is_empty());
     }
@@ -553,7 +592,10 @@ mod tests {
         let snapshot_id = create_snapshot_impl(data_dir, &storage_path, &schema_dir).unwrap();
 
         // Should succeed with empty schemas
-        let manifest_path = data_dir.join("snapshots").join(&snapshot_id).join("manifest.json");
+        let manifest_path = data_dir
+            .join("snapshots")
+            .join(&snapshot_id)
+            .join("manifest.json");
         let manifest = SnapshotManifest::read_from_file(&manifest_path).unwrap();
         assert!(manifest.schema_checksums.is_empty());
     }

@@ -7,17 +7,16 @@
 
 pub mod errors;
 pub mod function;
-pub mod registry;
-pub mod trigger;
 pub mod invoker;
-pub mod scheduler;
+pub mod registry;
 pub mod runtime;
+pub mod scheduler;
+pub mod trigger;
 
 pub use errors::{FunctionError, FunctionResult};
 pub use function::{Function, FunctionConfig};
+pub use invoker::{InvocationContext, InvocationResult, Invoker};
 pub use registry::FunctionRegistry;
-pub use trigger::TriggerType;
-pub use invoker::{Invoker, InvocationContext, InvocationResult};
+pub use runtime::{ExecutionContext, ExecutionResult, RuntimeConfig, StubRuntime, WasmRuntime};
 pub use scheduler::Scheduler;
-pub use runtime::{WasmRuntime, StubRuntime, RuntimeConfig, ExecutionContext, ExecutionResult};
-
+pub use trigger::TriggerType;

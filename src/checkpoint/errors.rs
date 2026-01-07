@@ -43,7 +43,9 @@ impl CheckpointErrorCode {
         match self {
             CheckpointErrorCode::AeroCheckpointFailed => "AERO_CHECKPOINT_FAILED",
             CheckpointErrorCode::AeroCheckpointMarkerFailed => "AERO_CHECKPOINT_MARKER_FAILED",
-            CheckpointErrorCode::AeroCheckpointWalTruncateFailed => "AERO_CHECKPOINT_WAL_TRUNCATE_FAILED",
+            CheckpointErrorCode::AeroCheckpointWalTruncateFailed => {
+                "AERO_CHECKPOINT_WAL_TRUNCATE_FAILED"
+            }
         }
     }
 
@@ -73,7 +75,11 @@ pub struct CheckpointError {
 
 impl CheckpointError {
     /// Creates a new checkpoint error
-    fn new(code: CheckpointErrorCode, message: impl Into<String>, source: Option<io::Error>) -> Self {
+    fn new(
+        code: CheckpointErrorCode,
+        message: impl Into<String>,
+        source: Option<io::Error>,
+    ) -> Self {
         Self {
             code,
             message: message.into(),
@@ -88,22 +94,38 @@ impl CheckpointError {
 
     /// Creates a checkpoint failure with source error
     pub fn failed_with_source(message: impl Into<String>, source: io::Error) -> Self {
-        Self::new(CheckpointErrorCode::AeroCheckpointFailed, message, Some(source))
+        Self::new(
+            CheckpointErrorCode::AeroCheckpointFailed,
+            message,
+            Some(source),
+        )
     }
 
     /// Creates a marker write failure error
     pub fn marker_failed(message: impl Into<String>, source: io::Error) -> Self {
-        Self::new(CheckpointErrorCode::AeroCheckpointMarkerFailed, message, Some(source))
+        Self::new(
+            CheckpointErrorCode::AeroCheckpointMarkerFailed,
+            message,
+            Some(source),
+        )
     }
 
     /// Creates a WAL truncation failure error
     pub fn wal_truncate_failed(message: impl Into<String>) -> Self {
-        Self::new(CheckpointErrorCode::AeroCheckpointWalTruncateFailed, message, None)
+        Self::new(
+            CheckpointErrorCode::AeroCheckpointWalTruncateFailed,
+            message,
+            None,
+        )
     }
 
     /// Creates a WAL truncation failure with source error
     pub fn wal_truncate_failed_with_source(message: impl Into<String>, source: io::Error) -> Self {
-        Self::new(CheckpointErrorCode::AeroCheckpointWalTruncateFailed, message, Some(source))
+        Self::new(
+            CheckpointErrorCode::AeroCheckpointWalTruncateFailed,
+            message,
+            Some(source),
+        )
     }
 
     /// Returns the error code
@@ -146,7 +168,9 @@ impl fmt::Display for CheckpointError {
 
 impl std::error::Error for CheckpointError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.source.as_ref().map(|e| e as &(dyn std::error::Error + 'static))
+        self.source
+            .as_ref()
+            .map(|e| e as &(dyn std::error::Error + 'static))
     }
 }
 
@@ -230,7 +254,10 @@ mod tests {
     fn test_wal_truncate_error() {
         let err = CheckpointError::wal_truncate_failed("truncation failed");
 
-        assert_eq!(err.code(), CheckpointErrorCode::AeroCheckpointWalTruncateFailed);
+        assert_eq!(
+            err.code(),
+            CheckpointErrorCode::AeroCheckpointWalTruncateFailed
+        );
         assert!(!err.is_fatal());
     }
 

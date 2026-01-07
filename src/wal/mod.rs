@@ -36,7 +36,13 @@ mod writer;
 pub use batching::{BatchWriteResult, WalBatch, WalBatchConfig, WalBatcher, WritePath};
 pub use checksum::compute_checksum;
 pub use errors::{WalError, WalResult};
-pub use group_commit::{CommitGroup, CommitPath, GroupCommitConfig, GroupCommitManager, GroupCommitResult, PendingCommit, PendingCommitState};
+pub use group_commit::{
+    CommitGroup, CommitPath, GroupCommitConfig, GroupCommitManager, GroupCommitResult,
+    PendingCommit, PendingCommitState,
+};
 pub use reader::WalReader;
-pub use record::{MvccCommitPayload, MvccCommitRecord, MvccVersionPayload, MvccVersionRecord, RecordType, WalPayload, WalRecord};
+pub use record::{
+    MvccCommitPayload, MvccCommitRecord, MvccVersionPayload, MvccVersionRecord, RecordType,
+    WalPayload, WalRecord,
+};
 pub use writer::WalWriter;

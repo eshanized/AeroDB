@@ -36,7 +36,7 @@ mod manifest;
 
 pub use checksum::{compute_file_checksum, format_checksum, parse_checksum};
 pub use creator::{generate_snapshot_id, snapshot_path, snapshots_dir};
-pub use errors::{SnapshotError, SnapshotErrorCode, SnapshotResult, Severity};
+pub use errors::{Severity, SnapshotError, SnapshotErrorCode, SnapshotResult};
 pub use manifest::SnapshotManifest;
 
 use std::path::Path;
@@ -196,13 +196,14 @@ impl SnapshotManager {
         _lock: &GlobalExecutionLock,
     ) -> Result<SnapshotId, SnapshotError> {
         let _ = wal; // WAL fsync handled by caller
-        
+
         // Capture commit boundary at this instant
         // Per MVCC_SNAPSHOT_INTEGRATION.md §3.1: observe single commit boundary
-        let boundary = commit_authority.highest_commit_id()
+        let boundary = commit_authority
+            .highest_commit_id()
             .map(|c| c.value())
             .unwrap_or(0);
-        
+
         creator::create_mvcc_snapshot_impl(data_dir, storage_path, schema_dir, boundary)
     }
 }
@@ -233,7 +234,9 @@ mod tests {
 
         let schema_path = schema_dir.join("user_v1.json");
         let mut schema_file = File::create(&schema_path).unwrap();
-        schema_file.write_all(br#"{"name": "user", "version": 1}"#).unwrap();
+        schema_file
+            .write_all(br#"{"name": "user", "version": 1}"#)
+            .unwrap();
         schema_file.sync_all().unwrap();
 
         (temp_dir, storage_path, schema_dir, wal)
@@ -245,13 +248,8 @@ mod tests {
         let data_dir = temp_dir.path();
         let lock = GlobalExecutionLock::new();
 
-        let result = SnapshotManager::create_snapshot(
-            data_dir,
-            &storage_path,
-            &schema_dir,
-            &wal,
-            &lock,
-        );
+        let result =
+            SnapshotManager::create_snapshot(data_dir, &storage_path, &schema_dir, &wal, &lock);
 
         assert!(result.is_ok());
         let snapshot_id = result.unwrap();
@@ -272,13 +270,7 @@ mod tests {
 
         // The lock marker must be provided - this is a compile-time check
         let lock = GlobalExecutionLock::new();
-        let _ = SnapshotManager::create_snapshot(
-            data_dir,
-            &storage_path,
-            &schema_dir,
-            &wal,
-            &lock,
-        );
+        let _ = SnapshotManager::create_snapshot(data_dir, &storage_path, &schema_dir, &wal, &lock);
 
         // If this compiles, the test passes - lock is required parameter
     }
@@ -289,13 +281,9 @@ mod tests {
         let data_dir = temp_dir.path();
         let lock = GlobalExecutionLock::new();
 
-        let snapshot_id = SnapshotManager::create_snapshot(
-            data_dir,
-            &storage_path,
-            &schema_dir,
-            &wal,
-            &lock,
-        ).unwrap();
+        let snapshot_id =
+            SnapshotManager::create_snapshot(data_dir, &storage_path, &schema_dir, &wal, &lock)
+                .unwrap();
 
         // Verify RFC3339 basic format: YYYYMMDDTHHMMSSZ
         assert_eq!(snapshot_id.len(), 16);
@@ -309,15 +297,14 @@ mod tests {
         let data_dir = temp_dir.path();
         let lock = GlobalExecutionLock::new();
 
-        let snapshot_id = SnapshotManager::create_snapshot(
-            data_dir,
-            &storage_path,
-            &schema_dir,
-            &wal,
-            &lock,
-        ).unwrap();
+        let snapshot_id =
+            SnapshotManager::create_snapshot(data_dir, &storage_path, &schema_dir, &wal, &lock)
+                .unwrap();
 
-        let manifest_path = data_dir.join("snapshots").join(&snapshot_id).join("manifest.json");
+        let manifest_path = data_dir
+            .join("snapshots")
+            .join(&snapshot_id)
+            .join("manifest.json");
         let manifest = SnapshotManifest::read_from_file(&manifest_path).unwrap();
 
         assert_eq!(manifest.format_version, 1);
@@ -329,15 +316,14 @@ mod tests {
         let data_dir = temp_dir.path();
         let lock = GlobalExecutionLock::new();
 
-        let snapshot_id = SnapshotManager::create_snapshot(
-            data_dir,
-            &storage_path,
-            &schema_dir,
-            &wal,
-            &lock,
-        ).unwrap();
+        let snapshot_id =
+            SnapshotManager::create_snapshot(data_dir, &storage_path, &schema_dir, &wal, &lock)
+                .unwrap();
 
-        let manifest_path = data_dir.join("snapshots").join(&snapshot_id).join("manifest.json");
+        let manifest_path = data_dir
+            .join("snapshots")
+            .join(&snapshot_id)
+            .join("manifest.json");
         let manifest = SnapshotManifest::read_from_file(&manifest_path).unwrap();
 
         assert!(manifest.storage_checksum.starts_with("crc32:"));
@@ -358,13 +344,8 @@ mod tests {
         fs::create_dir_all(&schema_dir).unwrap();
 
         let lock = GlobalExecutionLock::new();
-        let result = SnapshotManager::create_snapshot(
-            data_dir,
-            &storage_path,
-            &schema_dir,
-            &wal,
-            &lock,
-        );
+        let result =
+            SnapshotManager::create_snapshot(data_dir, &storage_path, &schema_dir, &wal, &lock);
 
         assert!(result.is_err());
 

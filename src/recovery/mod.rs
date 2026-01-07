@@ -29,5 +29,6 @@ pub use adapters::RecoveryStorage;
 pub use errors::{RecoveryError, RecoveryErrorCode, RecoveryResult};
 pub use replay::{ReplayStats, StorageApply, WalRead, WalReplayer};
 pub use startup::{IndexRebuild, RecoveryManager, RecoveryState};
-pub use verifier::{ConsistencyVerifier, SchemaCheck, StorageScan, StorageRecordInfo, VerificationStats};
-
+pub use verifier::{
+    ConsistencyVerifier, SchemaCheck, StorageRecordInfo, StorageScan, VerificationStats,
+};

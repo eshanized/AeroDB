@@ -46,9 +46,8 @@ pub fn create_tar_archive(source_dir: &Path, output_path: &Path) -> BackupResult
                 )
             })?;
         } else {
-            let mut file = File::open(&fs_path).map_err(|e| {
-                BackupError::io_error_at_path(&fs_path, e)
-            })?;
+            let mut file =
+                File::open(&fs_path).map_err(|e| BackupError::io_error_at_path(&fs_path, e))?;
 
             builder.append_file(&archive_path, &mut file).map_err(|e| {
                 BackupError::io_error(
@@ -267,10 +266,16 @@ mod tests {
 
         // Read both archives
         let mut content1 = Vec::new();
-        File::open(&archive1_path).unwrap().read_to_end(&mut content1).unwrap();
+        File::open(&archive1_path)
+            .unwrap()
+            .read_to_end(&mut content1)
+            .unwrap();
 
         let mut content2 = Vec::new();
-        File::open(&archive2_path).unwrap().read_to_end(&mut content2).unwrap();
+        File::open(&archive2_path)
+            .unwrap()
+            .read_to_end(&mut content2)
+            .unwrap();
 
         // Should be identical
         assert_eq!(content1, content2);

@@ -5,7 +5,7 @@
 //! - Deterministic visibility evaluation
 //! - Tombstone handling
 
-use aerodb::mvcc::{CommitId, Version, VersionChain, ReadView, Visibility, VisibilityResult};
+use aerodb::mvcc::{CommitId, ReadView, Version, VersionChain, Visibility, VisibilityResult};
 
 // =============================================================================
 // Helper Functions
@@ -30,11 +30,11 @@ fn test_visibility_rule_largest_within_bound() {
     chain.push(make_version("key", b"v1", 1));
     chain.push(make_version("key", b"v5", 5));
     chain.push(make_version("key", b"v10", 10));
-    
+
     // View at 7 should see version 5 (largest <= 7)
     let view = ReadView::new(CommitId::new(7));
     let result = Visibility::visible_version(&chain, view);
-    
+
     assert!(result.is_visible());
     assert_eq!(result.version().unwrap().commit_id(), CommitId::new(5));
 }
@@ -44,7 +44,7 @@ fn test_visibility_rule_largest_within_bound() {
 fn test_empty_chain_invisible() {
     let chain = VersionChain::new("empty".to_string());
     let view = ReadView::new(CommitId::new(100));
-    
+
     let result = Visibility::visible_version(&chain, view);
     assert!(!result.is_visible());
 }
@@ -55,11 +55,11 @@ fn test_all_future_invisible() {
     let mut chain = VersionChain::new("key".to_string());
     chain.push(make_version("key", b"v10", 10));
     chain.push(make_version("key", b"v20", 20));
-    
+
     // View at 5 cannot see any version
     let view = ReadView::new(CommitId::new(5));
     let result = Visibility::visible_version(&chain, view);
-    
+
     assert!(!result.is_visible());
 }
 
@@ -73,11 +73,11 @@ fn test_tombstone_makes_invisible() {
     let mut chain = VersionChain::new("key".to_string());
     chain.push(make_version("key", b"data", 1));
     chain.push(make_tombstone("key", 5));
-    
+
     // View at 5 sees tombstone = invisible
     let view = ReadView::new(CommitId::new(5));
     let result = Visibility::visible_version(&chain, view);
-    
+
     assert!(!result.is_visible());
 }
 
@@ -88,11 +88,11 @@ fn test_tombstone_hides_older() {
     chain.push(make_version("key", b"old", 1));
     chain.push(make_version("key", b"newer", 3));
     chain.push(make_tombstone("key", 5));
-    
+
     // View at 5 sees tombstone, not older versions
     let view = ReadView::new(CommitId::new(5));
     let result = Visibility::visible_version(&chain, view);
-    
+
     assert!(!result.is_visible());
 }
 
@@ -102,11 +102,11 @@ fn test_view_before_tombstone_sees_data() {
     let mut chain = VersionChain::new("key".to_string());
     chain.push(make_version("key", b"visible", 3));
     chain.push(make_tombstone("key", 10));
-    
+
     // View at 5 cannot see tombstone at 10, sees version 3
     let view = ReadView::new(CommitId::new(5));
     let result = Visibility::visible_version(&chain, view);
-    
+
     assert!(result.is_visible());
     assert_eq!(result.version().unwrap().commit_id(), CommitId::new(3));
 }
@@ -118,11 +118,11 @@ fn test_delete_then_reinsert() {
     chain.push(make_version("key", b"original", 1));
     chain.push(make_tombstone("key", 5));
     chain.push(make_version("key", b"reinserted", 10));
-    
+
     // View at 10 sees reinserted version
     let view = ReadView::new(CommitId::new(10));
     let result = Visibility::visible_version(&chain, view);
-    
+
     assert!(result.is_visible());
     assert_eq!(result.version().unwrap().commit_id(), CommitId::new(10));
 }
@@ -134,11 +134,11 @@ fn test_view_between_delete_reinsert() {
     chain.push(make_version("key", b"original", 1));
     chain.push(make_tombstone("key", 5));
     chain.push(make_version("key", b"reinserted", 10));
-    
+
     // View at 7: sees tombstone (between delete and reinsert)
     let view = ReadView::new(CommitId::new(7));
     let result = Visibility::visible_version(&chain, view);
-    
+
     assert!(!result.is_visible());
 }
 
@@ -152,9 +152,9 @@ fn test_snapshot_stability() {
     let mut chain = VersionChain::new("key".to_string());
     chain.push(make_version("key", b"v1", 1));
     chain.push(make_version("key", b"v5", 5));
-    
+
     let view = ReadView::new(CommitId::new(5));
-    
+
     // Multiple evaluations must be identical
     for _ in 0..100 {
         let result = Visibility::visible_version(&chain, view);
@@ -170,13 +170,13 @@ fn test_monotonic_views_monotonic_versions() {
     chain.push(make_version("key", b"v1", 1));
     chain.push(make_version("key", b"v5", 5));
     chain.push(make_version("key", b"v10", 10));
-    
+
     let mut last_commit = CommitId::new(0);
-    
+
     for bound in [1, 5, 7, 10, 15] {
         let view = ReadView::new(CommitId::new(bound));
         let result = Visibility::visible_version(&chain, view);
-        
+
         if let Some(version) = result.version() {
             // Version commit must be >= previous (monotonic)
             assert!(version.commit_id() >= last_commit);
@@ -194,7 +194,7 @@ fn test_monotonic_views_monotonic_versions() {
 fn test_single_version_visible() {
     let version = make_version("key", b"data", 5);
     let view = ReadView::new(CommitId::new(10));
-    
+
     assert!(Visibility::is_version_visible(&version, view));
 }
 
@@ -203,7 +203,7 @@ fn test_single_version_visible() {
 fn test_single_version_at_bound() {
     let version = make_version("key", b"data", 5);
     let view = ReadView::new(CommitId::new(5));
-    
+
     assert!(Visibility::is_version_visible(&version, view));
 }
 
@@ -212,7 +212,7 @@ fn test_single_version_at_bound() {
 fn test_single_version_beyond_bound() {
     let version = make_version("key", b"data", 10);
     let view = ReadView::new(CommitId::new(5));
-    
+
     assert!(!Visibility::is_version_visible(&version, view));
 }
 
@@ -221,7 +221,7 @@ fn test_single_version_beyond_bound() {
 fn test_tombstone_version_invisible() {
     let tombstone = make_tombstone("key", 5);
     let view = ReadView::new(CommitId::new(10));
-    
+
     // Tombstones are within bound but represent deleted data
     assert!(!Visibility::is_version_visible(&tombstone, view));
 }

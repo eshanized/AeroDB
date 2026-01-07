@@ -27,7 +27,7 @@ pub enum ReplicationRole {
     /// Node is configured as the Primary
     /// May accept writes, assign CommitIds, emit WAL records
     Primary,
-    
+
     /// Node is configured as a Replica
     /// Must reject writes, apply WAL from Primary only
     Replica,
@@ -41,17 +41,17 @@ pub enum ReplicationRole {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReplicationState {
     /// Replication is disabled (default per P5-I16).
-    /// 
+    ///
     /// In this state the node operates as a standalone primary
     /// with identical behavior to Phase 0-4.
     /// This is the default-safe path.
     Disabled,
-    
+
     /// No authoritative history, no WAL authority
     /// Node must not accept any traffic
     /// This state exists only before bootstrap
     Uninitialized,
-    
+
     /// Node is the sole write authority
     /// Per PHASE2_REPLICATION_INVARIANTS.md §2.1:
     /// - May accept writes
@@ -59,7 +59,7 @@ pub enum ReplicationState {
     /// - May emit WAL records
     /// - Must reject attempts to follow another Primary
     PrimaryActive,
-    
+
     /// Node follows a specific Primary
     /// Per PHASE2_REPLICATION_INVARIANTS.md §2.1:
     /// - May apply WAL records
@@ -70,7 +70,7 @@ pub enum ReplicationState {
         /// Unique replica identifier per PHASE5_IMPLEMENTATION_ORDER.md §Stage 1
         replica_id: Uuid,
     },
-    
+
     /// Node has detected an invariant violation
     /// Per REPLICATION_MODEL.md §4.4:
     /// - WAL gap detected
@@ -92,19 +92,19 @@ pub enum ReplicationState {
 pub enum HaltReason {
     /// WAL gap detected during replication
     WalGapDetected,
-    
+
     /// Divergent history detected
     HistoryDivergence,
-    
+
     /// Authority ambiguity (e.g., dual primary suspected)
     AuthorityAmbiguity,
-    
+
     /// WAL corruption during replication
     WalCorruption,
-    
+
     /// Snapshot integrity failure
     SnapshotIntegrityFailure,
-    
+
     /// Configuration error
     ConfigurationError,
 }
@@ -114,12 +114,12 @@ impl ReplicationState {
     pub fn new() -> Self {
         Self::Disabled
     }
-    
+
     /// Create a new uninitialized state for enabled replication.
     pub fn uninitialized() -> Self {
         Self::Uninitialized
     }
-    
+
     /// Transition to PrimaryActive.
     ///
     /// Per REPLICATION_MODEL.md §4.2:
@@ -131,14 +131,14 @@ impl ReplicationState {
             Self::Uninitialized => Ok(Self::PrimaryActive),
             Self::PrimaryActive => Ok(Self::PrimaryActive), // Idempotent
             Self::ReplicaActive { .. } => Err(ReplicationError::illegal_transition(
-                "cannot transition from Replica to Primary without explicit reconfiguration"
+                "cannot transition from Replica to Primary without explicit reconfiguration",
             )),
             Self::ReplicationHalted { .. } => Err(ReplicationError::halted(
-                "cannot transition from halted state without operator intervention"
+                "cannot transition from halted state without operator intervention",
             )),
         }
     }
-    
+
     /// Transition to ReplicaActive.
     ///
     /// Per REPLICATION_MODEL.md §4.3:
@@ -148,25 +148,27 @@ impl ReplicationState {
         match self {
             Self::Disabled => Ok(Self::ReplicaActive { replica_id }),
             Self::Uninitialized => Ok(Self::ReplicaActive { replica_id }),
-            Self::ReplicaActive { replica_id: existing_id } => {
+            Self::ReplicaActive {
+                replica_id: existing_id,
+            } => {
                 // Idempotent if same ID
                 if existing_id == replica_id {
                     Ok(Self::ReplicaActive { replica_id })
                 } else {
                     Err(ReplicationError::illegal_transition(
-                        "cannot change replica_id without explicit reconfiguration"
+                        "cannot change replica_id without explicit reconfiguration",
                     ))
                 }
             }
             Self::PrimaryActive => Err(ReplicationError::illegal_transition(
-                "cannot transition from Primary to Replica without explicit reconfiguration"
+                "cannot transition from Primary to Replica without explicit reconfiguration",
             )),
             Self::ReplicationHalted { .. } => Err(ReplicationError::halted(
-                "cannot transition from halted state without operator intervention"
+                "cannot transition from halted state without operator intervention",
             )),
         }
     }
-    
+
     /// Transition to ReplicationHalted.
     ///
     /// Per REPLICATION_MODEL.md §4.4:
@@ -175,7 +177,7 @@ impl ReplicationState {
     pub fn halt(self, reason: HaltReason) -> Self {
         Self::ReplicationHalted { reason }
     }
-    
+
     /// Check if this state allows writes.
     ///
     /// Per REPLICATION_MODEL.md §7:
@@ -184,7 +186,7 @@ impl ReplicationState {
     pub fn can_write(&self) -> bool {
         matches!(self, Self::PrimaryActive | Self::Disabled)
     }
-    
+
     /// Check if this state allows reads.
     ///
     /// Per REPLICATION_MODEL.md §8:
@@ -192,29 +194,32 @@ impl ReplicationState {
     /// - ReplicationHalted must refuse reads
     /// - Uninitialized must refuse reads
     pub fn can_read(&self) -> bool {
-        matches!(self, Self::PrimaryActive | Self::Disabled | Self::ReplicaActive { .. })
+        matches!(
+            self,
+            Self::PrimaryActive | Self::Disabled | Self::ReplicaActive { .. }
+        )
     }
-    
+
     /// Check if this state is halted.
     pub fn is_halted(&self) -> bool {
         matches!(self, Self::ReplicationHalted { .. })
     }
-    
+
     /// Check if replication is disabled.
     pub fn is_disabled(&self) -> bool {
         matches!(self, Self::Disabled)
     }
-    
+
     /// Check if this is Primary.
     pub fn is_primary(&self) -> bool {
         matches!(self, Self::PrimaryActive)
     }
-    
+
     /// Check if this is Replica.
     pub fn is_replica(&self) -> bool {
         matches!(self, Self::ReplicaActive { .. })
     }
-    
+
     /// Get replica ID if in ReplicaActive state.
     pub fn replica_id(&self) -> Option<Uuid> {
         match self {
@@ -222,7 +227,7 @@ impl ReplicationState {
             _ => None,
         }
     }
-    
+
     /// Get halt reason if halted.
     pub fn halt_reason(&self) -> Option<HaltReason> {
         match self {
@@ -230,7 +235,7 @@ impl ReplicationState {
             _ => None,
         }
     }
-    
+
     /// Get state name for observability.
     ///
     /// Per PHASE5_OBSERVABILITY_MAPPING.md §3.1:
@@ -331,7 +336,9 @@ mod tests {
     fn test_replica_cannot_change_id() {
         let replica_id1 = Uuid::new_v4();
         let replica_id2 = Uuid::new_v4();
-        let state = ReplicationState::ReplicaActive { replica_id: replica_id1 };
+        let state = ReplicationState::ReplicaActive {
+            replica_id: replica_id1,
+        };
         let result = state.become_replica(replica_id2);
         assert!(result.is_err());
     }
@@ -341,7 +348,7 @@ mod tests {
         let state = ReplicationState::ReplicationHalted {
             reason: HaltReason::WalGapDetected,
         };
-        
+
         assert!(state.clone().become_primary().is_err());
         assert!(state.become_replica(Uuid::new_v4()).is_err());
     }
@@ -366,7 +373,8 @@ mod tests {
         assert!(!ReplicationState::Uninitialized.can_write());
         assert!(!ReplicationState::ReplicationHalted {
             reason: HaltReason::WalGapDetected,
-        }.can_write());
+        }
+        .can_write());
     }
 
     #[test]
@@ -400,7 +408,7 @@ mod tests {
             ReplicationState::PrimaryActive,
             ReplicationState::ReplicaActive { replica_id },
         ];
-        
+
         for state in states {
             let halted = state.halt(HaltReason::WalCorruption);
             assert!(halted.is_halted());
@@ -412,24 +420,40 @@ mod tests {
     fn test_state_names_for_observability() {
         // Per PHASE5_OBSERVABILITY_MAPPING.md §3.1
         let replica_id = Uuid::new_v4();
-        
+
         assert_eq!(ReplicationState::Disabled.state_name(), "disabled");
-        assert_eq!(ReplicationState::Uninitialized.state_name(), "uninitialized");
-        assert_eq!(ReplicationState::PrimaryActive.state_name(), "primary_active");
-        assert_eq!(ReplicationState::ReplicaActive { replica_id }.state_name(), "replica_active");
-        assert_eq!(ReplicationState::ReplicationHalted { 
-            reason: HaltReason::WalGapDetected 
-        }.state_name(), "halted");
+        assert_eq!(
+            ReplicationState::Uninitialized.state_name(),
+            "uninitialized"
+        );
+        assert_eq!(
+            ReplicationState::PrimaryActive.state_name(),
+            "primary_active"
+        );
+        assert_eq!(
+            ReplicationState::ReplicaActive { replica_id }.state_name(),
+            "replica_active"
+        );
+        assert_eq!(
+            ReplicationState::ReplicationHalted {
+                reason: HaltReason::WalGapDetected
+            }
+            .state_name(),
+            "halted"
+        );
     }
 
     #[test]
     fn test_replica_id_only_for_replicas() {
         let replica_id = Uuid::new_v4();
-        
+
         assert!(ReplicationState::Disabled.replica_id().is_none());
         assert!(ReplicationState::Uninitialized.replica_id().is_none());
         assert!(ReplicationState::PrimaryActive.replica_id().is_none());
-        assert_eq!(ReplicationState::ReplicaActive { replica_id }.replica_id(), Some(replica_id));
+        assert_eq!(
+            ReplicationState::ReplicaActive { replica_id }.replica_id(),
+            Some(replica_id)
+        );
     }
 
     // ===== Stage 1 Integration Tests =====
@@ -438,15 +462,15 @@ mod tests {
     fn test_primary_behavior_identical_enabled_vs_disabled() {
         // Per Stage 1 completion criteria: Primary runs identically with replication enabled vs disabled
         // Both Disabled and PrimaryActive should have the same write/read behavior
-        
+
         let disabled = ReplicationState::Disabled;
         let primary = ReplicationState::PrimaryActive;
-        
+
         // Same write behavior
         assert_eq!(disabled.can_write(), primary.can_write());
         assert!(disabled.can_write());
         assert!(primary.can_write());
-        
+
         // Same read behavior
         assert_eq!(disabled.can_read(), primary.can_read());
         assert!(disabled.can_read());
@@ -458,10 +482,10 @@ mod tests {
         // Per Stage 1 completion criteria: Replica mode refuses all writes
         let replica_id = Uuid::new_v4();
         let replica = ReplicationState::ReplicaActive { replica_id };
-        
+
         // Replica MUST NOT be able to write
         assert!(!replica.can_write());
-        
+
         // Replica CAN read (that's its purpose)
         assert!(replica.can_read());
     }
@@ -472,7 +496,7 @@ mod tests {
         // Default state MUST be Disabled
         let default_state = ReplicationState::new();
         assert!(default_state.is_disabled());
-        
+
         // Disabled state MUST allow all normal operations
         assert!(default_state.can_write());
         assert!(default_state.can_read());

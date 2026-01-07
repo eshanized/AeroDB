@@ -148,8 +148,9 @@ pub fn fsync_dir(path: &Path) -> BackupResult<()> {
         .open(path)
         .map_err(|e| BackupError::io_error_at_path(path, e))?;
 
-    dir.sync_all()
-        .map_err(|e| BackupError::io_error(format!("fsync directory failed: {}", path.display()), e))
+    dir.sync_all().map_err(|e| {
+        BackupError::io_error(format!("fsync directory failed: {}", path.display()), e)
+    })
 }
 
 #[cfg(test)]
@@ -171,11 +172,8 @@ mod tests {
 
     #[test]
     fn test_manifest_with_timestamp() {
-        let manifest = BackupManifest::with_timestamp(
-            "20260204T163000Z",
-            "2026-02-04T16:30:00Z",
-            false,
-        );
+        let manifest =
+            BackupManifest::with_timestamp("20260204T163000Z", "2026-02-04T16:30:00Z", false);
 
         assert_eq!(manifest.created_at, "2026-02-04T16:30:00Z");
         assert!(!manifest.wal_present);
@@ -183,11 +181,8 @@ mod tests {
 
     #[test]
     fn test_manifest_json_roundtrip() {
-        let manifest = BackupManifest::with_timestamp(
-            "20260204T163000Z",
-            "2026-02-04T16:30:00Z",
-            true,
-        );
+        let manifest =
+            BackupManifest::with_timestamp("20260204T163000Z", "2026-02-04T16:30:00Z", true);
 
         let json = manifest.to_json().unwrap();
         let parsed = BackupManifest::from_json(&json).unwrap();
@@ -197,11 +192,8 @@ mod tests {
 
     #[test]
     fn test_manifest_json_format_matches_spec() {
-        let manifest = BackupManifest::with_timestamp(
-            "20260204T120000Z",
-            "2026-02-04T12:00:00Z",
-            true,
-        );
+        let manifest =
+            BackupManifest::with_timestamp("20260204T120000Z", "2026-02-04T12:00:00Z", true);
 
         let json = manifest.to_json().unwrap();
 
@@ -221,11 +213,8 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let manifest_path = temp_dir.path().join("backup_manifest.json");
 
-        let manifest = BackupManifest::with_timestamp(
-            "20260204T163000Z",
-            "2026-02-04T16:30:00Z",
-            true,
-        );
+        let manifest =
+            BackupManifest::with_timestamp("20260204T163000Z", "2026-02-04T16:30:00Z", true);
 
         // Write
         manifest.write_to_file(&manifest_path).unwrap();

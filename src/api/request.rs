@@ -91,11 +91,14 @@ impl Request {
 
         match raw.op.as_str() {
             "insert" => {
-                let schema_id = raw.schema_id
+                let schema_id = raw
+                    .schema_id
                     .ok_or_else(|| ApiError::invalid_request("Missing schema_id"))?;
-                let schema_version = raw.schema_version
+                let schema_version = raw
+                    .schema_version
                     .ok_or_else(|| ApiError::invalid_request("Missing schema_version"))?;
-                let document = raw.document
+                let document = raw
+                    .document
                     .ok_or_else(|| ApiError::invalid_request("Missing document"))?;
 
                 Ok(Request::Insert(InsertRequest {
@@ -105,11 +108,14 @@ impl Request {
                 }))
             }
             "update" => {
-                let schema_id = raw.schema_id
+                let schema_id = raw
+                    .schema_id
                     .ok_or_else(|| ApiError::invalid_request("Missing schema_id"))?;
-                let schema_version = raw.schema_version
+                let schema_version = raw
+                    .schema_version
                     .ok_or_else(|| ApiError::invalid_request("Missing schema_version"))?;
-                let document = raw.document
+                let document = raw
+                    .document
                     .ok_or_else(|| ApiError::invalid_request("Missing document"))?;
 
                 Ok(Request::Update(UpdateRequest {
@@ -119,9 +125,11 @@ impl Request {
                 }))
             }
             "delete" => {
-                let schema_id = raw.schema_id
+                let schema_id = raw
+                    .schema_id
                     .ok_or_else(|| ApiError::invalid_request("Missing schema_id"))?;
-                let document_id = raw.document_id
+                let document_id = raw
+                    .document_id
                     .ok_or_else(|| ApiError::invalid_request("Missing document_id"))?;
 
                 Ok(Request::Delete(DeleteRequest {
@@ -130,11 +138,14 @@ impl Request {
                 }))
             }
             "query" => {
-                let schema_id = raw.schema_id
+                let schema_id = raw
+                    .schema_id
                     .ok_or_else(|| ApiError::invalid_request("Missing schema_id"))?;
-                let schema_version = raw.schema_version
+                let schema_version = raw
+                    .schema_version
                     .ok_or_else(|| ApiError::invalid_request("Missing schema_version"))?;
-                let limit = raw.limit
+                let limit = raw
+                    .limit
                     .ok_or_else(|| ApiError::invalid_request("Missing limit"))?;
 
                 Ok(Request::Query(QueryRequest {
@@ -146,11 +157,14 @@ impl Request {
                 }))
             }
             "explain" => {
-                let schema_id = raw.schema_id
+                let schema_id = raw
+                    .schema_id
                     .ok_or_else(|| ApiError::invalid_request("Missing schema_id"))?;
-                let schema_version = raw.schema_version
+                let schema_version = raw
+                    .schema_version
                     .ok_or_else(|| ApiError::invalid_request("Missing schema_version"))?;
-                let limit = raw.limit
+                let limit = raw
+                    .limit
                     .ok_or_else(|| ApiError::invalid_request("Missing limit"))?;
 
                 Ok(Request::Explain(QueryRequest {

@@ -251,7 +251,7 @@ mod tests {
     fn test_replica_auto_generates_uuid() {
         let config1 = ReplicationConfig::replica("primary:5432".to_string(), None);
         let config2 = ReplicationConfig::replica("primary:5432".to_string(), None);
-        
+
         // Each replica gets a unique ID
         assert_ne!(config1.replica_id, config2.replica_id);
     }

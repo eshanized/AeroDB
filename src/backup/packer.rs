@@ -29,15 +29,16 @@ pub fn find_latest_snapshot(snapshots_dir: &Path) -> BackupResult<PathBuf> {
 
     let entries = fs::read_dir(snapshots_dir).map_err(|e| {
         BackupError::io_error(
-            format!("Failed to read snapshots directory: {}", snapshots_dir.display()),
+            format!(
+                "Failed to read snapshots directory: {}",
+                snapshots_dir.display()
+            ),
             e,
         )
     })?;
 
     for entry in entries {
-        let entry = entry.map_err(|e| {
-            BackupError::io_error("Failed to read snapshot entry", e)
-        })?;
+        let entry = entry.map_err(|e| BackupError::io_error("Failed to read snapshot entry", e))?;
 
         let path = entry.path();
         if path.is_dir() {
@@ -86,14 +87,20 @@ fn copy_file_with_fsync(src: &Path, dst: &Path) -> BackupResult<()> {
     // Read source file
     let mut src_file = File::open(src).map_err(|e| BackupError::io_error_at_path(src, e))?;
     let mut contents = Vec::new();
-    src_file.read_to_end(&mut contents).map_err(|e| BackupError::io_error_at_path(src, e))?;
+    src_file
+        .read_to_end(&mut contents)
+        .map_err(|e| BackupError::io_error_at_path(src, e))?;
 
     // Write to destination
     let mut dst_file = File::create(dst).map_err(|e| BackupError::io_error_at_path(dst, e))?;
-    dst_file.write_all(&contents).map_err(|e| BackupError::io_error_at_path(dst, e))?;
+    dst_file
+        .write_all(&contents)
+        .map_err(|e| BackupError::io_error_at_path(dst, e))?;
 
     // fsync
-    dst_file.sync_all().map_err(|e| BackupError::io_error_at_path(dst, e))?;
+    dst_file
+        .sync_all()
+        .map_err(|e| BackupError::io_error_at_path(dst, e))?;
 
     Ok(())
 }
@@ -133,8 +140,9 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> BackupResult<()> {
         .open(dst)
         .map_err(|e| BackupError::io_error_at_path(dst, e))?;
 
-    dir.sync_all()
-        .map_err(|e| BackupError::io_error(format!("Failed to fsync directory: {}", dst.display()), e))?;
+    dir.sync_all().map_err(|e| {
+        BackupError::io_error(format!("Failed to fsync directory: {}", dst.display()), e)
+    })?;
 
     Ok(())
 }
@@ -149,7 +157,13 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> BackupResult<()> {
 pub fn copy_snapshot_to_temp(snapshot_dir: &Path, temp_dir: &Path) -> BackupResult<()> {
     let snapshot_dest = temp_dir.join("snapshot");
     fs::create_dir_all(&snapshot_dest).map_err(|e| {
-        BackupError::io_error(format!("Failed to create snapshot temp dir: {}", snapshot_dest.display()), e)
+        BackupError::io_error(
+            format!(
+                "Failed to create snapshot temp dir: {}",
+                snapshot_dest.display()
+            ),
+            e,
+        )
     })?;
 
     // Copy storage.dat
@@ -195,25 +209,34 @@ pub fn copy_wal_to_temp(wal_dir: &Path, temp_dir: &Path) -> BackupResult<bool> {
     }
 
     // Check if WAL file has content
-    let metadata = fs::metadata(&wal_file).map_err(|e| BackupError::io_error_at_path(&wal_file, e))?;
+    let metadata =
+        fs::metadata(&wal_file).map_err(|e| BackupError::io_error_at_path(&wal_file, e))?;
     if metadata.len() == 0 {
         // Empty WAL, still return true but it's empty
         let wal_dest = temp_dir.join("wal");
         fs::create_dir_all(&wal_dest).map_err(|e| {
-            BackupError::io_error(format!("Failed to create WAL temp dir: {}", wal_dest.display()), e)
+            BackupError::io_error(
+                format!("Failed to create WAL temp dir: {}", wal_dest.display()),
+                e,
+            )
         })?;
 
         // Create empty wal.log
         let wal_dst = wal_dest.join("wal.log");
-        let file = File::create(&wal_dst).map_err(|e| BackupError::io_error_at_path(&wal_dst, e))?;
-        file.sync_all().map_err(|e| BackupError::io_error_at_path(&wal_dst, e))?;
+        let file =
+            File::create(&wal_dst).map_err(|e| BackupError::io_error_at_path(&wal_dst, e))?;
+        file.sync_all()
+            .map_err(|e| BackupError::io_error_at_path(&wal_dst, e))?;
 
         return Ok(true);
     }
 
     let wal_dest = temp_dir.join("wal");
     fs::create_dir_all(&wal_dest).map_err(|e| {
-        BackupError::io_error(format!("Failed to create WAL temp dir: {}", wal_dest.display()), e)
+        BackupError::io_error(
+            format!("Failed to create WAL temp dir: {}", wal_dest.display()),
+            e,
+        )
     })?;
 
     let wal_dst = wal_dest.join("wal.log");
@@ -245,8 +268,9 @@ pub fn fsync_recursive(dir: &Path) -> BackupResult<()> {
                 .open(&path)
                 .map_err(|e| BackupError::io_error_at_path(&path, e))?;
 
-            file.sync_all()
-                .map_err(|e| BackupError::io_error(format!("Failed to fsync: {}", path.display()), e))?;
+            file.sync_all().map_err(|e| {
+                BackupError::io_error(format!("Failed to fsync: {}", path.display()), e)
+            })?;
         }
     }
 
@@ -256,8 +280,9 @@ pub fn fsync_recursive(dir: &Path) -> BackupResult<()> {
         .open(dir)
         .map_err(|e| BackupError::io_error_at_path(dir, e))?;
 
-    dir_handle.sync_all()
-        .map_err(|e| BackupError::io_error(format!("Failed to fsync directory: {}", dir.display()), e))?;
+    dir_handle.sync_all().map_err(|e| {
+        BackupError::io_error(format!("Failed to fsync directory: {}", dir.display()), e)
+    })?;
 
     Ok(())
 }
@@ -269,12 +294,21 @@ pub fn create_temp_backup_dir(data_dir: &Path) -> BackupResult<PathBuf> {
     // Clean up any existing temp directory
     if temp_dir.exists() {
         fs::remove_dir_all(&temp_dir).map_err(|e| {
-            BackupError::io_error(format!("Failed to clean up existing temp dir: {}", temp_dir.display()), e)
+            BackupError::io_error(
+                format!(
+                    "Failed to clean up existing temp dir: {}",
+                    temp_dir.display()
+                ),
+                e,
+            )
         })?;
     }
 
     fs::create_dir_all(&temp_dir).map_err(|e| {
-        BackupError::io_error(format!("Failed to create temp dir: {}", temp_dir.display()), e)
+        BackupError::io_error(
+            format!("Failed to create temp dir: {}", temp_dir.display()),
+            e,
+        )
     })?;
 
     Ok(temp_dir)

@@ -137,7 +137,7 @@ impl RecoveryExplainer {
         let mut verify_evidence = Evidence::empty();
         verify_evidence.add("steps_count", steps.len());
         verify_evidence.add("all_success", all_steps_success);
-        
+
         if all_steps_success {
             builder = builder.rule(RuleApplication::satisfied(
                 "R-3",
@@ -168,7 +168,7 @@ impl RecoveryExplainer {
     /// Generate empty explanation when no recovery occurred.
     pub fn no_recovery(&self, current_commit_id: u64) -> Explanation {
         let snapshot_id = format!("no-recovery-{}", current_commit_id);
-        
+
         Explanation::builder(
             ExplanationType::RecoveryProcess,
             &snapshot_id,
@@ -222,7 +222,10 @@ mod tests {
 
         let explanation = explainer.explain(input, steps);
 
-        assert_eq!(explanation.explanation_type, ExplanationType::RecoveryProcess);
+        assert_eq!(
+            explanation.explanation_type,
+            ExplanationType::RecoveryProcess
+        );
         assert!(!explanation.rules_applied.is_empty());
     }
 
@@ -231,7 +234,10 @@ mod tests {
         let explainer = RecoveryExplainer::new();
         let explanation = explainer.no_recovery(100);
 
-        assert_eq!(explanation.explanation_type, ExplanationType::RecoveryProcess);
+        assert_eq!(
+            explanation.explanation_type,
+            ExplanationType::RecoveryProcess
+        );
     }
 
     #[test]
@@ -247,6 +253,9 @@ mod tests {
         let exp1 = explainer.explain(input.clone(), vec![]);
         let exp2 = explainer.explain(input, vec![]);
 
-        assert_eq!(exp1.observed_snapshot.commit_id, exp2.observed_snapshot.commit_id);
+        assert_eq!(
+            exp1.observed_snapshot.commit_id,
+            exp2.observed_snapshot.commit_id
+        );
     }
 }

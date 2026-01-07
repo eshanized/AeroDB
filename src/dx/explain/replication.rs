@@ -94,12 +94,13 @@ impl ReplicationExplainer {
         let mut prefix_evidence = Evidence::empty();
         prefix_evidence.add("snapshot_commit_id", input.snapshot_commit_id);
         prefix_evidence.add("replica_wal_commit_id", input.replica_wal_commit_id);
-        prefix_evidence.add("comparison", format!(
-            "{} <= {} = {}",
-            input.snapshot_commit_id,
-            input.replica_wal_commit_id,
-            is_prefix_safe
-        ));
+        prefix_evidence.add(
+            "comparison",
+            format!(
+                "{} <= {} = {}",
+                input.snapshot_commit_id, input.replica_wal_commit_id, is_prefix_safe
+            ),
+        );
 
         if is_prefix_safe {
             builder = builder.rule(RuleApplication::satisfied(
@@ -160,7 +161,11 @@ impl ReplicationExplainer {
             )
         };
 
-        builder.conclude(ReplicationSafetyOutput { result, lag, reason })
+        builder.conclude(ReplicationSafetyOutput {
+            result,
+            lag,
+            reason,
+        })
     }
 }
 
@@ -186,7 +191,10 @@ mod tests {
         };
 
         let explanation = explainer.explain(input);
-        assert_eq!(explanation.explanation_type, ExplanationType::ReplicationSafety);
+        assert_eq!(
+            explanation.explanation_type,
+            ExplanationType::ReplicationSafety
+        );
     }
 
     #[test]
@@ -202,9 +210,11 @@ mod tests {
 
         let explanation = explainer.explain(input);
         // REP-3 should not be satisfied
-        assert!(explanation.rules_applied.iter().any(|r| 
-            r.rule_id == "REP-3" && r.evaluation == super::super::model::RuleEvaluation::False
-        ));
+        assert!(explanation
+            .rules_applied
+            .iter()
+            .any(|r| r.rule_id == "REP-3"
+                && r.evaluation == super::super::model::RuleEvaluation::False));
     }
 
     #[test]
@@ -236,6 +246,9 @@ mod tests {
         let exp1 = explainer.explain(input.clone());
         let exp2 = explainer.explain(input);
 
-        assert_eq!(exp1.observed_snapshot.commit_id, exp2.observed_snapshot.commit_id);
+        assert_eq!(
+            exp1.observed_snapshot.commit_id,
+            exp2.observed_snapshot.commit_id
+        );
     }
 }

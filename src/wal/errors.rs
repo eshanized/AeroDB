@@ -188,7 +188,9 @@ impl fmt::Display for WalError {
 
 impl std::error::Error for WalError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.source.as_ref().map(|e| e as &(dyn std::error::Error + 'static))
+        self.source
+            .as_ref()
+            .map(|e| e as &(dyn std::error::Error + 'static))
     }
 }
 
@@ -201,14 +203,26 @@ mod tests {
 
     #[test]
     fn test_error_codes_match_spec() {
-        assert_eq!(WalErrorCode::AeroWalAppendFailed.code(), "AERO_WAL_APPEND_FAILED");
-        assert_eq!(WalErrorCode::AeroWalFsyncFailed.code(), "AERO_WAL_FSYNC_FAILED");
-        assert_eq!(WalErrorCode::AeroWalCorruption.code(), "AERO_WAL_CORRUPTION");
+        assert_eq!(
+            WalErrorCode::AeroWalAppendFailed.code(),
+            "AERO_WAL_APPEND_FAILED"
+        );
+        assert_eq!(
+            WalErrorCode::AeroWalFsyncFailed.code(),
+            "AERO_WAL_FSYNC_FAILED"
+        );
+        assert_eq!(
+            WalErrorCode::AeroWalCorruption.code(),
+            "AERO_WAL_CORRUPTION"
+        );
     }
 
     #[test]
     fn test_severity_levels_match_spec() {
-        assert_eq!(WalErrorCode::AeroWalAppendFailed.severity(), Severity::Error);
+        assert_eq!(
+            WalErrorCode::AeroWalAppendFailed.severity(),
+            Severity::Error
+        );
         assert_eq!(WalErrorCode::AeroWalFsyncFailed.severity(), Severity::Fatal);
         assert_eq!(WalErrorCode::AeroWalCorruption.severity(), Severity::Fatal);
     }

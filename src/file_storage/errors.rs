@@ -11,54 +11,54 @@ pub enum StorageError {
     // Bucket errors
     #[error("Bucket not found: {0}")]
     BucketNotFound(String),
-    
+
     #[error("Bucket already exists: {0}")]
     BucketAlreadyExists(String),
-    
+
     #[error("Bucket not empty")]
     BucketNotEmpty,
-    
+
     // Object errors
     #[error("Object not found: {0}")]
     ObjectNotFound(String),
-    
+
     #[error("Object already exists: {0}")]
     ObjectAlreadyExists(String),
-    
+
     // Validation errors
     #[error("File too large: {0} bytes (max: {1})")]
     FileTooLarge(u64, u64),
-    
+
     #[error("Invalid MIME type: {0}")]
     InvalidMimeType(String),
-    
+
     #[error("Invalid path: {0}")]
     InvalidPath(String),
-    
+
     // Permission errors
     #[error("Unauthorized")]
     Unauthorized,
-    
+
     #[error("Forbidden")]
     Forbidden,
-    
+
     // Signed URL errors
     #[error("URL expired")]
     UrlExpired,
-    
+
     #[error("Invalid signature")]
     InvalidSignature,
-    
+
     // I/O errors
     #[error("Storage full")]
     StorageFull,
-    
+
     #[error("I/O error: {0}")]
     IoError(String),
-    
+
     #[error("Checksum mismatch")]
     ChecksumMismatch,
-    
+
     // Internal
     #[error("Internal error: {0}")]
     Internal(String),
@@ -91,10 +91,13 @@ impl StorageError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_status_codes() {
-        assert_eq!(StorageError::BucketNotFound("test".into()).status_code(), 404);
+        assert_eq!(
+            StorageError::BucketNotFound("test".into()).status_code(),
+            404
+        );
         assert_eq!(StorageError::FileTooLarge(100, 50).status_code(), 413);
         assert_eq!(StorageError::Unauthorized.status_code(), 401);
     }

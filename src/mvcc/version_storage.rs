@@ -19,16 +19,10 @@ use crate::mvcc::CommitId;
 pub enum VersionStorageError {
     /// Commit identity exists but its versions are missing
     /// Per atomicity Rule A: This is corruption
-    MissingVersion {
-        commit_id: u64,
-        key: String,
-    },
+    MissingVersion { commit_id: u64, key: String },
     /// Version exists without a valid commit identity
     /// This should never happen - indicates WAL/storage desync
-    OrphanVersion {
-        version_commit_id: u64,
-        key: String,
-    },
+    OrphanVersion { version_commit_id: u64, key: String },
     /// Version references a commit ID that doesn't match expected
     CommitMismatch {
         key: String,
@@ -36,10 +30,7 @@ pub enum VersionStorageError {
         found_commit: u64,
     },
     /// Partial write detected during recovery
-    PartialWrite {
-        key: String,
-        description: String,
-    },
+    PartialWrite { key: String, description: String },
     /// I/O error
     IoError(String),
 }
@@ -48,16 +39,39 @@ impl std::fmt::Display for VersionStorageError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             VersionStorageError::MissingVersion { commit_id, key } => {
-                write!(f, "FATAL: Missing version for commit {} key '{}'", commit_id, key)
+                write!(
+                    f,
+                    "FATAL: Missing version for commit {} key '{}'",
+                    commit_id, key
+                )
             }
-            VersionStorageError::OrphanVersion { version_commit_id, key } => {
-                write!(f, "FATAL: Orphan version with commit {} key '{}' - no matching commit record", version_commit_id, key)
+            VersionStorageError::OrphanVersion {
+                version_commit_id,
+                key,
+            } => {
+                write!(
+                    f,
+                    "FATAL: Orphan version with commit {} key '{}' - no matching commit record",
+                    version_commit_id, key
+                )
             }
-            VersionStorageError::CommitMismatch { key, expected_commit, found_commit } => {
-                write!(f, "FATAL: Commit mismatch for key '{}': expected {}, found {}", key, expected_commit, found_commit)
+            VersionStorageError::CommitMismatch {
+                key,
+                expected_commit,
+                found_commit,
+            } => {
+                write!(
+                    f,
+                    "FATAL: Commit mismatch for key '{}': expected {}, found {}",
+                    key, expected_commit, found_commit
+                )
             }
             VersionStorageError::PartialWrite { key, description } => {
-                write!(f, "FATAL: Partial write detected for key '{}': {}", key, description)
+                write!(
+                    f,
+                    "FATAL: Partial write detected for key '{}': {}",
+                    key, description
+                )
             }
             VersionStorageError::IoError(msg) => {
                 write!(f, "I/O error: {}", msg)
@@ -196,12 +210,12 @@ impl VersionValidator {
         for commit_id in self.expectations.all_commits() {
             if let Some(expected_keys) = self.expectations.expected_for_commit(*commit_id) {
                 let observed_keys = self.observed_versions.get(commit_id);
-                
+
                 for key in expected_keys {
                     let has_version = observed_keys
                         .map(|keys| keys.contains(key))
                         .unwrap_or(false);
-                    
+
                     if !has_version {
                         errors.push(VersionStorageError::MissingVersion {
                             commit_id: *commit_id,
@@ -234,11 +248,7 @@ mod tests {
 
     #[test]
     fn test_persisted_version_creation() {
-        let version = PersistedVersion::new(
-            CommitId::new(1),
-            "users:user_1",
-            b"data".to_vec(),
-        );
+        let version = PersistedVersion::new(CommitId::new(1), "users:user_1", b"data".to_vec());
         assert_eq!(version.commit_id, CommitId::new(1));
         assert_eq!(version.key, "users:user_1");
         assert!(!version.is_tombstone);
@@ -263,7 +273,7 @@ mod tests {
         assert!(exp.has_commit(1));
         assert!(exp.has_commit(2));
         assert!(!exp.has_commit(3));
-        
+
         let v1 = exp.expected_for_commit(1).unwrap();
         assert!(v1.contains("key_a"));
         assert!(v1.contains("key_b"));
@@ -274,10 +284,10 @@ mod tests {
         let mut exp = VersionExpectations::new();
         exp.observe_commit(1);
         exp.expect_version(1, "key_a".to_string());
-        
+
         let validator = VersionValidator::new(exp);
         // No versions observed
-        
+
         let errors = validator.validate();
         assert_eq!(errors.len(), 1);
         assert!(matches!(
@@ -290,10 +300,10 @@ mod tests {
     fn test_validator_detects_orphan_version() {
         let exp = VersionExpectations::new();
         // No commits observed
-        
+
         let mut validator = VersionValidator::new(exp);
         validator.observe_stored_version(99, "orphan_key".to_string());
-        
+
         let errors = validator.validate();
         assert_eq!(errors.len(), 1);
         assert!(matches!(
@@ -309,11 +319,11 @@ mod tests {
         exp.observe_commit(2);
         exp.expect_version(1, "key_a".to_string());
         exp.expect_version(2, "key_b".to_string());
-        
+
         let mut validator = VersionValidator::new(exp);
         validator.observe_stored_version(1, "key_a".to_string());
         validator.observe_stored_version(2, "key_b".to_string());
-        
+
         let errors = validator.validate();
         assert!(errors.is_empty());
     }

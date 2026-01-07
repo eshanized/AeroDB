@@ -7,11 +7,11 @@
 //! Derived presentation state is computed for human consumption.
 //! No derived view is authoritative.
 
-use uuid::Uuid;
 use std::time::SystemTime;
+use uuid::Uuid;
 
-use super::commands::ControlPlaneCommand;
 use super::authority::AuthorityContext;
+use super::commands::ControlPlaneCommand;
 
 /// Command request — operator-initiated action.
 ///
@@ -21,16 +21,16 @@ use super::authority::AuthorityContext;
 pub struct CommandRequest {
     /// Unique request ID for correlation and audit.
     pub request_id: Uuid,
-    
+
     /// The command to execute.
     pub command: ControlPlaneCommand,
-    
+
     /// Authority context of the requester.
     pub authority: AuthorityContext,
-    
+
     /// Confirmation token ID (required for mutating commands).
     pub confirmation_token: Option<Uuid>,
-    
+
     /// Request timestamp.
     pub timestamp: SystemTime,
 }
@@ -46,7 +46,7 @@ impl CommandRequest {
             timestamp: SystemTime::now(),
         }
     }
-    
+
     /// Add confirmation token.
     pub fn with_confirmation(mut self, token_id: Uuid) -> Self {
         self.confirmation_token = Some(token_id);
@@ -59,13 +59,13 @@ impl CommandRequest {
 pub enum CommandOutcome {
     /// Command executed successfully.
     Success,
-    
+
     /// Command was rejected before execution.
     Rejected,
-    
+
     /// Command failed during execution.
     Failed,
-    
+
     /// Awaiting confirmation.
     AwaitingConfirmation,
 }
@@ -75,22 +75,22 @@ pub enum CommandOutcome {
 pub struct CommandResponse {
     /// Request ID for correlation.
     pub request_id: Uuid,
-    
+
     /// Command that was executed.
     pub command_name: String,
-    
+
     /// Outcome of the command.
     pub outcome: CommandOutcome,
-    
+
     /// Response timestamp.
     pub timestamp: SystemTime,
-    
+
     /// Confirmation token (if awaiting confirmation).
     pub confirmation_token: Option<Uuid>,
-    
+
     /// Result data (specific to command type).
     pub data: Option<CommandResponseData>,
-    
+
     /// Error message (if rejected/failed).
     pub error_message: Option<String>,
 }
@@ -108,7 +108,7 @@ impl CommandResponse {
             error_message: None,
         }
     }
-    
+
     /// Create a rejection response.
     pub fn rejected(request_id: Uuid, command_name: &str, reason: &str) -> Self {
         Self {
@@ -121,7 +121,7 @@ impl CommandResponse {
             error_message: Some(reason.to_string()),
         }
     }
-    
+
     /// Create an awaiting confirmation response.
     pub fn awaiting_confirmation(request_id: Uuid, command_name: &str, token_id: Uuid) -> Self {
         Self {
@@ -141,25 +141,25 @@ impl CommandResponse {
 pub enum CommandResponseData {
     /// Cluster state inspection result.
     ClusterState(ClusterState),
-    
+
     /// Node state inspection result.
     NodeState(NodeState),
-    
+
     /// Replication status inspection result.
     ReplicationStatus(ReplicationStatus),
-    
+
     /// Promotion state inspection result.
     PromotionState(PromotionStateView),
-    
+
     /// Diagnostic results.
     Diagnostics(DiagnosticResult),
-    
+
     /// WAL inspection result.
     WalInfo(WalInfo),
-    
+
     /// Snapshots inspection result.
     SnapshtoInfo(SnapshotInfo),
-    
+
     /// Promotion request result.
     PromotionResult(PromotionResultData),
 }
@@ -176,13 +176,13 @@ pub enum CommandResponseData {
 pub struct ClusterState {
     /// Cluster identifier.
     pub cluster_id: Option<String>,
-    
+
     /// Current primary node (if known).
     pub primary_id: Option<Uuid>,
-    
+
     /// Known replica nodes.
     pub replicas: Vec<Uuid>,
-    
+
     /// Snapshot timestamp.
     pub snapshot_time: SystemTime,
 }
@@ -192,16 +192,16 @@ pub struct ClusterState {
 pub struct NodeState {
     /// Node identifier.
     pub node_id: Uuid,
-    
+
     /// Current role.
     pub role: NodeRole,
-    
+
     /// WAL position.
     pub wal_position: u64,
-    
+
     /// Health status.
     pub health: NodeHealth,
-    
+
     /// Snapshot timestamp.
     pub snapshot_time: SystemTime,
 }
@@ -228,10 +228,10 @@ pub enum NodeHealth {
 pub struct ReplicationStatus {
     /// Primary node ID.
     pub primary_id: Option<Uuid>,
-    
+
     /// Replica states.
     pub replicas: Vec<ReplicaState>,
-    
+
     /// Snapshot timestamp.
     pub snapshot_time: SystemTime,
 }
@@ -241,10 +241,10 @@ pub struct ReplicationStatus {
 pub struct ReplicaState {
     /// Replica node ID.
     pub replica_id: Uuid,
-    
+
     /// WAL position lag (bytes behind primary).
     pub lag_bytes: u64,
-    
+
     /// Health status.
     pub health: NodeHealth,
 }
@@ -254,13 +254,13 @@ pub struct ReplicaState {
 pub struct PromotionStateView {
     /// Current state name.
     pub state: String,
-    
+
     /// Promotion in progress for replica.
     pub pending_replica: Option<Uuid>,
-    
+
     /// Last promotion timestamp (if any).
     pub last_promotion: Option<SystemTime>,
-    
+
     /// Snapshot timestamp.
     pub snapshot_time: SystemTime,
 }
@@ -274,7 +274,7 @@ pub struct PromotionStateView {
 pub struct DiagnosticResult {
     /// Diagnostic sections.
     pub sections: Vec<DiagnosticSection>,
-    
+
     /// Collection timestamp.
     pub collected_at: SystemTime,
 }
@@ -284,7 +284,7 @@ pub struct DiagnosticResult {
 pub struct DiagnosticSection {
     /// Section name.
     pub name: String,
-    
+
     /// Key-value entries.
     pub entries: Vec<(String, String)>,
 }
@@ -294,13 +294,13 @@ pub struct DiagnosticSection {
 pub struct WalInfo {
     /// Current WAL position.
     pub current_position: u64,
-    
+
     /// Oldest retained position.
     pub oldest_position: u64,
-    
+
     /// WAL size in bytes.
     pub size_bytes: u64,
-    
+
     /// Snapshot timestamp.
     pub snapshot_time: SystemTime,
 }
@@ -310,10 +310,10 @@ pub struct WalInfo {
 pub struct SnapshotInfo {
     /// Available snapshots.
     pub snapshots: Vec<SnapshotMeta>,
-    
+
     /// Available checkpoints.
     pub checkpoints: Vec<CheckpointMeta>,
-    
+
     /// Snapshot timestamp.
     pub snapshot_time: SystemTime,
 }
@@ -323,10 +323,10 @@ pub struct SnapshotInfo {
 pub struct SnapshotMeta {
     /// Snapshot ID.
     pub id: String,
-    
+
     /// Creation timestamp.
     pub created_at: SystemTime,
-    
+
     /// WAL position at snapshot.
     pub wal_position: u64,
 }
@@ -336,10 +336,10 @@ pub struct SnapshotMeta {
 pub struct CheckpointMeta {
     /// Checkpoint ID.
     pub id: String,
-    
+
     /// Creation timestamp.
     pub created_at: SystemTime,
-    
+
     /// WAL position at checkpoint.
     pub wal_position: u64,
 }
@@ -349,13 +349,13 @@ pub struct CheckpointMeta {
 pub struct PromotionResultData {
     /// Replica that was promoted.
     pub replica_id: Uuid,
-    
+
     /// Whether promotion succeeded.
     pub success: bool,
-    
+
     /// New role after promotion.
     pub new_role: Option<NodeRole>,
-    
+
     /// Explanation of result.
     pub explanation: String,
 }
@@ -363,19 +363,19 @@ pub struct PromotionResultData {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dx::api::control_plane::commands::InspectionCommand;
     use crate::dx::api::control_plane::authority::AuthorityContext;
-    
+    use crate::dx::api::control_plane::commands::InspectionCommand;
+
     #[test]
     fn test_command_request_creation() {
         let cmd = ControlPlaneCommand::Inspection(InspectionCommand::InspectClusterState);
         let auth = AuthorityContext::observer();
         let request = CommandRequest::new(cmd, auth);
-        
+
         assert!(!request.request_id.is_nil());
         assert!(request.confirmation_token.is_none());
     }
-    
+
     #[test]
     fn test_command_response_success() {
         let data = CommandResponseData::ClusterState(ClusterState {
@@ -384,12 +384,8 @@ mod tests {
             replicas: vec![],
             snapshot_time: SystemTime::now(),
         });
-        let response = CommandResponse::success(
-            Uuid::new_v4(),
-            "inspect_cluster_state",
-            data,
-        );
-        
+        let response = CommandResponse::success(Uuid::new_v4(), "inspect_cluster_state", data);
+
         assert_eq!(response.outcome, CommandOutcome::Success);
     }
 }

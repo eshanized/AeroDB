@@ -42,13 +42,13 @@ fn test_d2_corruption_causes_explicit_failure() {
     let temp_dir = create_temp_data_dir();
     let data_dir = temp_dir.path();
     let storage_path = data_dir.join("data/documents.dat");
-    
+
     // Write a valid record
     {
         let mut writer = StorageWriter::open(data_dir).unwrap();
         writer.write(&create_test_payload("doc1")).unwrap();
     }
-    
+
     // Corrupt the storage file
     {
         let mut contents = fs::read(&storage_path).unwrap();
@@ -56,20 +56,21 @@ fn test_d2_corruption_causes_explicit_failure() {
         contents[mid] ^= 0xFF;
         fs::write(&storage_path, contents).unwrap();
     }
-    
+
     // Read must fail with corruption error
     let mut reader = StorageReader::open_from_data_dir(data_dir).unwrap();
     let result = reader.read_at(0);
-    
+
     assert!(
         result.is_err(),
         "D2 VIOLATION: Corruption must cause explicit failure"
     );
-    
+
     let err = result.unwrap_err();
     assert!(
         err.to_string().to_lowercase().contains("checksum"),
-        "D2: Error should mention checksum, got: {}", err
+        "D2: Error should mention checksum, got: {}",
+        err
     );
 }
 
@@ -78,19 +79,21 @@ fn test_d2_corruption_causes_explicit_failure() {
 fn test_d2_checksum_verified_on_every_read() {
     let temp_dir = create_temp_data_dir();
     let data_dir = temp_dir.path();
-    
+
     // Write multiple records
     {
         let mut writer = StorageWriter::open(data_dir).unwrap();
         for i in 1..=5 {
-            writer.write(&create_test_payload(&format!("doc{}", i))).unwrap();
+            writer
+                .write(&create_test_payload(&format!("doc{}", i)))
+                .unwrap();
         }
     }
-    
+
     // Read all records - each read verifies checksum
     let mut reader = StorageReader::open_from_data_dir(data_dir).unwrap();
     let records = reader.read_all();
-    
+
     assert!(
         records.is_ok(),
         "All records should pass checksum verification"
@@ -107,9 +110,9 @@ fn test_d2_checksum_verified_on_every_read() {
 fn test_d3_reads_return_complete_documents() {
     let temp_dir = create_temp_data_dir();
     let data_dir = temp_dir.path();
-    
+
     let expected_body = r#"{"id": "test123", "name": "Complete Document"}"#;
-    
+
     // Write a document
     {
         let mut writer = StorageWriter::open(data_dir).unwrap();
@@ -122,11 +125,11 @@ fn test_d3_reads_return_complete_documents() {
         );
         writer.write(&payload).unwrap();
     }
-    
+
     // Read and verify complete document
     let mut reader = StorageReader::open_from_data_dir(data_dir).unwrap();
     let record = reader.read_at(0).unwrap();
-    
+
     // D3: All fields must be present and valid
     assert_eq!(record.document_id, "col:test123");
     assert_eq!(record.schema_id, "schema");
@@ -140,20 +143,32 @@ fn test_d3_reads_return_complete_documents() {
 fn test_d3_schema_info_always_present() {
     let temp_dir = create_temp_data_dir();
     let data_dir = temp_dir.path();
-    
+
     {
         let mut writer = StorageWriter::open(data_dir).unwrap();
-        writer.write(&StoragePayload::new(
-            "col", "doc1", "my_schema", "v2", b"{}".to_vec(),
-        )).unwrap();
+        writer
+            .write(&StoragePayload::new(
+                "col",
+                "doc1",
+                "my_schema",
+                "v2",
+                b"{}".to_vec(),
+            ))
+            .unwrap();
     }
-    
+
     let mut reader = StorageReader::open_from_data_dir(data_dir).unwrap();
     let record = reader.read_at(0).unwrap();
-    
+
     // D3: Schema fields must not be empty
-    assert!(!record.schema_id.is_empty(), "D3: schema_id must be present");
-    assert!(!record.schema_version.is_empty(), "D3: schema_version must be present");
+    assert!(
+        !record.schema_id.is_empty(),
+        "D3: schema_id must be present"
+    );
+    assert!(
+        !record.schema_version.is_empty(),
+        "D3: schema_version must be present"
+    );
 }
 
 // =============================================================================
@@ -166,10 +181,10 @@ fn test_k1_checksum_included_in_serialization() {
     let payload = create_test_payload("doc1");
     let record = DocumentRecord::from_payload(&payload);
     let serialized = record.serialize();
-    
+
     // Checksum is last 4 bytes
     assert!(serialized.len() > 4, "Record must have checksum bytes");
-    
+
     // Deserialize should verify checksum
     let (deserialized, _) = DocumentRecord::deserialize(&serialized).unwrap();
     assert_eq!(record, deserialized);
@@ -181,11 +196,11 @@ fn test_k1_corrupted_checksum_bytes_detected() {
     let payload = create_test_payload("doc1");
     let record = DocumentRecord::from_payload(&payload);
     let mut serialized = record.serialize();
-    
+
     // Corrupt the last byte (checksum region)
     let len = serialized.len();
     serialized[len - 1] ^= 0xFF;
-    
+
     let result = DocumentRecord::deserialize(&serialized);
     assert!(result.is_err(), "K1: Corrupted checksum must be detected");
 }
@@ -199,20 +214,25 @@ fn test_k1_corrupted_checksum_bytes_detected() {
 fn test_c1_complete_document_state_preserved() {
     let temp_dir = create_temp_data_dir();
     let data_dir = temp_dir.path();
-    
+
     let original_body = br#"{"complex": {"nested": [1, 2, 3]}, "flag": true}"#;
-    
+
     {
         let mut writer = StorageWriter::open(data_dir).unwrap();
-        writer.write(&StoragePayload::new(
-            "collection", "document", "schema", "v1",
-            original_body.to_vec(),
-        )).unwrap();
+        writer
+            .write(&StoragePayload::new(
+                "collection",
+                "document",
+                "schema",
+                "v1",
+                original_body.to_vec(),
+            ))
+            .unwrap();
     }
-    
+
     let mut reader = StorageReader::open_from_data_dir(data_dir).unwrap();
     let record = reader.read_at(0).unwrap();
-    
+
     // C1: Document body must match exactly
     assert_eq!(
         record.document_body,
@@ -226,15 +246,17 @@ fn test_c1_complete_document_state_preserved() {
 fn test_c1_tombstone_preserves_metadata() {
     let temp_dir = create_temp_data_dir();
     let data_dir = temp_dir.path();
-    
+
     {
         let mut writer = StorageWriter::open(data_dir).unwrap();
-        writer.write_tombstone("col", "deleted_doc", "schema", "v1").unwrap();
+        writer
+            .write_tombstone("col", "deleted_doc", "schema", "v1")
+            .unwrap();
     }
-    
+
     let mut reader = StorageReader::open_from_data_dir(data_dir).unwrap();
     let record = reader.read_at(0).unwrap();
-    
+
     // C1: Tombstone has empty body but preserves identity
     assert!(record.is_tombstone);
     assert!(record.document_body.is_empty());
@@ -251,21 +273,18 @@ fn test_c1_tombstone_preserves_metadata() {
 fn test_apply_wal_insert_record() {
     let temp_dir = create_temp_data_dir();
     let data_dir = temp_dir.path();
-    
-    let wal_payload = WalPayload::new(
-        "users", "user1", "user_schema", "v1",
-        b"user data".to_vec(),
-    );
+
+    let wal_payload = WalPayload::new("users", "user1", "user_schema", "v1", b"user data".to_vec());
     let wal_record = WalRecord::new(RecordType::Insert, 1, wal_payload);
-    
+
     {
         let mut writer = StorageWriter::open(data_dir).unwrap();
         writer.apply_wal_record(&wal_record).unwrap();
     }
-    
+
     let mut reader = StorageReader::open_from_data_dir(data_dir).unwrap();
     let record = reader.read_at(0).unwrap();
-    
+
     assert_eq!(record.document_id, "users:user1");
     assert!(!record.is_tombstone);
     assert_eq!(record.document_body, b"user data");
@@ -276,18 +295,18 @@ fn test_apply_wal_insert_record() {
 fn test_apply_wal_delete_record() {
     let temp_dir = create_temp_data_dir();
     let data_dir = temp_dir.path();
-    
+
     let wal_payload = WalPayload::tombstone("users", "user1", "user_schema", "v1");
     let wal_record = WalRecord::new(RecordType::Delete, 1, wal_payload);
-    
+
     {
         let mut writer = StorageWriter::open(data_dir).unwrap();
         writer.apply_wal_record(&wal_record).unwrap();
     }
-    
+
     let mut reader = StorageReader::open_from_data_dir(data_dir).unwrap();
     let record = reader.read_at(0).unwrap();
-    
+
     assert!(record.is_tombstone);
     assert!(record.document_body.is_empty());
 }
@@ -301,25 +320,43 @@ fn test_apply_wal_delete_record() {
 fn test_append_only_preserves_all_versions() {
     let temp_dir = create_temp_data_dir();
     let data_dir = temp_dir.path();
-    
+
     {
         let mut writer = StorageWriter::open(data_dir).unwrap();
         // Write 3 versions of same document
-        writer.write(&StoragePayload::new(
-            "col", "doc1", "s", "v1", b"version1".to_vec(),
-        )).unwrap();
-        writer.write(&StoragePayload::new(
-            "col", "doc1", "s", "v1", b"version2".to_vec(),
-        )).unwrap();
-        writer.write(&StoragePayload::new(
-            "col", "doc1", "s", "v1", b"version3".to_vec(),
-        )).unwrap();
+        writer
+            .write(&StoragePayload::new(
+                "col",
+                "doc1",
+                "s",
+                "v1",
+                b"version1".to_vec(),
+            ))
+            .unwrap();
+        writer
+            .write(&StoragePayload::new(
+                "col",
+                "doc1",
+                "s",
+                "v1",
+                b"version2".to_vec(),
+            ))
+            .unwrap();
+        writer
+            .write(&StoragePayload::new(
+                "col",
+                "doc1",
+                "s",
+                "v1",
+                b"version3".to_vec(),
+            ))
+            .unwrap();
     }
-    
+
     // All 3 records must be readable
     let mut reader = StorageReader::open_from_data_dir(data_dir).unwrap();
     let records = reader.read_all().unwrap();
-    
+
     assert_eq!(records.len(), 3, "Append-only: all versions preserved");
 }
 
@@ -328,20 +365,22 @@ fn test_append_only_preserves_all_versions() {
 fn test_offset_tracking() {
     let temp_dir = create_temp_data_dir();
     let data_dir = temp_dir.path();
-    
+
     let offsets: Vec<u64>;
     {
         let mut writer = StorageWriter::open(data_dir).unwrap();
         offsets = (1..=3)
             .map(|i| {
-                writer.write(&create_test_payload(&format!("doc{}", i))).unwrap()
+                writer
+                    .write(&create_test_payload(&format!("doc{}", i)))
+                    .unwrap()
             })
             .collect();
     }
-    
+
     // Read at specific offsets
     let mut reader = StorageReader::open_from_data_dir(data_dir).unwrap();
-    
+
     for (i, &offset) in offsets.iter().enumerate() {
         let record = reader.read_at(offset).unwrap();
         let expected_id = format!("test_collection:doc{}", i + 1);
@@ -364,10 +403,10 @@ fn test_document_record_roundtrip() {
         b"payload content here".to_vec(),
     );
     let original = DocumentRecord::from_payload(&payload);
-    
+
     let serialized = original.serialize();
     let (deserialized, consumed) = DocumentRecord::deserialize(&serialized).unwrap();
-    
+
     assert_eq!(consumed, serialized.len());
     assert_eq!(original, deserialized);
 }
@@ -375,15 +414,9 @@ fn test_document_record_roundtrip() {
 /// StoragePayload correctly generates composite key.
 #[test]
 fn test_composite_key_generation() {
-    let payload = StoragePayload::new(
-        "users",
-        "user123",
-        "schema",
-        "v1",
-        b"{}".to_vec(),
-    );
+    let payload = StoragePayload::new("users", "user123", "schema", "v1", b"{}".to_vec());
     let record = DocumentRecord::from_payload(&payload);
-    
+
     assert_eq!(record.document_id, "users:user123");
 }
 
@@ -396,15 +429,17 @@ fn test_composite_key_generation() {
 fn test_data_persists_across_reopens() {
     let temp_dir = create_temp_data_dir();
     let data_dir = temp_dir.path();
-    
+
     // Write records
     {
         let mut writer = StorageWriter::open(data_dir).unwrap();
         for i in 1..=5 {
-            writer.write(&create_test_payload(&format!("doc{}", i))).unwrap();
+            writer
+                .write(&create_test_payload(&format!("doc{}", i)))
+                .unwrap();
         }
     }
-    
+
     // Reopen and verify
     {
         let mut reader = StorageReader::open_from_data_dir(data_dir).unwrap();
@@ -418,20 +453,23 @@ fn test_data_persists_across_reopens() {
 fn test_writer_reopens_with_correct_state() {
     let temp_dir = create_temp_data_dir();
     let data_dir = temp_dir.path();
-    
+
     // First session
     {
         let mut writer = StorageWriter::open(data_dir).unwrap();
         writer.write(&create_test_payload("doc1")).unwrap();
     }
-    
+
     // Second session - should continue from correct offset
     {
         let mut writer = StorageWriter::open(data_dir).unwrap();
-        assert!(writer.current_offset() > 0, "Writer should have non-zero offset");
+        assert!(
+            writer.current_offset() > 0,
+            "Writer should have non-zero offset"
+        );
         writer.write(&create_test_payload("doc2")).unwrap();
     }
-    
+
     // Verify both records exist
     let mut reader = StorageReader::open_from_data_dir(data_dir).unwrap();
     let records = reader.read_all().unwrap();

@@ -11,22 +11,22 @@ use crate::auth::errors::{AuthError, AuthResult};
 pub struct EmailConfig {
     /// SMTP server host
     pub smtp_host: String,
-    
+
     /// SMTP server port
     pub smtp_port: u16,
-    
+
     /// SMTP username
     pub smtp_user: String,
-    
+
     /// SMTP password (should come from secrets)
     pub smtp_password: String,
-    
+
     /// From email address
     pub from_email: String,
-    
+
     /// From name
     pub from_name: String,
-    
+
     /// Base URL for links
     pub base_url: String,
 }
@@ -49,21 +49,13 @@ impl Default for EmailConfig {
 #[derive(Debug, Clone)]
 pub enum EmailTemplate {
     /// Email verification
-    Verification {
-        token: String,
-        user_email: String,
-    },
-    
+    Verification { token: String, user_email: String },
+
     /// Password reset
-    PasswordReset {
-        token: String,
-        user_email: String,
-    },
-    
+    PasswordReset { token: String, user_email: String },
+
     /// Password changed notification
-    PasswordChanged {
-        user_email: String,
-    },
+    PasswordChanged { user_email: String },
 }
 
 /// Email sender trait for abstraction
@@ -83,12 +75,12 @@ impl MockEmailSender {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Get number of sent emails
     pub fn sent_count(&self) -> usize {
         self.sent.read().unwrap().len()
     }
-    
+
     /// Clear sent emails
     pub fn clear(&self) {
         self.sent.write().unwrap().clear();
@@ -111,7 +103,7 @@ impl SmtpEmailSender {
     pub fn new(config: EmailConfig) -> Self {
         Self { config }
     }
-    
+
     fn render_template(&self, template: &EmailTemplate) -> (String, String, String) {
         match template {
             EmailTemplate::Verification { token, user_email } => {
@@ -131,7 +123,10 @@ impl SmtpEmailSender {
             }
             EmailTemplate::PasswordReset { token, user_email } => {
                 let subject = "Reset your password".to_string();
-                let link = format!("{}/auth/reset-password?token={}", self.config.base_url, token);
+                let link = format!(
+                    "{}/auth/reset-password?token={}",
+                    self.config.base_url, token
+                );
                 let body = format!(
                     "Hello,\n\n\
                     You requested to reset your password. Click the link below:\n\n\
@@ -162,30 +157,27 @@ impl SmtpEmailSender {
 impl EmailSender for SmtpEmailSender {
     fn send(&self, template: EmailTemplate) -> AuthResult<()> {
         let (to, subject, body) = self.render_template(&template);
-        
+
         // Note: Actual SMTP sending would use lettre or similar crate
         // For now, log the email (useful for development)
-        eprintln!(
-            "[EMAIL] Would send to {}: {}",
-            to, subject
-        );
-        
+        eprintln!("[EMAIL] Would send to {}: {}", to, subject);
+
         // In production, this would use lettre:
         // let email = Message::builder()
         //     .from(self.config.from_email.parse()?)
         //     .to(to.parse()?)
         //     .subject(subject)
         //     .body(body)?;
-        // 
+        //
         // let mailer = SmtpTransport::relay(&self.config.smtp_host)?
         //     .credentials(Credentials::new(
         //         self.config.smtp_user.clone(),
         //         self.config.smtp_password.clone(),
         //     ))
         //     .build();
-        // 
+        //
         // mailer.send(&email)?;
-        
+
         Ok(())
     }
 }
@@ -201,29 +193,31 @@ pub fn create_email_sender(config: Option<EmailConfig>) -> Arc<dyn EmailSender> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_mock_email_sender() {
         let sender = MockEmailSender::new();
-        
-        sender.send(EmailTemplate::Verification {
-            token: "test-token".to_string(),
-            user_email: "test@example.com".to_string(),
-        }).unwrap();
-        
+
+        sender
+            .send(EmailTemplate::Verification {
+                token: "test-token".to_string(),
+                user_email: "test@example.com".to_string(),
+            })
+            .unwrap();
+
         assert_eq!(sender.sent_count(), 1);
     }
-    
+
     #[test]
     fn test_smtp_template_rendering() {
         let config = EmailConfig::default();
         let sender = SmtpEmailSender::new(config);
-        
+
         let (to, subject, body) = sender.render_template(&EmailTemplate::PasswordReset {
             token: "abc123".to_string(),
             user_email: "user@example.com".to_string(),
         });
-        
+
         assert_eq!(to, "user@example.com");
         assert_eq!(subject, "Reset your password");
         assert!(body.contains("abc123"));

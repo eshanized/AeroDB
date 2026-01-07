@@ -48,10 +48,7 @@ impl WalReader {
     pub fn open(wal_path: &Path) -> WalResult<Self> {
         let file = File::open(wal_path).map_err(|e| {
             if e.kind() == io::ErrorKind::NotFound {
-                WalError::corruption(format!(
-                    "WAL file not found: {}",
-                    wal_path.display()
-                ))
+                WalError::corruption(format!("WAL file not found: {}", wal_path.display()))
             } else {
                 WalError::corruption(format!(
                     "Failed to open WAL file: {}: {}",
@@ -61,9 +58,9 @@ impl WalReader {
             }
         })?;
 
-        let metadata = file.metadata().map_err(|e| {
-            WalError::corruption(format!("Failed to read WAL metadata: {}", e))
-        })?;
+        let metadata = file
+            .metadata()
+            .map_err(|e| WalError::corruption(format!("Failed to read WAL metadata: {}", e)))?;
 
         let file_size = metadata.len();
 
@@ -171,20 +168,16 @@ impl WalReader {
         let mut record_buf = vec![0u8; record_length as usize];
         record_buf[0..4].copy_from_slice(&len_buf);
 
-        self.reader
-            .read_exact(&mut record_buf[4..])
-            .map_err(|e| {
-                WalError::corruption_at_offset(
-                    self.current_offset,
-                    format!("Failed to read record body: {}", e),
-                )
-            })?;
+        self.reader.read_exact(&mut record_buf[4..]).map_err(|e| {
+            WalError::corruption_at_offset(
+                self.current_offset,
+                format!("Failed to read record body: {}", e),
+            )
+        })?;
 
         // Parse and validate record (includes checksum verification)
-        let (record, bytes_consumed) =
-            WalRecord::deserialize(&record_buf).map_err(|e| {
-                WalError::corruption_at_offset(self.current_offset, e.to_string())
-            })?;
+        let (record, bytes_consumed) = WalRecord::deserialize(&record_buf)
+            .map_err(|e| WalError::corruption_at_offset(self.current_offset, e.to_string()))?;
 
         // Validate sequence number ordering
         if self.last_sequence > 0 && record.sequence_number != self.last_sequence + 1 {
@@ -243,9 +236,9 @@ impl WalReader {
 
     /// Resets the reader to the beginning of the WAL.
     pub fn reset(&mut self) -> WalResult<()> {
-        self.reader.seek(SeekFrom::Start(0)).map_err(|e| {
-            WalError::corruption(format!("Failed to seek to start of WAL: {}", e))
-        })?;
+        self.reader
+            .seek(SeekFrom::Start(0))
+            .map_err(|e| WalError::corruption(format!("Failed to seek to start of WAL: {}", e)))?;
         self.current_offset = 0;
         self.last_sequence = 0;
         Ok(())
@@ -315,9 +308,9 @@ impl IntoIterator for WalReader {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::record::{RecordType, WalPayload};
     use super::super::writer::WalWriter;
+    use super::*;
     use tempfile::TempDir;
 
     fn create_test_payload(doc_id: &str) -> WalPayload {
@@ -333,7 +326,7 @@ mod tests {
     #[test]
     fn test_read_empty_wal() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         // Create empty WAL
         {
             let _writer = WalWriter::open(temp_dir.path()).unwrap();
@@ -376,12 +369,14 @@ mod tests {
             let mut writer = WalWriter::open(temp_dir.path()).unwrap();
             writer.append_insert(create_test_payload("doc1")).unwrap();
             writer.append_update(create_test_payload("doc1")).unwrap();
-            writer.append_delete(WalPayload::tombstone(
-                "test_collection",
-                "doc1",
-                "test_schema",
-                "v1",
-            )).unwrap();
+            writer
+                .append_delete(WalPayload::tombstone(
+                    "test_collection",
+                    "doc1",
+                    "test_schema",
+                    "v1",
+                ))
+                .unwrap();
         }
 
         // Read all
@@ -414,10 +409,7 @@ mod tests {
             use std::fs::OpenOptions;
             use std::io::{Seek, SeekFrom, Write};
 
-            let mut file = OpenOptions::new()
-                .write(true)
-                .open(&wal_path)
-                .unwrap();
+            let mut file = OpenOptions::new().write(true).open(&wal_path).unwrap();
             // Corrupt byte in the middle
             file.seek(SeekFrom::Start(10)).unwrap();
             file.write_all(&[0xFF]).unwrap();
@@ -448,10 +440,7 @@ mod tests {
         {
             use std::fs::OpenOptions;
 
-            let file = OpenOptions::new()
-                .write(true)
-                .open(&wal_path)
-                .unwrap();
+            let file = OpenOptions::new().write(true).open(&wal_path).unwrap();
             let original_len = file.metadata().unwrap().len();
             file.set_len(original_len - 5).unwrap();
         }
@@ -518,7 +507,9 @@ mod tests {
         {
             let mut writer = WalWriter::open(temp_dir.path()).unwrap();
             for i in 1..=3 {
-                writer.append_insert(create_test_payload(&format!("doc{}", i))).unwrap();
+                writer
+                    .append_insert(create_test_payload(&format!("doc{}", i)))
+                    .unwrap();
             }
         }
 

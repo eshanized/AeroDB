@@ -12,10 +12,10 @@
 //! - `/auth/*` - Authentication endpoints
 //! - `/observability/*` - Metrics and monitoring
 
-pub mod config;
-pub mod server;
 pub mod auth_routes;
+pub mod config;
 pub mod observability_routes;
+pub mod server;
 
 pub use config::HttpServerConfig;
 pub use server::HttpServer;

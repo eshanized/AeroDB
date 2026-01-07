@@ -4,8 +4,7 @@
 //! - Same crash + same data → identical final state
 
 use crate::crash::utils::{
-    create_temp_data_dir, cleanup_temp_data_dir,
-    write_test_wal_record, validate_wal_integrity,
+    cleanup_temp_data_dir, create_temp_data_dir, validate_wal_integrity, write_test_wal_record,
 };
 use aerodb::crash_point::points;
 
@@ -44,6 +43,12 @@ fn test_recovery_wal_replay_crash() {
 #[test]
 fn test_recovery_crash_points_defined() {
     assert_eq!(points::RECOVERY_START, "recovery_start");
-    assert_eq!(points::RECOVERY_AFTER_WAL_REPLAY, "recovery_after_wal_replay");
-    assert_eq!(points::RECOVERY_AFTER_INDEX_REBUILD, "recovery_after_index_rebuild");
+    assert_eq!(
+        points::RECOVERY_AFTER_WAL_REPLAY,
+        "recovery_after_wal_replay"
+    );
+    assert_eq!(
+        points::RECOVERY_AFTER_INDEX_REBUILD,
+        "recovery_after_index_rebuild"
+    );
 }

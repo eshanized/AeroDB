@@ -154,7 +154,10 @@ mod tests {
 
     impl MockWal {
         fn new(records: Vec<WalRecord>) -> Self {
-            Self { records, position: 0 }
+            Self {
+                records,
+                position: 0,
+            }
         }
     }
 
@@ -200,19 +203,22 @@ mod tests {
 
             // Also add to scan records based on record type
             let is_tombstone = record.record_type == RecordType::Delete;
-            self.scan_records.push(super::super::verifier::StorageRecordInfo {
-                document_id: record.payload.document_id.clone(),
-                schema_id: record.payload.schema_id.clone(),
-                schema_version: record.payload.schema_version.clone(),
-                offset: self.scan_records.len() as u64 * 100,
-                is_tombstone,
-            });
+            self.scan_records
+                .push(super::super::verifier::StorageRecordInfo {
+                    document_id: record.payload.document_id.clone(),
+                    schema_id: record.payload.schema_id.clone(),
+                    schema_version: record.payload.schema_version.clone(),
+                    offset: self.scan_records.len() as u64 * 100,
+                    is_tombstone,
+                });
             Ok(())
         }
     }
 
     impl StorageScan for MockStorage {
-        fn scan_next(&mut self) -> RecoveryResult<Option<super::super::verifier::StorageRecordInfo>> {
+        fn scan_next(
+            &mut self,
+        ) -> RecoveryResult<Option<super::super::verifier::StorageRecordInfo>> {
             if self.scan_position >= self.scan_records.len() {
                 return Ok(None);
             }
@@ -233,7 +239,9 @@ mod tests {
 
     impl MockIndex {
         fn new() -> Self {
-            Self { rebuild_called: false }
+            Self {
+                rebuild_called: false,
+            }
         }
     }
 
@@ -262,7 +270,8 @@ mod tests {
         }
 
         fn schema_version_exists(&self, schema_id: &str, version: &str) -> bool {
-            self.schemas.contains(&(schema_id.to_string(), version.to_string()))
+            self.schemas
+                .contains(&(schema_id.to_string(), version.to_string()))
         }
     }
 
@@ -288,7 +297,9 @@ mod tests {
         let mut index = MockIndex::new();
         let schema = MockSchemaRegistry::new();
 
-        let state = manager.recover(&mut wal, &mut storage, &mut index, &schema).unwrap();
+        let state = manager
+            .recover(&mut wal, &mut storage, &mut index, &schema)
+            .unwrap();
 
         assert_eq!(state.replay_stats.records_replayed, 2);
         assert!(index.rebuild_called);
@@ -307,7 +318,9 @@ mod tests {
 
         assert!(!index.rebuild_called);
 
-        manager.recover(&mut wal, &mut storage, &mut index, &schema).unwrap();
+        manager
+            .recover(&mut wal, &mut storage, &mut index, &schema)
+            .unwrap();
 
         assert!(index.rebuild_called);
     }
@@ -330,7 +343,9 @@ mod tests {
         let mut index = MockIndex::new();
         let schema = MockSchemaRegistry::new();
 
-        let state = manager.recover(&mut wal, &mut storage, &mut index, &schema).unwrap();
+        let state = manager
+            .recover(&mut wal, &mut storage, &mut index, &schema)
+            .unwrap();
 
         assert!(state.was_clean_shutdown);
         assert!(!manager.was_clean_shutdown()); // Marker removed
@@ -352,7 +367,9 @@ mod tests {
         let mut index = MockIndex::new();
         let schema = MockSchemaRegistry::new();
 
-        manager.recover(&mut wal, &mut storage, &mut index, &schema).unwrap();
+        manager
+            .recover(&mut wal, &mut storage, &mut index, &schema)
+            .unwrap();
 
         // All records should be applied to storage
         assert_eq!(storage.applied_records.len(), 3);
@@ -370,16 +387,26 @@ mod tests {
         let mut storage1 = MockStorage::new();
         let mut index1 = MockIndex::new();
         let schema = MockSchemaRegistry::new();
-        let state1 = manager.recover(&mut wal1, &mut storage1, &mut index1, &schema).unwrap();
+        let state1 = manager
+            .recover(&mut wal1, &mut storage1, &mut index1, &schema)
+            .unwrap();
 
         // Second run (same WAL)
         let mut wal2 = MockWal::new(records);
         let mut storage2 = MockStorage::new();
         let mut index2 = MockIndex::new();
-        let state2 = manager.recover(&mut wal2, &mut storage2, &mut index2, &schema).unwrap();
+        let state2 = manager
+            .recover(&mut wal2, &mut storage2, &mut index2, &schema)
+            .unwrap();
 
         // Results must be identical
-        assert_eq!(state1.replay_stats.records_replayed, state2.replay_stats.records_replayed);
-        assert_eq!(storage1.applied_records.len(), storage2.applied_records.len());
+        assert_eq!(
+            state1.replay_stats.records_replayed,
+            state2.replay_stats.records_replayed
+        );
+        assert_eq!(
+            storage1.applied_records.len(),
+            storage2.applied_records.len()
+        );
     }
 }

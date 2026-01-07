@@ -142,15 +142,9 @@ impl Default for CommitAuthority {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CommitAuthorityError {
     /// Replayed commit identity is not strictly greater than highest.
-    NonMonotonic {
-        observed: u64,
-        highest: u64,
-    },
+    NonMonotonic { observed: u64, highest: u64 },
     /// Attempted to commit out of order.
-    OutOfOrder {
-        attempted: u64,
-        expected: u64,
-    },
+    OutOfOrder { attempted: u64, expected: u64 },
 }
 
 impl std::fmt::Display for CommitAuthorityError {
@@ -163,7 +157,10 @@ impl std::fmt::Display for CommitAuthorityError {
                     observed, highest
                 )
             }
-            CommitAuthorityError::OutOfOrder { attempted, expected } => {
+            CommitAuthorityError::OutOfOrder {
+                attempted,
+                expected,
+            } => {
                 write!(
                     f,
                     "Out of order commit: attempted {} but expected {}",
@@ -197,7 +194,7 @@ mod tests {
         let mut authority = CommitAuthority::new();
         let next = authority.next_commit_id();
         authority.mark_committed(next).unwrap();
-        
+
         assert_eq!(authority.highest_commit_id(), Some(CommitId::new(1)));
         assert_eq!(authority.next_commit_id(), CommitId::new(2));
     }
@@ -208,7 +205,7 @@ mod tests {
         authority.observe_replayed_commit(1).unwrap();
         authority.observe_replayed_commit(2).unwrap();
         authority.observe_replayed_commit(5).unwrap(); // Gaps allowed
-        
+
         assert_eq!(authority.highest_commit_id(), Some(CommitId::new(5)));
     }
 
@@ -216,25 +213,34 @@ mod tests {
     fn test_non_monotonic_replay_fails() {
         let mut authority = CommitAuthority::new();
         authority.observe_replayed_commit(5).unwrap();
-        
+
         let result = authority.observe_replayed_commit(3);
-        assert!(matches!(result, Err(CommitAuthorityError::NonMonotonic { .. })));
+        assert!(matches!(
+            result,
+            Err(CommitAuthorityError::NonMonotonic { .. })
+        ));
     }
 
     #[test]
     fn test_duplicate_replay_fails() {
         let mut authority = CommitAuthority::new();
         authority.observe_replayed_commit(5).unwrap();
-        
+
         let result = authority.observe_replayed_commit(5);
-        assert!(matches!(result, Err(CommitAuthorityError::NonMonotonic { .. })));
+        assert!(matches!(
+            result,
+            Err(CommitAuthorityError::NonMonotonic { .. })
+        ));
     }
 
     #[test]
     fn test_out_of_order_commit_fails() {
         let mut authority = CommitAuthority::new();
         let result = authority.mark_committed(CommitId::new(5));
-        assert!(matches!(result, Err(CommitAuthorityError::OutOfOrder { .. })));
+        assert!(matches!(
+            result,
+            Err(CommitAuthorityError::OutOfOrder { .. })
+        ));
     }
 
     #[test]

@@ -9,9 +9,8 @@
 //! - Dual Primary is forbidden
 
 use aerodb::replication::{
-    ReplicationState, WriteAdmission, HaltReason,
-    check_write_admission, check_commit_authority, check_dual_primary,
-    AuthorityCheck,
+    check_commit_authority, check_dual_primary, check_write_admission, AuthorityCheck, HaltReason,
+    ReplicationState, WriteAdmission,
 };
 use uuid::Uuid;
 
@@ -24,7 +23,7 @@ use uuid::Uuid;
 fn test_primary_admits_writes() {
     let state = ReplicationState::new().become_primary().unwrap();
     let admission = check_write_admission(&state);
-    
+
     assert!(admission.is_admitted());
     assert!(matches!(admission, WriteAdmission::Admitted));
 }
@@ -35,7 +34,7 @@ fn test_replica_rejects_writes() {
     let replica_id = Uuid::new_v4();
     let state = ReplicationState::new().become_replica(replica_id).unwrap();
     let admission = check_write_admission(&state);
-    
+
     assert!(!admission.is_admitted());
     assert!(matches!(admission, WriteAdmission::RejectedReplica));
 }
@@ -45,7 +44,7 @@ fn test_replica_rejects_writes() {
 fn test_halted_rejects_writes() {
     let state = ReplicationState::new().halt(HaltReason::AuthorityAmbiguity);
     let admission = check_write_admission(&state);
-    
+
     assert!(!admission.is_admitted());
     assert!(matches!(admission, WriteAdmission::RejectedHalted));
 }
@@ -53,14 +52,14 @@ fn test_halted_rejects_writes() {
 /// Disabled mode allows writes (standalone primary behavior per P5-I16).
 #[test]
 fn test_disabled_admits_writes() {
-    let state = ReplicationState::new();  // Disabled by default
+    let state = ReplicationState::new(); // Disabled by default
     let admission = check_write_admission(&state);
-    
+
     assert!(admission.is_admitted());
 }
 
 // =============================================================================
-// Commit Authority Tests  
+// Commit Authority Tests
 // =============================================================================
 
 /// Primary has commit authority.
@@ -68,7 +67,7 @@ fn test_disabled_admits_writes() {
 fn test_primary_has_commit_authority() {
     let state = ReplicationState::new().become_primary().unwrap();
     let result = check_commit_authority(&state);
-    
+
     assert!(result.is_ok());
 }
 
@@ -78,7 +77,7 @@ fn test_replica_no_commit_authority() {
     let replica_id = Uuid::new_v4();
     let state = ReplicationState::new().become_replica(replica_id).unwrap();
     let result = check_commit_authority(&state);
-    
+
     assert!(result.is_err());
 }
 
@@ -87,7 +86,7 @@ fn test_replica_no_commit_authority() {
 fn test_disabled_has_commit_authority() {
     let state = ReplicationState::new();
     let result = check_commit_authority(&state);
-    
+
     assert!(result.is_ok());
 }
 
@@ -100,7 +99,7 @@ fn test_disabled_has_commit_authority() {
 fn test_dual_primary_detected() {
     let state = ReplicationState::new().become_primary().unwrap();
     let check = check_dual_primary(&state, true);
-    
+
     assert!(matches!(check, AuthorityCheck::Ambiguous));
 }
 
@@ -109,7 +108,7 @@ fn test_dual_primary_detected() {
 fn test_no_dual_primary_when_alone() {
     let state = ReplicationState::new().become_primary().unwrap();
     let check = check_dual_primary(&state, false);
-    
+
     assert!(matches!(check, AuthorityCheck::Authorized));
 }
 
@@ -119,7 +118,7 @@ fn test_replica_not_authorized() {
     let replica_id = Uuid::new_v4();
     let state = ReplicationState::new().become_replica(replica_id).unwrap();
     let check = check_dual_primary(&state, false);
-    
+
     assert!(matches!(check, AuthorityCheck::NotAuthorized));
 }
 
@@ -132,7 +131,7 @@ fn test_replica_not_authorized() {
 fn test_default_state_is_disabled() {
     let state = ReplicationState::new();
     assert!(state.is_disabled());
-    assert!(state.can_write());  // Disabled behaves like standalone primary
+    assert!(state.can_write()); // Disabled behaves like standalone primary
 }
 
 /// Can transition from Disabled to Primary.
@@ -140,7 +139,7 @@ fn test_default_state_is_disabled() {
 fn test_disabled_to_primary() {
     let state = ReplicationState::new();
     let result = state.become_primary();
-    
+
     assert!(result.is_ok());
     let primary = result.unwrap();
     assert!(primary.is_primary());
@@ -153,7 +152,7 @@ fn test_disabled_to_replica() {
     let state = ReplicationState::new();
     let replica_id = Uuid::new_v4();
     let result = state.become_replica(replica_id);
-    
+
     assert!(result.is_ok());
     let replica = result.unwrap();
     assert!(replica.is_replica());
@@ -166,9 +165,11 @@ fn test_any_state_can_halt() {
     let states = vec![
         ReplicationState::new(),
         ReplicationState::new().become_primary().unwrap(),
-        ReplicationState::new().become_replica(Uuid::new_v4()).unwrap(),
+        ReplicationState::new()
+            .become_replica(Uuid::new_v4())
+            .unwrap(),
     ];
-    
+
     for state in states {
         let halted = state.halt(HaltReason::WalCorruption);
         assert!(halted.is_halted());

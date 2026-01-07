@@ -114,11 +114,8 @@ mod tests {
 
     #[test]
     fn test_version_immutability() {
-        let version = Version::with_document(
-            "doc1".to_string(),
-            b"data".to_vec(),
-            CommitId::new(1),
-        );
+        let version =
+            Version::with_document("doc1".to_string(), b"data".to_vec(), CommitId::new(1));
 
         // Fields are private - only accessors available
         assert_eq!(version.key(), "doc1");
@@ -127,11 +124,8 @@ mod tests {
 
     #[test]
     fn test_version_with_document() {
-        let version = Version::with_document(
-            "key".to_string(),
-            b"payload".to_vec(),
-            CommitId::new(10),
-        );
+        let version =
+            Version::with_document("key".to_string(), b"payload".to_vec(), CommitId::new(10));
 
         assert!(version.payload().is_document());
         assert!(!version.is_tombstone());
@@ -139,10 +133,7 @@ mod tests {
 
     #[test]
     fn test_version_with_tombstone() {
-        let version = Version::with_tombstone(
-            "deleted_key".to_string(),
-            CommitId::new(20),
-        );
+        let version = Version::with_tombstone("deleted_key".to_string(), CommitId::new(20));
 
         assert!(version.is_tombstone());
         assert!(version.payload().is_tombstone());
@@ -161,11 +152,7 @@ mod tests {
 
     #[test]
     fn test_version_clone() {
-        let v1 = Version::with_document(
-            "k".to_string(),
-            b"d".to_vec(),
-            CommitId::new(5),
-        );
+        let v1 = Version::with_document("k".to_string(), b"d".to_vec(), CommitId::new(5));
         let v2 = v1.clone();
 
         assert_eq!(v1, v2);

@@ -21,31 +21,31 @@ pub struct ReplicationError {
 pub enum ReplicationErrorKind {
     /// Illegal state transition attempted
     IllegalTransition,
-    
+
     /// System is halted, requires operator intervention
     Halted,
-    
+
     /// Write rejected (not Primary or halted)
     WriteRejected,
-    
+
     /// Read rejected (halted state)
     ReadRejected,
-    
+
     /// Authority ambiguity detected
     AuthorityAmbiguity,
-    
+
     /// Commit authority violation (Replica tried to commit)
     CommitAuthorityViolation,
-    
+
     /// WAL gap detected
     WalGap,
-    
+
     /// WAL integrity check failed
     WalIntegrity,
-    
+
     /// History divergence detected
     HistoryDivergence,
-    
+
     /// Configuration error
     ConfigurationError,
 }
@@ -58,57 +58,57 @@ impl ReplicationError {
             message: message.into(),
         }
     }
-    
+
     /// Create an illegal transition error.
     pub fn illegal_transition(message: impl Into<String>) -> Self {
         Self::new(ReplicationErrorKind::IllegalTransition, message)
     }
-    
+
     /// Create a halted error.
     pub fn halted(message: impl Into<String>) -> Self {
         Self::new(ReplicationErrorKind::Halted, message)
     }
-    
+
     /// Create a write rejected error.
     pub fn write_rejected(message: impl Into<String>) -> Self {
         Self::new(ReplicationErrorKind::WriteRejected, message)
     }
-    
+
     /// Create a read rejected error.
     pub fn read_rejected(message: impl Into<String>) -> Self {
         Self::new(ReplicationErrorKind::ReadRejected, message)
     }
-    
+
     /// Create an authority ambiguity error.
     pub fn authority_ambiguity(message: impl Into<String>) -> Self {
         Self::new(ReplicationErrorKind::AuthorityAmbiguity, message)
     }
-    
+
     /// Create a commit authority violation error.
     pub fn commit_authority_violation(message: impl Into<String>) -> Self {
         Self::new(ReplicationErrorKind::CommitAuthorityViolation, message)
     }
-    
+
     /// Create a WAL gap error.
     pub fn wal_gap(message: impl Into<String>) -> Self {
         Self::new(ReplicationErrorKind::WalGap, message)
     }
-    
+
     /// Create a WAL integrity error.
     pub fn wal_integrity_failed(message: impl Into<String>) -> Self {
         Self::new(ReplicationErrorKind::WalIntegrity, message)
     }
-    
+
     /// Create a history divergence error.
     pub fn history_divergence(message: impl Into<String>) -> Self {
         Self::new(ReplicationErrorKind::HistoryDivergence, message)
     }
-    
+
     /// Create a configuration error.
     pub fn configuration_error(message: impl Into<String>) -> Self {
         Self::new(ReplicationErrorKind::ConfigurationError, message)
     }
-    
+
     /// Check if this error is fatal (requires operator intervention).
     pub fn is_fatal(&self) -> bool {
         matches!(

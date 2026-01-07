@@ -6,9 +6,7 @@
 use std::fs::{self, File};
 use std::io::Write;
 
-use crate::crash::utils::{
-    create_temp_data_dir, cleanup_temp_data_dir, validate_no_partial_files,
-};
+use crate::crash::utils::{cleanup_temp_data_dir, create_temp_data_dir, validate_no_partial_files};
 use aerodb::crash_point::points;
 
 /// Test: Either old or new data dir exists, never both incomplete

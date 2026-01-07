@@ -39,15 +39,17 @@ fn test_k2_corruption_in_middle_halts() {
     let temp_dir = create_temp_data_dir();
     let data_dir = temp_dir.path();
     let storage_path = data_dir.join("data/documents.dat");
-    
+
     // Write multiple records
     {
         let mut writer = StorageWriter::open(data_dir).unwrap();
         for i in 1..=5 {
-            writer.write(&create_test_payload(&format!("doc{}", i))).unwrap();
+            writer
+                .write(&create_test_payload(&format!("doc{}", i)))
+                .unwrap();
         }
     }
-    
+
     // Corrupt a byte in the middle of the file
     {
         let mut contents = fs::read(&storage_path).unwrap();
@@ -55,11 +57,11 @@ fn test_k2_corruption_in_middle_halts() {
         contents[mid] ^= 0xFF;
         fs::write(&storage_path, contents).unwrap();
     }
-    
+
     // Read all must fail
     let mut reader = StorageReader::open_from_data_dir(data_dir).unwrap();
     let result = reader.read_all();
-    
+
     assert!(
         result.is_err(),
         "K2 VIOLATION: Corruption must halt, not skip records"
@@ -72,23 +74,23 @@ fn test_k2_truncated_record_halts() {
     let temp_dir = create_temp_data_dir();
     let data_dir = temp_dir.path();
     let storage_path = data_dir.join("data/documents.dat");
-    
+
     // Write a record
     {
         let mut writer = StorageWriter::open(data_dir).unwrap();
         writer.write(&create_test_payload("doc1")).unwrap();
     }
-    
+
     // Truncate the file mid-record
     {
         let contents = fs::read(&storage_path).unwrap();
         fs::write(&storage_path, &contents[..contents.len() - 10]).unwrap();
     }
-    
+
     // Read must fail
     let mut reader = StorageReader::open_from_data_dir(data_dir).unwrap();
     let result = reader.read_at(0);
-    
+
     assert!(result.is_err(), "K2: Truncated record must halt");
 }
 
@@ -98,13 +100,13 @@ fn test_k2_invalid_record_length_halts() {
     let temp_dir = create_temp_data_dir();
     let data_dir = temp_dir.path();
     let storage_path = data_dir.join("data/documents.dat");
-    
+
     // Write a record
     {
         let mut writer = StorageWriter::open(data_dir).unwrap();
         writer.write(&create_test_payload("doc1")).unwrap();
     }
-    
+
     // Corrupt the record length (first 4 bytes)
     {
         let mut contents = fs::read(&storage_path).unwrap();
@@ -112,11 +114,11 @@ fn test_k2_invalid_record_length_halts() {
         contents[0..4].copy_from_slice(&[0xFF, 0xFF, 0x00, 0x00]);
         fs::write(&storage_path, contents).unwrap();
     }
-    
+
     // Read must fail
     let mut reader = StorageReader::open_from_data_dir(data_dir).unwrap();
     let result = reader.read_at(0);
-    
+
     assert!(result.is_err(), "K2: Invalid record length must halt");
 }
 
@@ -130,13 +132,13 @@ fn test_partial_write_detection() {
     let temp_dir = create_temp_data_dir();
     let data_dir = temp_dir.path();
     let storage_path = data_dir.join("data/documents.dat");
-    
+
     // Write a complete record
     {
         let mut writer = StorageWriter::open(data_dir).unwrap();
         writer.write(&create_test_payload("doc1")).unwrap();
     }
-    
+
     // Append garbage bytes (simulating partial write crash)
     {
         use std::io::Write;
@@ -147,12 +149,12 @@ fn test_partial_write_detection() {
         // Write partial record header
         file.write_all(&[0x50, 0x00, 0x00, 0x00, 0x01]).unwrap();
     }
-    
+
     // First record should be readable
     let mut reader = StorageReader::open_from_data_dir(data_dir).unwrap();
     let first = reader.read_at(0);
     assert!(first.is_ok(), "First complete record should be readable");
-    
+
     // But read_all should fail on the partial trailing record
     reader = StorageReader::open_from_data_dir(data_dir).unwrap();
     let result = reader.read_all();
@@ -169,16 +171,20 @@ fn test_partial_recovery_before_corruption() {
     let temp_dir = create_temp_data_dir();
     let data_dir = temp_dir.path();
     let storage_path = data_dir.join("data/documents.dat");
-    
+
     // Write multiple records
     let offsets: Vec<u64>;
     {
         let mut writer = StorageWriter::open(data_dir).unwrap();
         offsets = (1..=5)
-            .map(|i| writer.write(&create_test_payload(&format!("doc{}", i))).unwrap())
+            .map(|i| {
+                writer
+                    .write(&create_test_payload(&format!("doc{}", i)))
+                    .unwrap()
+            })
             .collect();
     }
-    
+
     // Corrupt the last record only
     {
         let contents = fs::read(&storage_path).unwrap();
@@ -189,17 +195,18 @@ fn test_partial_recovery_before_corruption() {
         modified[corrupt_pos] ^= 0xFF;
         fs::write(&storage_path, modified).unwrap();
     }
-    
+
     // First 4 records should be individually recoverable
     let mut reader = StorageReader::open_from_data_dir(data_dir).unwrap();
     for i in 0..4 {
         let result = reader.read_at(offsets[i]);
         assert!(
             result.is_ok(),
-            "Record {} before corruption should be recoverable", i
+            "Record {} before corruption should be recoverable",
+            i
         );
     }
-    
+
     // Last record should fail
     let last_result = reader.read_at(offsets[4]);
     assert!(last_result.is_err(), "Corrupted record should fail");
@@ -214,29 +221,31 @@ fn test_partial_recovery_before_corruption() {
 fn test_deterministic_reads() {
     let temp_dir = create_temp_data_dir();
     let data_dir = temp_dir.path();
-    
+
     // Write records
     {
         let mut writer = StorageWriter::open(data_dir).unwrap();
         for i in 1..=10 {
-            writer.write(&create_test_payload(&format!("doc{}", i))).unwrap();
+            writer
+                .write(&create_test_payload(&format!("doc{}", i)))
+                .unwrap();
         }
     }
-    
+
     // Read multiple times
     let mut reader1 = StorageReader::open_from_data_dir(data_dir).unwrap();
     let records1 = reader1.read_all().unwrap();
-    
+
     let mut reader2 = StorageReader::open_from_data_dir(data_dir).unwrap();
     let records2 = reader2.read_all().unwrap();
-    
+
     let mut reader3 = StorageReader::open_from_data_dir(data_dir).unwrap();
     let records3 = reader3.read_all().unwrap();
-    
+
     // All reads must be identical
     assert_eq!(records1.len(), records2.len());
     assert_eq!(records2.len(), records3.len());
-    
+
     for i in 0..records1.len() {
         assert_eq!(records1[i], records2[i]);
         assert_eq!(records2[i], records3[i]);
@@ -252,15 +261,15 @@ fn test_deterministic_reads() {
 fn test_empty_storage_valid() {
     let temp_dir = create_temp_data_dir();
     let data_dir = temp_dir.path();
-    
+
     // Create empty storage
     {
         let _writer = StorageWriter::open(data_dir).unwrap();
     }
-    
+
     // Empty read should succeed
     let mut reader = StorageReader::open_from_data_dir(data_dir).unwrap();
     let records = reader.read_all().unwrap();
-    
+
     assert!(records.is_empty(), "Empty storage produces empty result");
 }

@@ -36,18 +36,16 @@ pub fn compute_checksum(data: &[u8]) -> u32 {
 ///
 /// Returns `SnapshotError::io_error` if the file cannot be read.
 pub fn compute_file_checksum(path: &Path) -> SnapshotResult<u32> {
-    let file = File::open(path).map_err(|e| {
-        SnapshotError::io_error_at_path(path, e)
-    })?;
+    let file = File::open(path).map_err(|e| SnapshotError::io_error_at_path(path, e))?;
 
     let mut reader = BufReader::new(file);
     let mut hasher = Hasher::new();
     let mut buffer = [0u8; 8192]; // 8KB buffer
 
     loop {
-        let bytes_read = reader.read(&mut buffer).map_err(|e| {
-            SnapshotError::io_error_at_path(path, e)
-        })?;
+        let bytes_read = reader
+            .read(&mut buffer)
+            .map_err(|e| SnapshotError::io_error_at_path(path, e))?;
 
         if bytes_read == 0 {
             break;

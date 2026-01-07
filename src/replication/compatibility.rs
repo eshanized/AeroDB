@@ -15,13 +15,13 @@ use super::role::ReplicationState;
 pub enum CompatibilityAssertion {
     /// Compatibility preserved
     Compatible,
-    
+
     /// Phase-1 compatibility violated
     Phase1Violation(String),
-    
+
     /// MVCC compatibility violated
     MvccViolation(String),
-    
+
     /// Snapshot compatibility violated
     SnapshotViolation(String),
 }
@@ -31,7 +31,7 @@ impl CompatibilityAssertion {
     pub fn is_compatible(&self) -> bool {
         matches!(self, Self::Compatible)
     }
-    
+
     /// Description of violation if not compatible.
     pub fn violation_description(&self) -> Option<&str> {
         match self {
@@ -69,39 +69,39 @@ impl Phase1Compatibility {
             query_engine_unchanged: true,
         }
     }
-    
+
     /// Verify all Phase-1 compatibility assertions.
     pub fn verify(&self) -> CompatibilityAssertion {
         if !self.wal_is_durability_authority {
             return CompatibilityAssertion::Phase1Violation(
-                "WAL must remain sole durability authority (§2.1)".to_string()
+                "WAL must remain sole durability authority (§2.1)".to_string(),
             );
         }
-        
+
         if !self.fsync_semantics_unchanged {
             return CompatibilityAssertion::Phase1Violation(
-                "fsync semantics must be unchanged (§2.1)".to_string()
+                "fsync semantics must be unchanged (§2.1)".to_string(),
             );
         }
-        
+
         if !self.wal_replay_identical {
             return CompatibilityAssertion::Phase1Violation(
-                "WAL replay rules must be identical (§2.1)".to_string()
+                "WAL replay rules must be identical (§2.1)".to_string(),
             );
         }
-        
+
         if !self.storage_invariants_intact {
             return CompatibilityAssertion::Phase1Violation(
-                "Storage invariants must remain intact (§2.2)".to_string()
+                "Storage invariants must remain intact (§2.2)".to_string(),
             );
         }
-        
+
         if !self.query_engine_unchanged {
             return CompatibilityAssertion::Phase1Violation(
-                "Query engine semantics must be unchanged (§2.3)".to_string()
+                "Query engine semantics must be unchanged (§2.3)".to_string(),
             );
         }
-        
+
         CompatibilityAssertion::Compatible
     }
 }
@@ -132,39 +132,39 @@ impl MvccCompatibility {
             gc_rules_unchanged: true,
         }
     }
-    
+
     /// Verify all MVCC compatibility assertions.
     pub fn verify(&self) -> CompatibilityAssertion {
         if !self.commit_ids_ordered {
             return CompatibilityAssertion::MvccViolation(
-                "CommitIds must be globally ordered (§3.1)".to_string()
+                "CommitIds must be globally ordered (§3.1)".to_string(),
             );
         }
-        
+
         if !self.commit_ids_immutable {
             return CompatibilityAssertion::MvccViolation(
-                "CommitIds must be immutable (§3.1)".to_string()
+                "CommitIds must be immutable (§3.1)".to_string(),
             );
         }
-        
+
         if !self.commit_ids_from_primary {
             return CompatibilityAssertion::MvccViolation(
-                "CommitIds must originate only from Primary (§3.1)".to_string()
+                "CommitIds must originate only from Primary (§3.1)".to_string(),
             );
         }
-        
+
         if !self.visibility_unchanged {
             return CompatibilityAssertion::MvccViolation(
-                "Visibility semantics must be unchanged (§3.2)".to_string()
+                "Visibility semantics must be unchanged (§3.2)".to_string(),
             );
         }
-        
+
         if !self.gc_rules_unchanged {
             return CompatibilityAssertion::MvccViolation(
-                "GC eligibility rules must be unchanged (§3.3)".to_string()
+                "GC eligibility rules must be unchanged (§3.3)".to_string(),
             );
         }
-        
+
         CompatibilityAssertion::Compatible
     }
 }
@@ -186,28 +186,28 @@ impl CompatibilityCheck {
             mvcc: MvccCompatibility::all_passing(),
         }
     }
-    
+
     /// Verify all compatibility assertions.
     pub fn verify(&self) -> Vec<CompatibilityAssertion> {
         let mut results = vec![];
-        
+
         let phase1_result = self.phase1.verify();
         if !phase1_result.is_compatible() {
             results.push(phase1_result);
         }
-        
+
         let mvcc_result = self.mvcc.verify();
         if !mvcc_result.is_compatible() {
             results.push(mvcc_result);
         }
-        
+
         if results.is_empty() {
             results.push(CompatibilityAssertion::Compatible);
         }
-        
+
         results
     }
-    
+
     /// Check if all compatibility assertions pass.
     pub fn is_compatible(&self) -> bool {
         self.phase1.verify().is_compatible() && self.mvcc.verify().is_compatible()
@@ -234,7 +234,7 @@ mod tests {
     fn test_phase1_wal_authority_violation() {
         let mut phase1 = Phase1Compatibility::all_passing();
         phase1.wal_is_durability_authority = false;
-        
+
         let result = phase1.verify();
         assert!(!result.is_compatible());
         assert!(result.violation_description().unwrap().contains("WAL"));
@@ -251,7 +251,7 @@ mod tests {
         // Per §3.1: CommitIds must originate only from Primary
         let mut mvcc = MvccCompatibility::all_passing();
         mvcc.commit_ids_from_primary = false;
-        
+
         let result = mvcc.verify();
         assert!(!result.is_compatible());
         assert!(result.violation_description().unwrap().contains("Primary"));
@@ -261,7 +261,7 @@ mod tests {
     fn test_full_compatibility_check() {
         let check = CompatibilityCheck::all_passing();
         assert!(check.is_compatible());
-        
+
         let results = check.verify();
         assert_eq!(results.len(), 1);
         assert!(results[0].is_compatible());
@@ -271,9 +271,9 @@ mod tests {
     fn test_full_compatibility_with_violation() {
         let mut check = CompatibilityCheck::all_passing();
         check.mvcc.visibility_unchanged = false;
-        
+
         assert!(!check.is_compatible());
-        
+
         let results = check.verify();
         assert!(results.iter().any(|r| !r.is_compatible()));
     }

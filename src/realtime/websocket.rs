@@ -41,13 +41,13 @@ macro_rules! log_error {
 pub struct WebSocketConfig {
     /// Bind address
     pub bind_addr: String,
-    
+
     /// Maximum connections per IP
     pub max_connections_per_ip: usize,
-    
+
     /// Heartbeat interval in seconds
     pub heartbeat_interval_secs: u64,
-    
+
     /// Connection timeout in seconds
     pub connection_timeout_secs: u64,
 }
@@ -73,22 +73,18 @@ pub enum ClientMessage {
         #[serde(default)]
         filter: Option<SubscriptionFilter>,
     },
-    
+
     /// Unsubscribe from a channel
-    Unsubscribe {
-        channel: String,
-    },
-    
+    Unsubscribe { channel: String },
+
     /// Heartbeat/ping
     Heartbeat {
         #[serde(default)]
         ref_id: Option<String>,
     },
-    
+
     /// Authentication
-    Auth {
-        token: String,
-    },
+    Auth { token: String },
 }
 
 /// WebSocket message to client
@@ -100,34 +96,27 @@ pub enum ServerMessage {
         channel: String,
         subscription_id: String,
     },
-    
+
     /// Unsubscription confirmed
-    Unsubscribed {
-        channel: String,
-    },
-    
+    Unsubscribed { channel: String },
+
     /// Database event
     Event {
         channel: String,
         event: DatabaseEvent,
     },
-    
+
     /// Heartbeat response
     Heartbeat {
         ref_id: Option<String>,
         server_time: i64,
     },
-    
+
     /// Error message
-    Error {
-        message: String,
-        code: String,
-    },
-    
+    Error { message: String, code: String },
+
     /// System message
-    System {
-        message: String,
-    },
+    System { message: String },
 }
 
 /// Connection state
@@ -150,7 +139,7 @@ impl WebSocketServer {
     /// Create a new WebSocket server
     pub fn new(config: WebSocketConfig, dispatcher: Arc<Dispatcher>) -> Self {
         let (shutdown_tx, _) = broadcast::channel(1);
-        
+
         Self {
             config,
             dispatcher,
@@ -158,19 +147,23 @@ impl WebSocketServer {
             connections: Arc::new(RwLock::new(HashMap::new())),
         }
     }
-    
+
     /// Start the WebSocket server
     pub async fn run(&self) -> RealtimeResult<()> {
-        let addr: SocketAddr = self.config.bind_addr.parse()
+        let addr: SocketAddr = self
+            .config
+            .bind_addr
+            .parse()
             .map_err(|e| RealtimeError::ConfigError(format!("Invalid bind address: {}", e)))?;
-        
-        let listener = TcpListener::bind(&addr).await
+
+        let listener = TcpListener::bind(&addr)
+            .await
             .map_err(|e| RealtimeError::ConfigError(format!("Failed to bind: {}", e)))?;
-        
+
         log_info!("WebSocket server listening on {}", addr);
-        
+
         let mut shutdown_rx = self.shutdown_tx.subscribe();
-        
+
         loop {
             tokio::select! {
                 accept_result = listener.accept() => {
@@ -179,11 +172,11 @@ impl WebSocketServer {
                             let dispatcher = Arc::clone(&self.dispatcher);
                             let connections = Arc::clone(&self.connections);
                             let config = self.config.clone();
-                            
+
                             tokio::spawn(async move {
                                 if let Err(e) = Self::handle_connection(
-                                    stream, 
-                                    peer_addr, 
+                                    stream,
+                                    peer_addr,
                                     dispatcher,
                                     connections,
                                     config,
@@ -197,17 +190,17 @@ impl WebSocketServer {
                         }
                     }
                 }
-                
+
                 _ = shutdown_rx.recv() => {
                     log_info!("WebSocket server shutting down");
                     break;
                 }
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Handle a single WebSocket connection
     async fn handle_connection(
         stream: TcpStream,
@@ -216,39 +209,44 @@ impl WebSocketServer {
         connections: Arc<RwLock<HashMap<String, mpsc::Sender<ServerMessage>>>>,
         config: WebSocketConfig,
     ) -> RealtimeResult<()> {
-        let ws_stream = accept_async(stream).await
-            .map_err(|e| RealtimeError::ConnectionError(format!("WebSocket handshake failed: {}", e)))?;
-        
+        let ws_stream = accept_async(stream).await.map_err(|e| {
+            RealtimeError::ConnectionError(format!("WebSocket handshake failed: {}", e))
+        })?;
+
         let (mut ws_sender, mut ws_receiver) = ws_stream.split();
-        
+
         // Generate connection ID
         let connection_id = Uuid::new_v4().to_string();
-        log_info!("New WebSocket connection: {} from {}", connection_id, peer_addr);
-        
+        log_info!(
+            "New WebSocket connection: {} from {}",
+            connection_id,
+            peer_addr
+        );
+
         // Create message channel
         let (msg_tx, mut msg_rx) = mpsc::channel::<ServerMessage>(256);
-        
+
         // Register connection
         {
             let mut conns = connections.write().await;
             conns.insert(connection_id.clone(), msg_tx.clone());
         }
-        
+
         // Default RLS context (unauthenticated)
         let mut rls_context = RlsContext::anonymous();
         let mut event_receiver: Option<EventReceiver> = None;
         let mut subscribed_channels: Vec<String> = Vec::new();
-        
+
         // Send welcome message
         let welcome = ServerMessage::System {
             message: format!("Connected. Connection ID: {}", connection_id),
         };
         let _ = msg_tx.send(welcome).await;
-        
+
         // Heartbeat interval
         let heartbeat_interval = tokio::time::Duration::from_secs(config.heartbeat_interval_secs);
         let mut heartbeat_timer = tokio::time::interval(heartbeat_interval);
-        
+
         loop {
             tokio::select! {
                 // Handle incoming WebSocket messages
@@ -310,7 +308,7 @@ impl WebSocketServer {
                         _ => {}
                     }
                 }
-                
+
                 // Handle outgoing messages
                 Some(server_msg) = msg_rx.recv() => {
                     match serde_json::to_string(&server_msg) {
@@ -325,7 +323,7 @@ impl WebSocketServer {
                         }
                     }
                 }
-                
+
                 // Handle events from dispatcher
                 event = async {
                     if let Some(ref mut rx) = event_receiver {
@@ -342,7 +340,7 @@ impl WebSocketServer {
                         let _ = msg_tx.send(event_msg).await;
                     }
                 }
-                
+
                 // Periodic heartbeat
                 _ = heartbeat_timer.tick() => {
                     let heartbeat = ServerMessage::Heartbeat {
@@ -353,18 +351,18 @@ impl WebSocketServer {
                 }
             }
         }
-        
+
         // Cleanup
         dispatcher.disconnect(&connection_id);
         {
             let mut conns = connections.write().await;
             conns.remove(&connection_id);
         }
-        
+
         log_info!("Connection {} cleaned up", connection_id);
         Ok(())
     }
-    
+
     /// Process a client message
     async fn process_client_message(
         connection_id: &str,
@@ -382,32 +380,34 @@ impl WebSocketServer {
                     let rx = dispatcher.connect(connection_id.to_string(), rls_context.clone());
                     *event_receiver = Some(rx);
                 }
-                
+
                 // Subscribe to channel
                 let subscription = Subscription::new(
                     connection_id.to_string(),
                     channel.clone(),
                     rls_context.clone(),
                 );
-                
+
                 dispatcher.subscriptions.register(subscription.clone())?;
                 subscribed_channels.push(channel.clone());
-                
+
                 let response = ServerMessage::Subscribed {
                     channel: channel.clone(),
                     subscription_id: subscription.id.to_string(),
                 };
                 let _ = msg_tx.send(response).await;
             }
-            
+
             ClientMessage::Unsubscribe { channel } => {
-                dispatcher.subscriptions.unsubscribe_by_channel(connection_id, &channel)?;
+                dispatcher
+                    .subscriptions
+                    .unsubscribe_by_channel(connection_id, &channel)?;
                 subscribed_channels.retain(|c| c != &channel);
-                
+
                 let response = ServerMessage::Unsubscribed { channel };
                 let _ = msg_tx.send(response).await;
             }
-            
+
             ClientMessage::Heartbeat { ref_id } => {
                 let response = ServerMessage::Heartbeat {
                     ref_id,
@@ -415,7 +415,7 @@ impl WebSocketServer {
                 };
                 let _ = msg_tx.send(response).await;
             }
-            
+
             ClientMessage::Auth { token } => {
                 // In production, validate JWT and extract RLS context
                 // For now, mark as authenticated with the token as user_id
@@ -437,15 +437,15 @@ impl WebSocketServer {
                 }
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Shutdown the server
     pub fn shutdown(&self) {
         let _ = self.shutdown_tx.send(());
     }
-    
+
     /// Get connection count
     pub async fn connection_count(&self) -> usize {
         self.connections.read().await.len()
@@ -459,7 +459,7 @@ fn validate_token(token: &str) -> RealtimeResult<RlsContext> {
     if token.is_empty() {
         return Err(RealtimeError::AuthError("Empty token".to_string()));
     }
-    
+
     // Parse as simple user_id for testing
     if let Ok(user_id) = Uuid::parse_str(token) {
         Ok(RlsContext::authenticated(user_id))
@@ -472,19 +472,19 @@ fn validate_token(token: &str) -> RealtimeResult<RlsContext> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_config_default() {
         let config = WebSocketConfig::default();
         assert_eq!(config.bind_addr, "0.0.0.0:4000");
         assert_eq!(config.heartbeat_interval_secs, 30);
     }
-    
+
     #[test]
     fn test_client_message_parse() {
         let json = r#"{"type": "subscribe", "channel": "users"}"#;
         let msg: ClientMessage = serde_json::from_str(json).unwrap();
-        
+
         match msg {
             ClientMessage::Subscribe { channel, .. } => {
                 assert_eq!(channel, "users");
@@ -492,19 +492,19 @@ mod tests {
             _ => panic!("Wrong message type"),
         }
     }
-    
+
     #[test]
     fn test_server_message_serialize() {
         let msg = ServerMessage::Heartbeat {
             ref_id: Some("123".to_string()),
             server_time: 1234567890,
         };
-        
+
         let json = serde_json::to_string(&msg).unwrap();
         assert!(json.contains("heartbeat"));
         assert!(json.contains("123"));
     }
-    
+
     #[test]
     fn test_validate_token() {
         let user_id = Uuid::new_v4();
@@ -512,7 +512,7 @@ mod tests {
         assert_eq!(result.user_id, Some(user_id));
         assert!(result.is_authenticated);
     }
-    
+
     #[test]
     fn test_validate_empty_token() {
         assert!(validate_token("").is_err());

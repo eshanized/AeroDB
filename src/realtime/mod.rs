@@ -14,21 +14,20 @@
 //! - **Presence**: User presence tracking
 //! - **WebSocket**: Network layer for connections
 
+pub mod broadcast;
+pub mod dispatcher;
 pub mod errors;
 pub mod event;
 pub mod event_log;
-pub mod subscription;
-pub mod dispatcher;
-pub mod broadcast;
 pub mod presence;
+pub mod subscription;
 pub mod websocket;
 
-pub use errors::{RealtimeError, RealtimeResult};
-pub use event::{DatabaseEvent, EventType, BroadcastEvent};
-pub use event_log::EventLog;
-pub use subscription::{Subscription, SubscriptionRegistry, SubscriptionFilter};
-pub use dispatcher::Dispatcher;
 pub use broadcast::BroadcastChannel;
+pub use dispatcher::Dispatcher;
+pub use errors::{RealtimeError, RealtimeResult};
+pub use event::{BroadcastEvent, DatabaseEvent, EventType};
+pub use event_log::EventLog;
 pub use presence::PresenceTracker;
-pub use websocket::{WebSocketServer, WebSocketConfig};
-
+pub use subscription::{Subscription, SubscriptionFilter, SubscriptionRegistry};
+pub use websocket::{WebSocketConfig, WebSocketServer};

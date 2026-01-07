@@ -183,7 +183,7 @@ impl SnapshotVisibilityCache {
             self.stats.evictions += 1;
             return;
         }
-        
+
         let key = document_key.into();
         // Only insert if not already present (immutable entries)
         if !self.cache.contains_key(&key) {
@@ -263,7 +263,12 @@ impl ShortCircuitTraversal {
     /// Per READ_PATH_OPTIMIZATION.md §4.2:
     /// - "Later versions cannot be visible"
     /// - "Earlier versions are superseded"
-    pub fn should_continue(&mut self, version_commit_id: u64, snapshot_commit_id: u64, is_visible: bool) -> TraversalDecision {
+    pub fn should_continue(
+        &mut self,
+        version_commit_id: u64,
+        snapshot_commit_id: u64,
+        is_visible: bool,
+    ) -> TraversalDecision {
         self.versions_checked += 1;
 
         if self.stopped {
@@ -358,7 +363,7 @@ mod tests {
         let key1 = VisibilityCacheKey::new("doc1", 100);
         let key2 = VisibilityCacheKey::new("doc1", 100);
         let key3 = VisibilityCacheKey::new("doc1", 200);
-        
+
         assert_eq!(key1, key2);
         assert_ne!(key1, key3);
     }
@@ -375,18 +380,28 @@ mod tests {
     #[test]
     fn test_cache_insert_and_get() {
         let mut cache = SnapshotVisibilityCache::new(100, 1000);
-        
-        cache.insert("doc1", CachedVisibility::Visible { version_commit_id: 50 });
-        
+
+        cache.insert(
+            "doc1",
+            CachedVisibility::Visible {
+                version_commit_id: 50,
+            },
+        );
+
         let result = cache.get("doc1");
         assert!(result.is_some());
-        assert_eq!(result.unwrap(), &CachedVisibility::Visible { version_commit_id: 50 });
+        assert_eq!(
+            result.unwrap(),
+            &CachedVisibility::Visible {
+                version_commit_id: 50
+            }
+        );
     }
 
     #[test]
     fn test_cache_miss() {
         let mut cache = SnapshotVisibilityCache::new(100, 1000);
-        
+
         let result = cache.get("nonexistent");
         assert!(result.is_none());
         assert_eq!(cache.stats().misses, 1);
@@ -396,36 +411,46 @@ mod tests {
     fn test_cache_hit_stats() {
         let mut cache = SnapshotVisibilityCache::new(100, 1000);
         cache.insert("doc1", CachedVisibility::NotVisible);
-        
+
         let _ = cache.get("doc1");
         let _ = cache.get("doc1");
-        
+
         assert_eq!(cache.stats().hits, 2);
     }
 
     #[test]
     fn test_cache_immutable_entries() {
         let mut cache = SnapshotVisibilityCache::new(100, 1000);
-        
+
         // Insert first value
-        cache.insert("doc1", CachedVisibility::Visible { version_commit_id: 50 });
-        
+        cache.insert(
+            "doc1",
+            CachedVisibility::Visible {
+                version_commit_id: 50,
+            },
+        );
+
         // Try to insert different value for same key
         cache.insert("doc1", CachedVisibility::NotVisible);
-        
+
         // Should still have original value (immutable)
         let result = cache.get("doc1");
-        assert_eq!(result.unwrap(), &CachedVisibility::Visible { version_commit_id: 50 });
+        assert_eq!(
+            result.unwrap(),
+            &CachedVisibility::Visible {
+                version_commit_id: 50
+            }
+        );
     }
 
     #[test]
     fn test_cache_capacity_limit() {
         let mut cache = SnapshotVisibilityCache::new(100, 2);
-        
+
         cache.insert("doc1", CachedVisibility::NotVisible);
         cache.insert("doc2", CachedVisibility::NotVisible);
         cache.insert("doc3", CachedVisibility::NotVisible); // Should be skipped
-        
+
         assert_eq!(cache.len(), 2);
         assert_eq!(cache.stats().evictions, 1);
     }
@@ -433,11 +458,21 @@ mod tests {
     #[test]
     fn test_cache_deleted_result() {
         let mut cache = SnapshotVisibilityCache::new(100, 1000);
-        
-        cache.insert("doc1", CachedVisibility::Deleted { tombstone_commit_id: 75 });
-        
+
+        cache.insert(
+            "doc1",
+            CachedVisibility::Deleted {
+                tombstone_commit_id: 75,
+            },
+        );
+
         let result = cache.get("doc1");
-        assert_eq!(result.unwrap(), &CachedVisibility::Deleted { tombstone_commit_id: 75 });
+        assert_eq!(
+            result.unwrap(),
+            &CachedVisibility::Deleted {
+                tombstone_commit_id: 75
+            }
+        );
     }
 
     // ==================== ShortCircuitTraversal Tests ====================
@@ -445,22 +480,22 @@ mod tests {
     #[test]
     fn test_traversal_enabled_stops_on_visible() {
         let mut traversal = ShortCircuitTraversal::new(true);
-        
+
         // First version not visible
         let decision = traversal.should_continue(200, 150, false);
         assert_eq!(decision, TraversalDecision::Continue);
-        
+
         // Second version is visible - should stop
         let decision = traversal.should_continue(100, 150, true);
         assert_eq!(decision, TraversalDecision::StopVisible);
-        
+
         assert_eq!(traversal.versions_checked(), 2);
     }
 
     #[test]
     fn test_traversal_disabled_continues() {
         let mut traversal = ShortCircuitTraversal::new(false);
-        
+
         // Even on visible, returns StopVisible but doesn't set stopped flag
         let decision = traversal.should_continue(100, 150, true);
         assert_eq!(decision, TraversalDecision::StopVisible);
@@ -469,10 +504,10 @@ mod tests {
     #[test]
     fn test_traversal_after_stopped() {
         let mut traversal = ShortCircuitTraversal::new(true);
-        
+
         // Find visible version
         traversal.should_continue(100, 150, true);
-        
+
         // Further calls should return StopNotVisible
         let decision = traversal.should_continue(50, 150, true);
         assert_eq!(decision, TraversalDecision::StopNotVisible);
@@ -499,12 +534,14 @@ mod tests {
     #[test]
     fn test_cache_returns_same_result() {
         // Simulate baseline computation
-        let baseline_result = CachedVisibility::Visible { version_commit_id: 42 };
-        
+        let baseline_result = CachedVisibility::Visible {
+            version_commit_id: 42,
+        };
+
         // Cache the result
         let mut cache = SnapshotVisibilityCache::new(100, 1000);
         cache.insert("doc1", baseline_result.clone());
-        
+
         // Cached result must equal baseline
         let cached = cache.get("doc1").unwrap();
         assert_eq!(cached, &baseline_result);
@@ -516,9 +553,14 @@ mod tests {
     fn test_cache_snapshot_scoped() {
         let mut cache1 = SnapshotVisibilityCache::new(100, 1000);
         let mut cache2 = SnapshotVisibilityCache::new(200, 1000);
-        
-        cache1.insert("doc1", CachedVisibility::Visible { version_commit_id: 50 });
-        
+
+        cache1.insert(
+            "doc1",
+            CachedVisibility::Visible {
+                version_commit_id: 50,
+            },
+        );
+
         // Different snapshot should not have the entry
         assert!(cache2.get("doc1").is_none());
     }

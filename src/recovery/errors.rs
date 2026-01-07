@@ -44,7 +44,9 @@ impl RecoveryErrorCode {
         match self {
             RecoveryErrorCode::AeroWalCorruption => "AERO_WAL_CORRUPTION",
             RecoveryErrorCode::AeroRecoverySchemaMissing => "AERO_RECOVERY_SCHEMA_MISSING",
-            RecoveryErrorCode::AeroRecoveryVerificationFailed => "AERO_RECOVERY_VERIFICATION_FAILED",
+            RecoveryErrorCode::AeroRecoveryVerificationFailed => {
+                "AERO_RECOVERY_VERIFICATION_FAILED"
+            }
             RecoveryErrorCode::AeroRecoveryFailed => "AERO_RECOVERY_FAILED",
             RecoveryErrorCode::AeroStorageCorruption => "AERO_STORAGE_CORRUPTION",
         }
@@ -174,7 +176,13 @@ impl RecoveryError {
 
 impl fmt::Display for RecoveryError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}] {}: {}", self.code.severity(), self.code.code(), self.message)?;
+        write!(
+            f,
+            "[{}] {}: {}",
+            self.code.severity(),
+            self.code.code(),
+            self.message
+        )?;
         write!(f, " [violates {}]", self.code.invariant())?;
         Ok(())
     }
@@ -191,10 +199,22 @@ mod tests {
 
     #[test]
     fn test_error_codes_match_spec() {
-        assert_eq!(RecoveryErrorCode::AeroWalCorruption.code(), "AERO_WAL_CORRUPTION");
-        assert_eq!(RecoveryErrorCode::AeroRecoverySchemaMissing.code(), "AERO_RECOVERY_SCHEMA_MISSING");
-        assert_eq!(RecoveryErrorCode::AeroRecoveryVerificationFailed.code(), "AERO_RECOVERY_VERIFICATION_FAILED");
-        assert_eq!(RecoveryErrorCode::AeroRecoveryFailed.code(), "AERO_RECOVERY_FAILED");
+        assert_eq!(
+            RecoveryErrorCode::AeroWalCorruption.code(),
+            "AERO_WAL_CORRUPTION"
+        );
+        assert_eq!(
+            RecoveryErrorCode::AeroRecoverySchemaMissing.code(),
+            "AERO_RECOVERY_SCHEMA_MISSING"
+        );
+        assert_eq!(
+            RecoveryErrorCode::AeroRecoveryVerificationFailed.code(),
+            "AERO_RECOVERY_VERIFICATION_FAILED"
+        );
+        assert_eq!(
+            RecoveryErrorCode::AeroRecoveryFailed.code(),
+            "AERO_RECOVERY_FAILED"
+        );
     }
 
     #[test]

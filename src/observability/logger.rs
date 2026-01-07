@@ -152,11 +152,7 @@ impl Logger {
 
 /// Capture logs to a buffer for testing
 #[cfg(test)]
-pub fn capture_log(
-    severity: Severity,
-    event: &str,
-    fields: &[(&str, &str)],
-) -> String {
+pub fn capture_log(severity: Severity, event: &str, fields: &[(&str, &str)]) -> String {
     let mut buffer = Vec::new();
     Logger::log_to_writer(severity, event, fields, &mut buffer);
     String::from_utf8(buffer).unwrap()

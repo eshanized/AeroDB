@@ -151,7 +151,9 @@ impl fmt::Display for BackupError {
 
 impl std::error::Error for BackupError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.source.as_ref().map(|e| e as &(dyn std::error::Error + 'static))
+        self.source
+            .as_ref()
+            .map(|e| e as &(dyn std::error::Error + 'static))
     }
 }
 
@@ -175,10 +177,7 @@ mod tests {
             BackupErrorCode::AeroBackupFailed.as_str(),
             "AERO_BACKUP_FAILED"
         );
-        assert_eq!(
-            BackupErrorCode::AeroBackupIo.as_str(),
-            "AERO_BACKUP_IO"
-        );
+        assert_eq!(BackupErrorCode::AeroBackupIo.as_str(), "AERO_BACKUP_IO");
         assert_eq!(
             BackupErrorCode::AeroBackupManifest.as_str(),
             "AERO_BACKUP_MANIFEST"

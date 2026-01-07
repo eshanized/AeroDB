@@ -450,10 +450,7 @@ mod tests {
 
     #[test]
     fn test_corruption_during_rebuild_halts() {
-        let docs = vec![
-            make_doc("user_1", 25, 100),
-            make_doc("user_2", 30, 200),
-        ];
+        let docs = vec![make_doc("user_1", 25, 100), make_doc("user_2", 30, 200)];
 
         let mut storage = MockStorage::new(docs).with_corruption_at(1);
         let mut manager = IndexManager::pk_only();

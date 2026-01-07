@@ -62,9 +62,10 @@ impl<'a> SchemaValidator<'a> {
             return Err(SchemaError::unknown_schema(schema_id));
         }
 
-        let schema = self.loader.get(schema_id, schema_version).ok_or_else(|| {
-            SchemaError::unknown_version(schema_id, schema_version)
-        })?;
+        let schema = self
+            .loader
+            .get(schema_id, schema_version)
+            .ok_or_else(|| SchemaError::unknown_version(schema_id, schema_version))?;
 
         // Document must be an object
         let doc_obj = document.as_object().ok_or_else(|| {
@@ -206,7 +207,13 @@ impl<'a> SchemaValidator<'a> {
         match expected_type {
             FieldType::String => {
                 if !value.is_string() {
-                    return Err(type_error(schema_id, schema_version, field_path, "string", value));
+                    return Err(type_error(
+                        schema_id,
+                        schema_version,
+                        field_path,
+                        "string",
+                        value,
+                    ));
                 }
             }
             FieldType::Int => {
@@ -214,20 +221,44 @@ impl<'a> SchemaValidator<'a> {
                 if !value.is_i64() && !value.is_u64() {
                     // Check if it's a float that could be confused for int
                     if value.is_f64() {
-                        return Err(type_error(schema_id, schema_version, field_path, "int", value));
+                        return Err(type_error(
+                            schema_id,
+                            schema_version,
+                            field_path,
+                            "int",
+                            value,
+                        ));
                     }
-                    return Err(type_error(schema_id, schema_version, field_path, "int", value));
+                    return Err(type_error(
+                        schema_id,
+                        schema_version,
+                        field_path,
+                        "int",
+                        value,
+                    ));
                 }
             }
             FieldType::Bool => {
                 if !value.is_boolean() {
-                    return Err(type_error(schema_id, schema_version, field_path, "bool", value));
+                    return Err(type_error(
+                        schema_id,
+                        schema_version,
+                        field_path,
+                        "bool",
+                        value,
+                    ));
                 }
             }
             FieldType::Float => {
                 // Accept both integers and floats as float
                 if !value.is_number() {
-                    return Err(type_error(schema_id, schema_version, field_path, "float", value));
+                    return Err(type_error(
+                        schema_id,
+                        schema_version,
+                        field_path,
+                        "float",
+                        value,
+                    ));
                 }
             }
             FieldType::Object { fields } => {
@@ -254,13 +285,7 @@ impl<'a> SchemaValidator<'a> {
                         ));
                     }
 
-                    self.validate_value(
-                        schema_id,
-                        schema_version,
-                        elem,
-                        element_type,
-                        &elem_path,
-                    )?;
+                    self.validate_value(schema_id, schema_version, elem, element_type, &elem_path)?;
                 }
             }
         }
@@ -313,8 +338,8 @@ fn type_error(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::types::Schema;
+    use super::*;
     use serde_json::json;
     use tempfile::TempDir;
 
@@ -457,7 +482,10 @@ mod tests {
         let doc = json!({ "_id": "x" });
         let result = validator.validate_document("users", "v999", &doc);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().code().code(), "AERO_UNKNOWN_SCHEMA_VERSION");
+        assert_eq!(
+            result.unwrap_err().code().code(),
+            "AERO_UNKNOWN_SCHEMA_VERSION"
+        );
     }
 
     #[test]
@@ -580,7 +608,12 @@ mod tests {
 
         let result = validator.validate_document("data", "v1", &doc);
         assert!(result.is_err());
-        assert!(result.unwrap_err().details().unwrap().actual.contains("null"));
+        assert!(result
+            .unwrap_err()
+            .details()
+            .unwrap()
+            .actual
+            .contains("null"));
     }
 
     #[test]
@@ -592,7 +625,9 @@ mod tests {
         fields.insert("_id".into(), FieldDef::required_string());
         fields.insert("score".into(), FieldDef::required_float());
 
-        loader.register(Schema::new("scores", "v1", fields)).unwrap();
+        loader
+            .register(Schema::new("scores", "v1", fields))
+            .unwrap();
         let validator = SchemaValidator::new(&loader);
 
         // Integer value for float field is acceptable

@@ -70,7 +70,11 @@ impl ObservabilityServer {
     /// Generate snapshots response.
     ///
     /// Read-only, Phase 4, no semantic authority.
-    pub fn get_snapshots(&self, commit_id: u64, snapshots: Vec<SnapshotInfo>) -> ApiResponse<SnapshotsData> {
+    pub fn get_snapshots(
+        &self,
+        commit_id: u64,
+        snapshots: Vec<SnapshotInfo>,
+    ) -> ApiResponse<SnapshotsData> {
         let data = SnapshotsData { snapshots };
         ApiResponse::new(ObservedAt::live(commit_id), data)
     }
@@ -78,7 +82,11 @@ impl ObservabilityServer {
     /// Generate checkpoints response.
     ///
     /// Read-only, Phase 4, no semantic authority.
-    pub fn get_checkpoints(&self, commit_id: u64, data: CheckpointsData) -> ApiResponse<CheckpointsData> {
+    pub fn get_checkpoints(
+        &self,
+        commit_id: u64,
+        data: CheckpointsData,
+    ) -> ApiResponse<CheckpointsData> {
         ApiResponse::new(ObservedAt::live(commit_id), data)
     }
 
@@ -94,7 +102,11 @@ impl ObservabilityServer {
     ///
     /// Read-only, Phase 4, no semantic authority.
     /// Per DX_OBSERVABILITY_API.md §5.7: Must NOT attempt to contact peers.
-    pub fn get_replication(&self, commit_id: u64, data: ReplicationData) -> ApiResponse<ReplicationData> {
+    pub fn get_replication(
+        &self,
+        commit_id: u64,
+        data: ReplicationData,
+    ) -> ApiResponse<ReplicationData> {
         ApiResponse::new(ObservedAt::live(commit_id), data)
     }
 
@@ -132,7 +144,7 @@ mod tests {
     fn test_status_response() {
         let server = ObservabilityServer::new(DxConfig::enabled());
         let resp = server.get_status(LifecycleState::Running, 100, 95);
-        
+
         assert_eq!(resp.api_version, "v1");
         assert_eq!(resp.observed_at.commit_id, 100);
         assert_eq!(resp.data.commit_id_high_water, 100);
@@ -143,7 +155,7 @@ mod tests {
         let server = ObservabilityServer::new(DxConfig::enabled());
         let resp = server.get_status(LifecycleState::Running, 100, 95);
         let json = ObservabilityServer::to_json(&resp).unwrap();
-        
+
         assert!(json.contains("\"api_version\": \"v1\""));
         assert!(json.contains("\"commit_id\": 100"));
     }
@@ -159,7 +171,7 @@ mod tests {
             gc_watermark: Some(45),
         };
         let resp = server.get_mvcc(100, mvcc_data);
-        
+
         assert_eq!(resp.data.latest_commit_id, 100);
         assert_eq!(resp.data.active_snapshot_count, 2);
     }
@@ -179,7 +191,7 @@ mod tests {
             snapshot_bootstrap_active: false,
         };
         let resp = server.get_replication(100, repl_data);
-        
+
         assert_eq!(resp.data.role, ReplicationRole::Primary);
     }
 }

@@ -78,7 +78,7 @@ impl Visibility {
     /// - Subsequent reads of the same key return the same version
     pub fn visible_version<'a>(chain: &'a VersionChain, view: ReadView) -> VisibilityResult<'a> {
         let upper_bound = view.upper_bound();
-        
+
         // Step 1 & 2: Find version with largest commit_id ≤ upper_bound
         let visible = chain
             .versions()
@@ -279,7 +279,10 @@ mod tests {
 
         // Higher view sees later version
         assert_eq!(result_low.version().unwrap().commit_id(), CommitId::new(10));
-        assert_eq!(result_high.version().unwrap().commit_id(), CommitId::new(20));
+        assert_eq!(
+            result_high.version().unwrap().commit_id(),
+            CommitId::new(20)
+        );
     }
 
     // === Single Version Visibility ===

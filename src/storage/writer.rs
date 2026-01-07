@@ -72,7 +72,8 @@ impl StorageWriter {
                 )
             })?;
 
-        let current_offset = file.metadata()
+        let current_offset = file
+            .metadata()
             .map_err(|e| StorageError::write_failed("Failed to read file metadata", e))?
             .len();
 
@@ -97,7 +98,12 @@ impl StorageWriter {
         let metadata = match fs::metadata(storage_path) {
             Ok(m) => m,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(offsets),
-            Err(e) => return Err(StorageError::read_failed("Failed to read storage metadata", e)),
+            Err(e) => {
+                return Err(StorageError::read_failed(
+                    "Failed to read storage metadata",
+                    e,
+                ))
+            }
         };
 
         if metadata.len() == 0 {
@@ -165,7 +171,10 @@ impl StorageWriter {
         // fsync - mandatory for durability
         self.file.sync_all().map_err(|e| {
             StorageError::write_failed(
-                format!("fsync failed after writing document: {}", record.document_id),
+                format!(
+                    "fsync failed after writing document: {}",
+                    record.document_id
+                ),
                 e,
             )
         })?;
@@ -174,7 +183,8 @@ impl StorageWriter {
         self.current_offset += serialized.len() as u64;
 
         // Update in-memory index (latest record wins)
-        self.document_offsets.insert(record.document_id.clone(), offset);
+        self.document_offsets
+            .insert(record.document_id.clone(), offset);
 
         Ok(offset)
     }
@@ -189,12 +199,8 @@ impl StorageWriter {
         schema_id: &str,
         schema_version: &str,
     ) -> StorageResult<u64> {
-        let payload = StoragePayload::tombstone(
-            collection_id,
-            document_id,
-            schema_id,
-            schema_version,
-        );
+        let payload =
+            StoragePayload::tombstone(collection_id, document_id, schema_id, schema_version);
         self.write(&payload)
     }
 
@@ -286,7 +292,9 @@ mod tests {
 
         {
             let mut writer = StorageWriter::open(temp_dir.path()).unwrap();
-            writer.write_tombstone("users", "user_123", "user_schema", "v1").unwrap();
+            writer
+                .write_tombstone("users", "user_123", "user_schema", "v1")
+                .unwrap();
         }
 
         {
@@ -308,14 +316,24 @@ mod tests {
         // Write same document twice
         {
             let mut writer = StorageWriter::open(temp_dir.path()).unwrap();
-            writer.write(&StoragePayload::new(
-                "users", "doc1", "schema", "v1",
-                b"first".to_vec(),
-            )).unwrap();
-            writer.write(&StoragePayload::new(
-                "users", "doc1", "schema", "v1",
-                b"second".to_vec(),
-            )).unwrap();
+            writer
+                .write(&StoragePayload::new(
+                    "users",
+                    "doc1",
+                    "schema",
+                    "v1",
+                    b"first".to_vec(),
+                ))
+                .unwrap();
+            writer
+                .write(&StoragePayload::new(
+                    "users",
+                    "doc1",
+                    "schema",
+                    "v1",
+                    b"second".to_vec(),
+                ))
+                .unwrap();
         }
 
         // Both records exist in file
@@ -335,10 +353,8 @@ mod tests {
     fn test_apply_wal_record() {
         let temp_dir = TempDir::new().unwrap();
 
-        let wal_payload = crate::wal::WalPayload::new(
-            "users", "user_123", "schema", "v1",
-            b"doc body".to_vec(),
-        );
+        let wal_payload =
+            crate::wal::WalPayload::new("users", "user_123", "schema", "v1", b"doc body".to_vec());
         let wal_record = crate::wal::WalRecord::insert(1, wal_payload);
 
         {
@@ -359,10 +375,8 @@ mod tests {
     fn test_replay_idempotency() {
         let temp_dir = TempDir::new().unwrap();
 
-        let wal_payload = crate::wal::WalPayload::new(
-            "users", "user_123", "schema", "v1",
-            b"doc body".to_vec(),
-        );
+        let wal_payload =
+            crate::wal::WalPayload::new("users", "user_123", "schema", "v1", b"doc body".to_vec());
         let wal_record = crate::wal::WalRecord::insert(1, wal_payload);
 
         // Apply same WAL record twice

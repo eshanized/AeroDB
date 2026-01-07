@@ -132,8 +132,14 @@ impl<'a, S: SchemaRegistry> QueryPlanner<'a, S> {
         }
 
         // 3. Validate schema version exists
-        if !self.schema_registry.schema_version_exists(&query.schema_id, schema_version) {
-            return Err(PlannerError::unknown_schema_version(&query.schema_id, schema_version));
+        if !self
+            .schema_registry
+            .schema_version_exists(&query.schema_id, schema_version)
+        {
+            return Err(PlannerError::unknown_schema_version(
+                &query.schema_id,
+                schema_version,
+            ));
         }
 
         // 4. Prove boundedness BEFORE plan generation
@@ -296,7 +302,10 @@ mod tests {
 
         let result = planner.plan(&query);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().code().code(), "AERO_QUERY_LIMIT_REQUIRED");
+        assert_eq!(
+            result.unwrap_err().code().code(),
+            "AERO_QUERY_LIMIT_REQUIRED"
+        );
     }
 
     #[test]
@@ -312,7 +321,10 @@ mod tests {
 
         let result = planner.plan(&query);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().code().code(), "AERO_QUERY_UNINDEXED_FIELD");
+        assert_eq!(
+            result.unwrap_err().code().code(),
+            "AERO_QUERY_UNINDEXED_FIELD"
+        );
     }
 
     #[test]
@@ -329,7 +341,10 @@ mod tests {
 
         let result = planner.plan(&query);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().code().code(), "AERO_QUERY_SORT_NOT_INDEXED");
+        assert_eq!(
+            result.unwrap_err().code().code(),
+            "AERO_QUERY_SORT_NOT_INDEXED"
+        );
     }
 
     #[test]
@@ -361,7 +376,10 @@ mod tests {
 
         let result = planner.plan(&query);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().code().code(), "AERO_SCHEMA_VERSION_REQUIRED");
+        assert_eq!(
+            result.unwrap_err().code().code(),
+            "AERO_SCHEMA_VERSION_REQUIRED"
+        );
     }
 
     #[test]

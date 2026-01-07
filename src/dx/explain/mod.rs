@@ -17,13 +17,13 @@
 //! - Post-execution explanations for audit
 
 pub mod checkpoint;
+pub mod control_plane;
 pub mod model;
 pub mod query;
 pub mod recovery;
 pub mod replication;
 pub mod rules;
 pub mod visibility;
-pub mod control_plane;
 
 pub use model::{
     Conclusion, Evidence, Explanation, ExplanationType, RuleApplication, RuleEvaluation,

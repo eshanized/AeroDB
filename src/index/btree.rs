@@ -248,10 +248,7 @@ mod tests {
         tree.insert(IndexKey::from_int(4), 400);
         tree.insert(IndexKey::from_int(5), 500);
 
-        let offsets = tree.lookup_range(
-            Some(&IndexKey::from_int(2)),
-            Some(&IndexKey::from_int(4)),
-        );
+        let offsets = tree.lookup_range(Some(&IndexKey::from_int(2)), Some(&IndexKey::from_int(4)));
         assert_eq!(offsets, vec![200, 300, 400]);
     }
 

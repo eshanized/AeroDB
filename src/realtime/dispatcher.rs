@@ -26,10 +26,10 @@ pub type EventReceiver = mpsc::UnboundedReceiver<DatabaseEvent>;
 struct Connection {
     /// Connection ID
     id: String,
-    
+
     /// Event sender channel
     sender: EventSender,
-    
+
     /// RLS context for this connection
     rls_context: RlsContext,
 }
@@ -39,10 +39,10 @@ struct Connection {
 pub struct Dispatcher {
     /// Active connections
     connections: RwLock<HashMap<String, Connection>>,
-    
+
     /// Subscription registry
     pub subscriptions: Arc<SubscriptionRegistry>,
-    
+
     /// RLS policies by collection
     rls_policies: RwLock<HashMap<String, RlsPolicy>>,
 }
@@ -62,64 +62,66 @@ impl Dispatcher {
             rls_policies: RwLock::new(HashMap::new()),
         }
     }
-    
+
     /// Register an RLS policy for a collection
     pub fn register_rls_policy(&self, collection: &str, policy: RlsPolicy) {
         if let Ok(mut policies) = self.rls_policies.write() {
             policies.insert(collection.to_string(), policy);
         }
     }
-    
+
     /// Add a connection
     pub fn connect(&self, connection_id: String, rls_context: RlsContext) -> EventReceiver {
         let (tx, rx) = mpsc::unbounded_channel();
-        
+
         let connection = Connection {
             id: connection_id.clone(),
             sender: tx,
             rls_context,
         };
-        
+
         if let Ok(mut connections) = self.connections.write() {
             connections.insert(connection_id, connection);
         }
-        
+
         rx
     }
-    
+
     /// Remove a connection
     pub fn disconnect(&self, connection_id: &str) {
         // Remove all subscriptions for this connection
         self.subscriptions.unsubscribe_all(connection_id);
-        
+
         // Remove the connection
         if let Ok(mut connections) = self.connections.write() {
             connections.remove(connection_id);
         }
     }
-    
+
     /// Dispatch an event to all matching subscribers
-    /// 
+    ///
     /// This is explicitly non-deterministic (RT-D1).
     /// Events may be delivered out of order or not at all.
     pub fn dispatch(&self, event: &DatabaseEvent) -> DispatchResult {
         let mut result = DispatchResult::default();
-        
+
         // Find matching subscriptions
         let subscriptions = self.subscriptions.matching(event);
         result.matched = subscriptions.len();
-        
+
         // Get connections
         let connections = match self.connections.read() {
             Ok(c) => c,
             Err(_) => return result,
         };
-        
+
         // Get RLS policy for this collection
-        let rls_policy = self.rls_policies.read()
+        let rls_policy = self
+            .rls_policies
+            .read()
             .ok()
             .and_then(|p| p.get(&event.collection).cloned());
-        
+
         // Dispatch to each matching subscription
         for subscription in subscriptions {
             // Check RLS
@@ -127,7 +129,7 @@ impl Dispatcher {
                 result.filtered += 1;
                 continue;
             }
-            
+
             // Get connection
             if let Some(conn) = connections.get(&subscription.connection_id) {
                 // Send event (non-blocking)
@@ -139,21 +141,26 @@ impl Dispatcher {
                 result.failed += 1;
             }
         }
-        
+
         result
     }
-    
+
     /// Check if event passes RLS for a given context
-    fn check_rls(&self, context: &RlsContext, policy: &Option<RlsPolicy>, event: &DatabaseEvent) -> bool {
+    fn check_rls(
+        &self,
+        context: &RlsContext,
+        policy: &Option<RlsPolicy>,
+        event: &DatabaseEvent,
+    ) -> bool {
         // Service role bypasses RLS
         if context.can_bypass_rls() {
             return true;
         }
-        
+
         let Some(policy) = policy else {
             return true; // No policy = allow
         };
-        
+
         match policy {
             RlsPolicy::None => true,
             RlsPolicy::Ownership { owner_field } => {
@@ -178,7 +185,7 @@ impl Dispatcher {
             }
         }
     }
-    
+
     /// Get connection count
     pub fn connection_count(&self) -> usize {
         self.connections.read().map(|c| c.len()).unwrap_or(0)
@@ -201,29 +208,29 @@ pub struct DispatchResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use uuid::Uuid;
     use serde_json::json;
-    
+    use uuid::Uuid;
+
     #[test]
     fn test_connect_disconnect() {
         let registry = Arc::new(SubscriptionRegistry::new());
         let dispatcher = Dispatcher::new(registry);
-        
+
         let _rx = dispatcher.connect("conn-1".to_string(), RlsContext::anonymous());
         assert_eq!(dispatcher.connection_count(), 1);
-        
+
         dispatcher.disconnect("conn-1");
         assert_eq!(dispatcher.connection_count(), 0);
     }
-    
+
     #[tokio::test]
     async fn test_dispatch_to_subscriber() {
         let registry = Arc::new(SubscriptionRegistry::new());
         let dispatcher = Dispatcher::new(Arc::clone(&registry));
-        
+
         // Connect
         let mut rx = dispatcher.connect("conn-1".to_string(), RlsContext::anonymous());
-        
+
         // Subscribe
         let sub = Subscription::new(
             "conn-1".to_string(),
@@ -231,7 +238,7 @@ mod tests {
             RlsContext::anonymous(),
         );
         registry.subscribe(sub).unwrap();
-        
+
         // Create event
         let event = DatabaseEvent::insert(
             1,
@@ -240,41 +247,40 @@ mod tests {
             json!({"title": "Hello"}),
             None,
         );
-        
+
         // Dispatch
         let result = dispatcher.dispatch(&event);
         assert_eq!(result.matched, 1);
         assert_eq!(result.delivered, 1);
-        
+
         // Receive
         let received = rx.recv().await.unwrap();
         assert_eq!(received.sequence, 1);
         assert_eq!(received.collection, "posts");
     }
-    
+
     #[tokio::test]
     async fn test_rls_filtering() {
         let registry = Arc::new(SubscriptionRegistry::new());
         let dispatcher = Dispatcher::new(Arc::clone(&registry));
-        
+
         // Register RLS policy
-        dispatcher.register_rls_policy("posts", RlsPolicy::Ownership {
-            owner_field: "owner_id".to_string(),
-        });
-        
+        dispatcher.register_rls_policy(
+            "posts",
+            RlsPolicy::Ownership {
+                owner_field: "owner_id".to_string(),
+            },
+        );
+
         // Connect with specific user
         let user_id = Uuid::new_v4();
         let context = RlsContext::authenticated(user_id);
         let mut rx = dispatcher.connect("conn-1".to_string(), context.clone());
-        
+
         // Subscribe
-        let sub = Subscription::new(
-            "conn-1".to_string(),
-            "posts".to_string(),
-            context,
-        );
+        let sub = Subscription::new("conn-1".to_string(), "posts".to_string(), context);
         registry.subscribe(sub).unwrap();
-        
+
         // Event owned by someone else
         let other_user = Uuid::new_v4();
         let event = DatabaseEvent::insert(
@@ -284,13 +290,13 @@ mod tests {
             json!({"title": "Hello", "owner_id": other_user.to_string()}),
             Some(other_user),
         );
-        
+
         // Dispatch - should be filtered
         let result = dispatcher.dispatch(&event);
         assert_eq!(result.matched, 1);
         assert_eq!(result.filtered, 1);
         assert_eq!(result.delivered, 0);
-        
+
         // Event owned by the user
         let event2 = DatabaseEvent::insert(
             2,
@@ -299,12 +305,12 @@ mod tests {
             json!({"title": "Mine", "owner_id": user_id.to_string()}),
             Some(user_id),
         );
-        
+
         // Dispatch - should be delivered
         let result2 = dispatcher.dispatch(&event2);
         assert_eq!(result2.matched, 1);
         assert_eq!(result2.delivered, 1);
-        
+
         // Receive
         let received = rx.recv().await.unwrap();
         assert_eq!(received.sequence, 2);

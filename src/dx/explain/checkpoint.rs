@@ -85,7 +85,10 @@ impl CheckpointExplainer {
         )
         .input("checkpoint_id", input.checkpoint_id)
         .input("checkpoint_commit_id", input.checkpoint_commit_id)
-        .input("wal_range", format!("{}-{}", input.wal_start_offset, input.wal_end_offset));
+        .input(
+            "wal_range",
+            format!("{}-{}", input.wal_start_offset, input.wal_end_offset),
+        );
 
         // Check durability ordering (D-1 derivative)
         let mut dur_evidence = Evidence::empty();
@@ -169,7 +172,10 @@ mod tests {
         };
 
         let explanation = explainer.explain(input);
-        assert_eq!(explanation.explanation_type, ExplanationType::CheckpointSafety);
+        assert_eq!(
+            explanation.explanation_type,
+            ExplanationType::CheckpointSafety
+        );
         assert!(!explanation.rules_applied.is_empty());
     }
 
@@ -205,7 +211,10 @@ mod tests {
         let exp1 = explainer.explain(input.clone());
         let exp2 = explainer.explain(input);
 
-        assert_eq!(exp1.observed_snapshot.commit_id, exp2.observed_snapshot.commit_id);
+        assert_eq!(
+            exp1.observed_snapshot.commit_id,
+            exp2.observed_snapshot.commit_id
+        );
         assert_eq!(exp1.rules_applied.len(), exp2.rules_applied.len());
     }
 }

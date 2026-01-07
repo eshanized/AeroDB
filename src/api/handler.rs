@@ -8,7 +8,9 @@ use std::sync::Mutex;
 use serde_json::{json, Value};
 
 use crate::index::{DocumentInfo, IndexManager};
-use crate::planner::{FilterOp, IndexMetadata, Predicate, Query, QueryPlan, QueryPlanner, ScanType, SortSpec};
+use crate::planner::{
+    FilterOp, IndexMetadata, Predicate, Query, QueryPlan, QueryPlanner, ScanType, SortSpec,
+};
 use crate::schema::{SchemaLoader, SchemaValidator};
 use crate::storage::{StoragePayload, StorageReader, StorageWriter};
 use crate::wal::{RecordType, WalPayload, WalWriter};
@@ -90,15 +92,17 @@ impl ApiHandler {
             .map_err(ApiError::from_schema_error)?;
 
         // Extract document ID
-        let doc_id = req.document
+        let doc_id = req
+            .document
             .get("_id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| ApiError::invalid_request("Document missing _id"))?
             .to_string();
 
         // 2. Build write intent
-        let body_bytes = serde_json::to_vec(&req.document)
-            .map_err(|e| ApiError::invalid_request(format!("Failed to serialize document: {}", e)))?;
+        let body_bytes = serde_json::to_vec(&req.document).map_err(|e| {
+            ApiError::invalid_request(format!("Failed to serialize document: {}", e))
+        })?;
 
         let wal_payload = WalPayload::new(
             &self.collection,
@@ -121,7 +125,8 @@ impl ApiHandler {
             &req.schema_version,
             body_bytes,
         );
-        let offset = sys.storage_writer
+        let offset = sys
+            .storage_writer
             .write(&storage_payload)
             .map_err(ApiError::from_storage_error)?;
 
@@ -152,7 +157,8 @@ impl ApiHandler {
         let validator = SchemaValidator::new(sys.schema_loader);
 
         // Extract document ID
-        let doc_id = req.document
+        let doc_id = req
+            .document
             .get("_id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| ApiError::invalid_request("Document missing _id"))?
@@ -166,12 +172,16 @@ impl ApiHandler {
         // 2. Check document exists (via index)
         let offsets = sys.index_manager.lookup_pk(&doc_id);
         if offsets.is_empty() {
-            return Err(ApiError::invalid_request(format!("Document not found: {}", doc_id)));
+            return Err(ApiError::invalid_request(format!(
+                "Document not found: {}",
+                doc_id
+            )));
         }
 
         // 3. Build write intent
-        let body_bytes = serde_json::to_vec(&req.document)
-            .map_err(|e| ApiError::invalid_request(format!("Failed to serialize document: {}", e)))?;
+        let body_bytes = serde_json::to_vec(&req.document).map_err(|e| {
+            ApiError::invalid_request(format!("Failed to serialize document: {}", e))
+        })?;
 
         let wal_payload = WalPayload::new(
             &self.collection,
@@ -194,7 +204,8 @@ impl ApiHandler {
             &req.schema_version,
             body_bytes,
         );
-        let offset = sys.storage_writer
+        let offset = sys
+            .storage_writer
             .write(&storage_payload)
             .map_err(ApiError::from_storage_error)?;
 
@@ -223,17 +234,20 @@ impl ApiHandler {
         // 1. Check document exists (via index)
         let offsets = sys.index_manager.lookup_pk(&req.document_id);
         if offsets.is_empty() {
-            return Err(ApiError::invalid_request(format!("Document not found: {}", req.document_id)));
+            return Err(ApiError::invalid_request(format!(
+                "Document not found: {}",
+                req.document_id
+            )));
         }
 
         // Get the old document body for index removal
         let old_offset = offsets[offsets.len() - 1];
-        let old_doc = sys.storage_reader
+        let old_doc = sys
+            .storage_reader
             .read_at(old_offset)
             .map_err(ApiError::from_storage_error)?;
 
-        let old_body: Value = serde_json::from_slice(&old_doc.document_body)
-            .unwrap_or(json!({}));
+        let old_body: Value = serde_json::from_slice(&old_doc.document_body).unwrap_or(json!({}));
 
         // 2. Append WAL record
         let wal_payload = WalPayload::tombstone(
@@ -267,7 +281,8 @@ impl ApiHandler {
     /// 4. Return results
     fn handle_query(&self, req: QueryRequest, sys: &mut Subsystems<'_>) -> ApiResult<Value> {
         // Build index metadata
-        let index_metadata = IndexMetadata::with_indexes(sys.index_manager.indexed_fields().iter().cloned());
+        let index_metadata =
+            IndexMetadata::with_indexes(sys.index_manager.indexed_fields().iter().cloned());
 
         let planner = QueryPlanner::new(sys.schema_loader, &index_metadata);
 
@@ -275,9 +290,7 @@ impl ApiHandler {
         let query = self.build_query(&req)?;
 
         // 2. Call Planner
-        let plan = planner
-            .plan(&query)
-            .map_err(ApiError::from_planner_error)?;
+        let plan = planner.plan(&query).map_err(ApiError::from_planner_error)?;
 
         // 3. Execute query (simplified execution)
         let mut results = Vec::new();
@@ -294,7 +307,8 @@ impl ApiHandler {
                 }
 
                 // Check schema match
-                if record.schema_id != req.schema_id || record.schema_version != req.schema_version {
+                if record.schema_id != req.schema_id || record.schema_version != req.schema_version
+                {
                     continue;
                 }
 
@@ -311,7 +325,8 @@ impl ApiHandler {
     /// Handle explain operation
     fn handle_explain(&self, req: QueryRequest, sys: &mut Subsystems<'_>) -> ApiResult<Value> {
         // Build index metadata
-        let index_metadata = IndexMetadata::with_indexes(sys.index_manager.indexed_fields().iter().cloned());
+        let index_metadata =
+            IndexMetadata::with_indexes(sys.index_manager.indexed_fields().iter().cloned());
 
         let planner = QueryPlanner::new(sys.schema_loader, &index_metadata);
 
@@ -319,9 +334,7 @@ impl ApiHandler {
         let query = self.build_query(&req)?;
 
         // Call Planner
-        let plan = planner
-            .plan(&query)
-            .map_err(ApiError::from_planner_error)?;
+        let plan = planner.plan(&query).map_err(ApiError::from_planner_error)?;
 
         // Return explain output
         Ok(json!({
@@ -351,9 +364,12 @@ impl ApiHandler {
                                 "$gt" => Predicate::gt(field, value.clone()),
                                 "$lte" => Predicate::lte(field, value.clone()),
                                 "$lt" => Predicate::lt(field, value.clone()),
-                                other => return Err(ApiError::invalid_request(
-                                    format!("Unknown filter operator: {}", other)
-                                )),
+                                other => {
+                                    return Err(ApiError::invalid_request(format!(
+                                        "Unknown filter operator: {}",
+                                        other
+                                    )))
+                                }
                             };
                             query = query.with_predicate(predicate);
                         }
@@ -436,7 +452,14 @@ mod tests {
     use std::collections::{HashMap, HashSet};
     use tempfile::TempDir;
 
-    fn setup_test_env() -> (TempDir, SchemaLoader, WalWriter, StorageWriter, StorageReader, IndexManager) {
+    fn setup_test_env() -> (
+        TempDir,
+        SchemaLoader,
+        WalWriter,
+        StorageWriter,
+        StorageReader,
+        IndexManager,
+    ) {
         let temp_dir = TempDir::new().unwrap();
         let data_dir = temp_dir.path();
 
@@ -463,7 +486,14 @@ mod tests {
         indexed.insert("age".to_string());
         let index_manager = IndexManager::new(indexed);
 
-        (temp_dir, loader, wal_writer, storage_writer, storage_reader, index_manager)
+        (
+            temp_dir,
+            loader,
+            wal_writer,
+            storage_writer,
+            storage_reader,
+            index_manager,
+        )
     }
 
     #[test]
