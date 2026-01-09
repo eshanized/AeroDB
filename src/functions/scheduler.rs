@@ -1,16 +1,18 @@
 //! # Function Scheduler
 
 use std::collections::HashMap;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use chrono::{DateTime, Utc};
 use croner::Cron;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::errors::{FunctionError, FunctionResult};
+use super::store::{JobStore, MemJobStore};
 
 /// A scheduled job
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScheduledJob {
     /// Job ID
     pub id: Uuid,
@@ -73,25 +75,54 @@ impl ScheduledJob {
 }
 
 /// Job scheduler
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Scheduler {
     /// Jobs by ID
     jobs: RwLock<HashMap<Uuid, ScheduledJob>>,
 
     /// Jobs by function name
     by_function: RwLock<HashMap<String, Uuid>>,
+
+    /// Persistent store
+    store: Arc<dyn JobStore>,
+}
+
+impl Default for Scheduler {
+    fn default() -> Self {
+        Self::new(Arc::new(MemJobStore::default()))
+    }
 }
 
 impl Scheduler {
-    /// Create a new scheduler
-    pub fn new() -> Self {
-        Self::default()
+    /// Create a new scheduler with specific store
+    pub fn new(store: Arc<dyn JobStore>) -> Self {
+        let jobs = store.load().unwrap_or_else(|e| {
+            eprintln!("Failed to load jobs from store: {}", e);
+            Vec::new()
+        });
+
+        let mut jobs_map = HashMap::new();
+        let mut by_function = HashMap::new();
+
+        for job in jobs {
+            by_function.insert(job.function_name.clone(), job.id);
+            jobs_map.insert(job.id, job);
+        }
+
+        Self {
+            jobs: RwLock::new(jobs_map),
+            by_function: RwLock::new(by_function),
+            store,
+        }
     }
 
     /// Add a scheduled job
     pub fn schedule(&self, job: ScheduledJob) -> FunctionResult<Uuid> {
         let id = job.id;
         let function_name = job.function_name.clone();
+
+        // Persist first
+        self.store.save(&job)?;
 
         {
             let mut jobs = self
@@ -114,6 +145,9 @@ impl Scheduler {
 
     /// Cancel a job
     pub fn cancel(&self, job_id: Uuid) -> FunctionResult<()> {
+        // Persist removal
+        self.store.delete(&job_id)?;
+
         let function_name = {
             let mut jobs = self
                 .jobs
@@ -150,13 +184,22 @@ impl Scheduler {
 
     /// Mark a job as run
     pub fn mark_run(&self, job_id: Uuid) -> FunctionResult<()> {
-        let mut jobs = self
-            .jobs
-            .write()
-            .map_err(|_| FunctionError::Internal("Lock poisoned".into()))?;
+        let job_copy = {
+            let mut jobs = self
+                .jobs
+                .write()
+                .map_err(|_| FunctionError::Internal("Lock poisoned".into()))?;
 
-        if let Some(job) = jobs.get_mut(&job_id) {
-            job.mark_run()?;
+            if let Some(job) = jobs.get_mut(&job_id) {
+                job.mark_run()?;
+                Some(job.clone())
+            } else {
+                None
+            }
+        };
+
+        if let Some(job) = job_copy {
+            self.store.save(&job)?;
         }
 
         Ok(())
@@ -194,7 +237,7 @@ mod tests {
 
     #[test]
     fn test_scheduler() {
-        let scheduler = Scheduler::new();
+        let scheduler = Scheduler::new(Arc::new(MemJobStore::default()));
 
         let job = ScheduledJob::new("daily_task".to_string(), "0 0 * * *".to_string()).unwrap();
 
@@ -207,9 +250,11 @@ mod tests {
 
     #[test]
     fn test_get_due_jobs() {
-        let scheduler = Scheduler::new();
+        let scheduler = Scheduler::new(Arc::new(MemJobStore::default()));
 
-        let job = ScheduledJob::new("immediate".to_string(), "* * * * *".to_string()).unwrap();
+        let mut job = ScheduledJob::new("immediate".to_string(), "* * * * *".to_string()).unwrap();
+        // Force next_run to be in the past so it's due
+        job.next_run = Some(Utc::now() - chrono::Duration::seconds(1));
 
         scheduler.schedule(job).unwrap();
 

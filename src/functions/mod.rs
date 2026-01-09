@@ -11,6 +11,7 @@ pub mod invoker;
 pub mod registry;
 pub mod runtime;
 pub mod scheduler;
+pub mod store;
 pub mod trigger;
 
 pub use errors::{FunctionError, FunctionResult};
