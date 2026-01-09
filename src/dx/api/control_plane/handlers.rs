@@ -530,7 +530,10 @@ impl ControlPlaneHandler {
                 reason,
                 acknowledged_risks: _,
             } => {
-                let result_msg = self.kernel.force_promotion(\n                    *replica_id,\n                    reason.as_str(),\n                );
+                let result_msg = self.kernel.force_promotion(
+                    *replica_id,
+                    reason.as_str(),
+                );
                 let (success, explanation) = match result_msg {
                     Ok(msg) => (true, msg),
                     Err(msg) => (false, msg),

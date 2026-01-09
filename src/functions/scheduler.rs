@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::sync::RwLock;
 
 use chrono::{DateTime, Utc};
+use croner::Cron;
 use uuid::Uuid;
 
 use super::errors::{FunctionError, FunctionResult};
@@ -33,26 +34,41 @@ pub struct ScheduledJob {
 impl ScheduledJob {
     /// Create a new scheduled job
     pub fn new(function_name: String, cron: String) -> FunctionResult<Self> {
-        // Basic cron validation (stubbed - would use cron parser in production)
-        if cron.split_whitespace().count() < 5 {
-            return Err(FunctionError::InvalidCron(cron));
-        }
+        // Validate cron expression
+        let cron_parser = Cron::new(&cron)
+            .parse()
+            .map_err(|e| FunctionError::InvalidCron(format!("Invalid cron expression '{}': {}", cron, e)))?;
+
+        let next_run = cron_parser
+            .find_next_occurrence(&Utc::now(), false)
+            .map(|dt| dt.with_timezone(&Utc))
+            .map_err(|e| FunctionError::InvalidCron(format!("Error calculating next run: {}", e)))?;
 
         Ok(Self {
             id: Uuid::new_v4(),
             function_name,
             cron,
             last_run: None,
-            next_run: Some(Utc::now()), // Stub: would calculate from cron
+            next_run: Some(next_run),
             enabled: true,
         })
     }
 
     /// Mark as run
-    pub fn mark_run(&mut self) {
+    pub fn mark_run(&mut self) -> FunctionResult<()> {
         self.last_run = Some(Utc::now());
-        // In production, would calculate next run from cron
-        self.next_run = Some(Utc::now() + chrono::Duration::hours(1));
+        
+        // Calculate next run
+        let cron_parser = Cron::new(&self.cron)
+            .parse()
+            .map_err(|e| FunctionError::InvalidCron(format!("Invalid cron expression '{}': {}", self.cron, e)))?;
+
+        self.next_run = cron_parser
+            .find_next_occurrence(&Utc::now(), false)
+            .map(|dt| dt.with_timezone(&Utc))
+            .ok();
+            
+        Ok(())
     }
 }
 
@@ -140,7 +156,7 @@ impl Scheduler {
             .map_err(|_| FunctionError::Internal("Lock poisoned".into()))?;
 
         if let Some(job) = jobs.get_mut(&job_id) {
-            job.mark_run();
+            job.mark_run()?;
         }
 
         Ok(())

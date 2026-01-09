@@ -5,8 +5,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
+use std::sync::Arc;
+
 use super::errors::{FunctionError, FunctionResult};
 use super::function::Function;
+use super::runtime::{ExecutionContext, RuntimeConfig, WasmtimeRuntime, WasmRuntime};
 use super::trigger::TriggerType;
 
 /// Invocation context passed to functions
@@ -93,14 +96,26 @@ impl InvocationResult {
     }
 }
 
-/// Function invoker (WASM runtime stub)
-#[derive(Debug, Default)]
-pub struct Invoker;
+/// Function invoker
+#[derive(Debug, Clone)]
+pub struct Invoker {
+    runtime: Arc<WasmtimeRuntime>,
+    config: RuntimeConfig,
+}
+
+impl Default for Invoker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Invoker {
     /// Create a new invoker
     pub fn new() -> Self {
-        Self
+        Self {
+            runtime: Arc::new(WasmtimeRuntime::default()),
+            config: RuntimeConfig::default(),
+        }
     }
 
     /// Invoke a function
@@ -117,15 +132,34 @@ impl Invoker {
             return Err(FunctionError::RuntimeError("Function is disabled".into()));
         }
 
-        // Simulate execution (in real implementation, this would run WASM)
-        let start = std::time::Instant::now();
+        // Create execution context
+        let mut exec_context = ExecutionContext::new(function, context.user_id);
+        
+        // Copy environment variables if any
+        // ... (env logic would go here)
 
-        // Stub: Return the payload as result
-        let result = context.payload.clone();
+        // Execute via runtime
+        let result = self.runtime.execute(
+            function,
+            context.payload,
+            exec_context,
+            &self.config
+        )?;
 
-        let duration_ms = start.elapsed().as_millis() as u64;
-
-        Ok(InvocationResult::success(context.id, result, duration_ms))
+        // Map ExecutionResult to InvocationResult
+        if result.success {
+            Ok(InvocationResult::success(
+                context.id,
+                result.result.unwrap_or(serde_json::Value::Null),
+                result.duration_ms
+            ))
+        } else {
+            Ok(InvocationResult::failure(
+                context.id,
+                result.error.unwrap_or("Unknown error".to_string()),
+                result.duration_ms
+            ))
+        }
     }
 }
 
@@ -138,7 +172,7 @@ mod tests {
         let func = Function::new(
             "test".to_string(),
             TriggerType::http("/test".to_string()),
-            vec![1],
+            vec![0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00], // Valid empty WASM module
         );
 
         let context = InvocationContext::new(&func, serde_json::json!({"message": "hello"}), None);
@@ -153,7 +187,7 @@ mod tests {
         let func = Function::new(
             "echo".to_string(),
             TriggerType::http("/echo".to_string()),
-            vec![1, 2, 3],
+            vec![0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00],
         );
 
         let context = InvocationContext::new(&func, serde_json::json!({"input": "test"}), None);
@@ -170,7 +204,7 @@ mod tests {
         let mut func = Function::new(
             "disabled".to_string(),
             TriggerType::http("/disabled".to_string()),
-            vec![1],
+            vec![0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00],
         );
         func.enabled = false;
 
