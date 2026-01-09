@@ -15,6 +15,22 @@ use crate::auth::rls::RlsContext;
 
 use wasmtime::{Config, Engine, Linker, Module, Store};
 
+/// Trait for database access from functions
+pub trait DbProvider: Send + Sync {
+    /// Execute a query
+    fn query(&self, query: &str) -> FunctionResult<Vec<Value>>;
+}
+
+/// No-op DB provider
+#[derive(Debug, Default)]
+pub struct NoOpDbProvider;
+
+impl DbProvider for NoOpDbProvider {
+    fn query(&self, _query: &str) -> FunctionResult<Vec<Value>> {
+        Ok(Vec::new())
+    }
+}
+
 /// Runtime configuration
 #[derive(Debug, Clone)]
 pub struct RuntimeConfig {
@@ -154,19 +170,29 @@ pub trait WasmRuntime: Send + Sync {
 }
 
 /// Production WASM runtime using Wasmtime
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct WasmtimeRuntime {
     engine: Engine,
+    db_provider: Arc<dyn DbProvider>,
+}
+
+impl std::fmt::Debug for WasmtimeRuntime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WasmtimeRuntime")
+            .field("engine", &"<engine>")
+            .field("db_provider", &"<db_provider>")
+            .finish()
+    }
 }
 
 impl Default for WasmtimeRuntime {
     fn default() -> Self {
-        Self::new().expect("Failed to initialize Wasmtime engine")
+        Self::new(None).expect("Failed to initialize Wasmtime engine")
     }
 }
 
 impl WasmtimeRuntime {
-    pub fn new() -> FunctionResult<Self> {
+    pub fn new(db_provider: Option<Arc<dyn DbProvider>>) -> FunctionResult<Self> {
         let mut config = Config::new();
         config.async_support(false); // Synchronous execution for now
         config.consume_fuel(true); // Enable gas metering for timeouts
@@ -174,7 +200,10 @@ impl WasmtimeRuntime {
         let engine = Engine::new(&config)
             .map_err(|e| FunctionError::RuntimeError(format!("Failed to create engine: {}", e)))?;
             
-        Ok(Self { engine })
+        Ok(Self { 
+            engine,
+            db_provider: db_provider.unwrap_or_else(|| Arc::new(NoOpDbProvider)),
+        })
     }
 }
 
@@ -201,11 +230,13 @@ impl WasmRuntime for WasmtimeRuntime {
         struct StoreData {
             logs: Vec<String>,
             context: ExecutionContext,
+            db_provider: Arc<dyn DbProvider>,
         }
         
         let data = StoreData {
             logs: Vec::new(),
             context,
+            db_provider: self.db_provider.clone(),
         };
         
         let mut store = Store::new(&self.engine, data);
@@ -275,19 +306,15 @@ pub mod host {
         context.env.get(key).cloned()
     }
 
-    /// Query the database (placeholder - would integrate with executor)
+    /// Query the database
     pub fn db_query(
-        _collection: &str,
-        _filter: Value,
+        query: &str,
+        // In a real implementation mapping WASM memory, we'd need access to the Store to read the string
+        // But here we are simulating the host function signature
         _context: &ExecutionContext,
+        provider: &dyn DbProvider,
     ) -> FunctionResult<Vec<Value>> {
-        // In real implementation, this would:
-        // 1. Parse the filter into a QueryParams
-        // 2. Call the executor with RLS context
-        // 3. Return the results
-
-        // For now, return empty result
-        Ok(Vec::new())
+        provider.query(query)
     }
 }
 
@@ -306,7 +333,7 @@ mod tests {
 
     #[test]
     fn test_wasmtime_runtime_execute() {
-        let runtime = WasmtimeRuntime::new().unwrap();
+        let runtime = WasmtimeRuntime::new(None).unwrap();
         let function = create_test_function();
         let context = ExecutionContext::new(&function, None);
         let config = RuntimeConfig::default();
@@ -323,7 +350,7 @@ mod tests {
 
     #[test]
     fn test_wasmtime_disabled_function() {
-        let runtime = WasmtimeRuntime::new().unwrap();
+        let runtime = WasmtimeRuntime::new(None).unwrap();
         let mut function = create_test_function();
         function.enabled = false;
 
@@ -337,7 +364,7 @@ mod tests {
     // WasmtimeRuntime error testing would require invalid WASM bytes or execution traps
     #[test]
     fn test_wasmtime_invalid_wasm() {
-        let runtime = WasmtimeRuntime::new().unwrap();
+        let runtime = WasmtimeRuntime::new(None).unwrap();
         let mut function = create_test_function();
         function.wasm_bytes = vec![0, 0, 0, 0]; // Invalid header
         let context = ExecutionContext::new(&function, None);
