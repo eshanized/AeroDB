@@ -16,6 +16,8 @@
 //! - `VisibilityFloor` - Tracks visibility lower bound
 //! - `GcEligibility` - Applies all 4 eligibility rules
 
+use std::collections::HashSet;
+
 use super::{CommitId, ReadView, Version, VersionChain};
 
 /// Version lifecycle states per MVCC_GC.md §2
@@ -49,56 +51,49 @@ pub enum VersionLifecycleState {
 /// No version with commit_id >= visibility_lower_bound may be reclaimed.
 #[derive(Debug, Clone)]
 pub struct VisibilityFloor {
-    /// Oldest active read view boundary
-    oldest_read_view: Option<CommitId>,
-    /// Oldest retained snapshot boundary
-    oldest_snapshot_boundary: Option<CommitId>,
+    /// Active read view boundaries (set-based tracking)
+    active_read_views: HashSet<u64>,
+    /// Retained snapshot boundaries (set-based tracking)
+    snapshot_boundaries: HashSet<u64>,
 }
 
 impl VisibilityFloor {
     /// Create a new visibility floor with no active views or snapshots.
     pub fn new() -> Self {
         Self {
-            oldest_read_view: None,
-            oldest_snapshot_boundary: None,
+            active_read_views: HashSet::new(),
+            snapshot_boundaries: HashSet::new(),
         }
     }
 
     /// Register an active read view.
     pub fn register_read_view(&mut self, view: ReadView) {
-        let boundary = view.upper_bound();
-        match self.oldest_read_view {
-            None => self.oldest_read_view = Some(boundary),
-            Some(current) if boundary < current => {
-                self.oldest_read_view = Some(boundary);
-            }
-            _ => {}
-        }
+        self.active_read_views.insert(view.upper_bound().value());
     }
 
     /// Unregister a read view (when query completes).
-    /// For simplicity, this resets to None - in production, would track set of views.
-    pub fn unregister_read_view(&mut self, _view: ReadView) {
-        // In a full implementation, we'd track all active views
-        // For now, this is a placeholder
-        self.oldest_read_view = None;
+    pub fn unregister_read_view(&mut self, view: ReadView) {
+        self.active_read_views.remove(&view.upper_bound().value());
     }
 
     /// Register a snapshot boundary.
     pub fn register_snapshot(&mut self, boundary: CommitId) {
-        match self.oldest_snapshot_boundary {
-            None => self.oldest_snapshot_boundary = Some(boundary),
-            Some(current) if boundary < current => {
-                self.oldest_snapshot_boundary = Some(boundary);
-            }
-            _ => {}
-        }
+        self.snapshot_boundaries.insert(boundary.value());
     }
 
     /// Unregister a snapshot (when deleted).
-    pub fn unregister_snapshot(&mut self, _boundary: CommitId) {
-        // In a full implementation, we'd track all snapshots
-        self.oldest_snapshot_boundary = None;
+    pub fn unregister_snapshot(&mut self, boundary: CommitId) {
+        self.snapshot_boundaries.remove(&boundary.value());
+    }
+
+    /// Get count of active read views.
+    pub fn active_view_count(&self) -> usize {
+        self.active_read_views.len()
+    }
+
+    /// Get count of active snapshots.
+    pub fn snapshot_count(&self) -> usize {
+        self.snapshot_boundaries.len()
     }
 
     /// Compute the visibility lower bound.
@@ -108,10 +103,13 @@ impl VisibilityFloor {
     /// - The oldest active read view
     /// - The oldest retained snapshot boundary
     pub fn visibility_lower_bound(&self) -> Option<CommitId> {
-        match (self.oldest_read_view, self.oldest_snapshot_boundary) {
-            (Some(rv), Some(sb)) => Some(if rv < sb { rv } else { sb }),
-            (Some(rv), None) => Some(rv),
-            (None, Some(sb)) => Some(sb),
+        let oldest_read_view = self.active_read_views.iter().min().copied();
+        let oldest_snapshot = self.snapshot_boundaries.iter().min().copied();
+
+        match (oldest_read_view, oldest_snapshot) {
+            (Some(rv), Some(sb)) => Some(CommitId::new(rv.min(sb))),
+            (Some(rv), None) => Some(CommitId::new(rv)),
+            (None, Some(sb)) => Some(CommitId::new(sb)),
             (None, None) => None,
         }
     }

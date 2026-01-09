@@ -312,6 +312,9 @@ pub fn handle_mvcc(commit_id: u64, mvcc_data: MvccData) -> ApiResponse<MvccData>
 pub fn handle_replication(
     commit_id: u64,
     state: &ReplicationState,
+    wal_prefix_commit_id: Option<u64>,
+    replica_lag_ms: Option<u64>,
+    snapshot_bootstrap_active: bool,
 ) -> ApiResponse<ReplicationData> {
     let (role, replica_id, read_safety, blocking_reason) = match state {
         ReplicationState::Disabled => (
@@ -353,10 +356,10 @@ pub fn handle_replication(
         read_safety,
         blocking_reason,
         replication_enabled: !state.is_disabled(),
-        // Phase 2+ fields - not implemented in Stage 1
-        wal_prefix_commit_id: None,
-        replica_lag: None,
-        snapshot_bootstrap_active: false,
+        // Phase 2+ fields from actual replication state
+        wal_prefix_commit_id,
+        replica_lag: replica_lag_ms,
+        snapshot_bootstrap_active,
     };
 
     ApiResponse::new(ObservedAt::live(commit_id), data)
@@ -405,7 +408,7 @@ mod tests {
     fn test_replication_disabled_returns_standalone() {
         // Per P5-I16: Disabled replication returns standalone role
         let state = ReplicationState::Disabled;
-        let resp = handle_replication(100, &state);
+        let resp = handle_replication(100, &state, None, None, false);
 
         assert_eq!(resp.data.role, ReplicationRole::Standalone);
         assert_eq!(resp.data.replica_state, "disabled");
@@ -417,7 +420,7 @@ mod tests {
     #[test]
     fn test_replication_primary_returns_correct_role() {
         let state = ReplicationState::PrimaryActive;
-        let resp = handle_replication(100, &state);
+        let resp = handle_replication(100, &state, None, None, false);
 
         assert_eq!(resp.data.role, ReplicationRole::Primary);
         assert_eq!(resp.data.replica_state, "primary_active");
@@ -429,7 +432,7 @@ mod tests {
     fn test_replication_replica_returns_correct_role_and_uuid() {
         let replica_id = uuid::Uuid::new_v4();
         let state = ReplicationState::ReplicaActive { replica_id };
-        let resp = handle_replication(100, &state);
+        let resp = handle_replication(100, &state, None, None, false);
 
         assert_eq!(resp.data.role, ReplicationRole::Replica);
         assert_eq!(resp.data.replica_state, "replica_active");
@@ -445,7 +448,7 @@ mod tests {
         let state = ReplicationState::ReplicationHalted {
             reason: HaltReason::WalGapDetected,
         };
-        let resp = handle_replication(100, &state);
+        let resp = handle_replication(100, &state, None, None, false);
 
         assert_eq!(resp.data.role, ReplicationRole::Standalone);
         assert!(resp.data.blocking_reason.is_some());
@@ -461,8 +464,8 @@ mod tests {
     fn test_replication_response_deterministic() {
         // Per OAPI-3: Given identical state, outputs MUST be identical
         let state = ReplicationState::PrimaryActive;
-        let resp1 = handle_replication(100, &state);
-        let resp2 = handle_replication(100, &state);
+        let resp1 = handle_replication(100, &state, None, None, false);
+        let resp2 = handle_replication(100, &state, None, None, false);
 
         assert_eq!(resp1.data.role, resp2.data.role);
         assert_eq!(resp1.data.replica_state, resp2.data.replica_state);

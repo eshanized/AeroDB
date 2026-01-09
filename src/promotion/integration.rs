@@ -37,6 +37,31 @@ impl RebindResult {
     }
 }
 
+/// Reason for invalidating the old primary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InvalidationReason {
+    /// A new primary was elected through normal promotion.
+    NewPrimaryElected,
+    /// An operator forced demotion of this node.
+    ForcedDemotion,
+    /// Network partition detected, stepping down to avoid split-brain.
+    NetworkPartition,
+}
+
+/// Outcome of invalidating the old primary.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InvalidationOutcome {
+    /// Primary was successfully invalidated.
+    Invalidated {
+        old_state: ReplicationState,
+        new_state: ReplicationState,
+    },
+    /// Node was already in an invalid/halted state.
+    AlreadyInvalid,
+    /// Invalidation not applicable to this node state.
+    NotApplicable { reason: String },
+}
+
 /// Replication Integration Layer
 ///
 /// Per PHASE6_ARCHITECTURE.md §4.1:
@@ -114,14 +139,38 @@ impl ReplicationIntegration {
     /// Per PHASE6_INVARIANTS.md §P6-A1:
     /// At any point in time, at most one node may hold write authority.
     ///
-    /// This would be called on the old primary to transition it to a non-writable state.
-    /// In a real distributed system, this would involve network communication.
-    pub fn invalidate_old_primary() -> ReplicationState {
-        // The old primary should transition to Halted state
-        // In Phase 6, we assume the old primary is unavailable
-        // This is a placeholder for the actual invalidation logic
-        ReplicationState::ReplicationHalted {
-            reason: HaltReason::AuthorityAmbiguity,
+    /// This method transitions the old primary to a non-writable state.
+    /// The transition is deterministic based on the invalidation reason.
+    pub fn invalidate_old_primary(
+        current_state: &ReplicationState,
+        reason: InvalidationReason,
+    ) -> InvalidationOutcome {
+        match current_state {
+            ReplicationState::PrimaryActive => {
+                // Transition primary to halted state with appropriate reason
+                let halt_reason = match reason {
+                    InvalidationReason::NewPrimaryElected => HaltReason::AuthorityAmbiguity,
+                    InvalidationReason::ForcedDemotion => HaltReason::AuthorityAmbiguity,
+                    InvalidationReason::NetworkPartition => HaltReason::AuthorityAmbiguity,
+                };
+
+                InvalidationOutcome::Invalidated {
+                    old_state: current_state.clone(),
+                    new_state: ReplicationState::ReplicationHalted {
+                        reason: halt_reason,
+                    },
+                }
+            }
+            ReplicationState::ReplicationHalted { .. } => {
+                // Already halted, no action needed
+                InvalidationOutcome::AlreadyInvalid
+            }
+            _ => {
+                // Not a primary, cannot invalidate
+                InvalidationOutcome::NotApplicable {
+                    reason: format!("cannot invalidate non-primary state: {:?}", current_state),
+                }
+            }
         }
     }
 

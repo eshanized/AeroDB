@@ -38,11 +38,27 @@ impl HttpServer {
         // Create shared state
         let auth_state = Arc::new(AuthState::new());
 
-        // Configure CORS
-        let cors = CorsLayer::new()
-            .allow_origin(Any) // For development - TODO: restrict in production
-            .allow_methods(Any)
-            .allow_headers(Any);
+        // Configure CORS from config
+        let cors = if config.cors_origins.is_empty() {
+            // If no origins configured, use permissive for development
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any)
+        } else {
+            // Use configured origins for production
+            use tower_http::cors::AllowOrigin;
+            let origins: Vec<_> = config
+                .cors_origins
+                .iter()
+                .filter_map(|s| s.parse().ok())
+                .collect();
+
+            CorsLayer::new()
+                .allow_origin(AllowOrigin::list(origins))
+                .allow_methods(Any)
+                .allow_headers(Any)
+        };
 
         // Combine all routes
         Router::new()
