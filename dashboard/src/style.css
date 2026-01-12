@@ -55,5 +55,6 @@
   body {
     background-color: hsl(var(--color-background));
     color: hsl(var(--color-foreground));
+    font-family: 'Lato', sans-serif;
   }
 }
