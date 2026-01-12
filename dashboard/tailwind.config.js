@@ -2,6 +2,9 @@ export default {
     content: ['./index.html', './src/**/*.{vue,js,ts,jsx,tsx}'],
     theme: {
         extend: {
+            fontFamily: {
+                sans: ['Lato', 'sans-serif'],
+            },
             colors: {
                 border: 'hsl(var(--color-border))',
                 input: 'hsl(var(--color-input))',
