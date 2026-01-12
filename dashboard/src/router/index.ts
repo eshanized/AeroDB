@@ -89,6 +89,12 @@ const router = createRouter({
             meta: { requiresAuth: true },
         },
         {
+            path: '/snapshots',
+            name: 'Snapshots',
+            component: () => import('@/pages/snapshot/SnapshotPage.vue'),
+            meta: { requiresAuth: true },
+        },
+        {
             path: '/cluster',
             name: 'Cluster',
             component: () => import('@/pages/cluster/ClusterPage.vue'),

@@ -13,8 +13,11 @@ const navItems = [
   { to: '/database', label: 'Database', icon: '🗄️' },
   { to: '/auth', label: 'Auth', icon: '👥' },
   { to: '/storage', label: 'Storage', icon: '📦' },
+  { to: '/functions', label: 'Functions', icon: '⚙️' },
   { to: '/realtime', label: 'Real-Time', icon: '⚡' },
   { to: '/cluster', label: 'Cluster', icon: '🖥️' },
+  { to: '/backup', label: 'Backup', icon: '💾' },
+  { to: '/snapshots', label: 'Snapshots', icon: '📸' },
   { to: '/logs', label: 'Logs', icon: '📋' },
   { to: '/metrics', label: 'Metrics', icon: '📊' },
 ]
