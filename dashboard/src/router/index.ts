@@ -59,6 +59,36 @@ const router = createRouter({
             meta: { requiresAuth: true },
         },
         {
+            path: '/functions',
+            name: 'Functions',
+            component: () => import('@/pages/functions/FunctionsPage.vue'),
+            meta: { requiresAuth: true },
+        },
+        {
+            path: '/functions/:id/edit',
+            name: 'FunctionEditor',
+            component: () => import('@/pages/functions/FunctionEditor.vue'),
+            meta: { requiresAuth: true },
+        },
+        {
+            path: '/functions/:id/logs',
+            name: 'FunctionLogs',
+            component: () => import('@/pages/functions/FunctionLogs.vue'),
+            meta: { requiresAuth: true },
+        },
+        {
+            path: '/backup',
+            name: 'Backup',
+            component: () => import('@/pages/backup/BackupPage.vue'),
+            meta: { requiresAuth: true },
+        },
+        {
+            path: '/restore',
+            name: 'Restore',
+            component: () => import('@/pages/backup/RestorePage.vue'),
+            meta: { requiresAuth: true },
+        },
+        {
             path: '/cluster',
             name: 'Cluster',
             component: () => import('@/pages/cluster/ClusterPage.vue'),
