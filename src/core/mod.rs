@@ -10,14 +10,18 @@
 //! - Centralized policy/RLS enforcement
 //! - Automatic observability hooks
 
+pub mod bridge;
 pub mod context;
 pub mod error;
+pub mod executor;
 pub mod middleware;
 pub mod operation;
 pub mod pipeline;
 
+pub use bridge::{BridgeConfig, PipelineBridge};
 pub use context::{AuthContext, RequestContext, RlsFilter};
 pub use error::{CoreError, CoreResult};
+pub use executor::{InMemoryStorage, StorageBackend, UnifiedExecutor};
 pub use middleware::Middleware;
 pub use operation::Operation;
 pub use pipeline::{Next, OperationExecutor, Pipeline};
