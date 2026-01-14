@@ -130,4 +130,79 @@ export const functionsService = {
         const response = await api.get(`/functions/${functionId}/stats`)
         return response.data
     },
+
+    // ========== Versioning ==========
+
+    /**
+     * Get function versions
+     */
+    async getFunctionVersions(functionId: string): Promise<Array<{
+        version: number
+        created_at: string
+        code_hash: string
+        deployed_by?: string
+    }>> {
+        const response = await api.get(`/functions/${functionId}/versions`)
+        return response.data
+    },
+
+    /**
+     * Rollback to a specific version
+     */
+    async rollbackFunction(functionId: string, version: number): Promise<Function> {
+        const response = await api.post(`/functions/${functionId}/rollback`, { version })
+        return response.data
+    },
+
+    /**
+     * Deploy function (create new version)
+     */
+    async deployFunction(functionId: string): Promise<{
+        version: number
+        deployed_at: string
+    }> {
+        const response = await api.post(`/functions/${functionId}/deploy`)
+        return response.data
+    },
+
+    // ========== Templates ==========
+
+    /**
+     * Get available function templates
+     */
+    async getTemplates(): Promise<Array<{
+        id: string
+        name: string
+        description: string
+        runtime: 'deno' | 'wasm'
+        code: string
+        category: string
+    }>> {
+        const response = await api.get('/functions/templates')
+        return response.data
+    },
+
+    /**
+     * Create function from template
+     */
+    async createFromTemplate(templateId: string, name: string): Promise<Function> {
+        const response = await api.post('/functions/from-template', { template_id: templateId, name })
+        return response.data
+    },
+
+    // ========== Resource Metrics ==========
+
+    /**
+     * Get function resource usage
+     */
+    async getResourceUsage(functionId: string): Promise<{
+        memory_mb: number
+        cpu_time_ms: number
+        invocations_today: number
+        bandwidth_bytes: number
+    }> {
+        const response = await api.get(`/functions/${functionId}/resources`)
+        return response.data
+    },
 }
+

@@ -134,4 +134,78 @@ export const backupService = {
         const response = await api.get('/backup/stats')
         return response.data
     },
+
+    // ========== Backup Schedules ==========
+
+    /**
+     * Get backup schedule
+     */
+    async getSchedule(): Promise<{
+        enabled: boolean
+        cron_expression: string
+        retention_days: number
+        compression: 'none' | 'gzip' | 'zstd'
+        incremental: boolean
+        last_run_at?: string
+        next_run_at?: string
+    }> {
+        const response = await api.get('/backup/schedule')
+        return response.data
+    },
+
+    /**
+     * Update backup schedule
+     */
+    async updateSchedule(schedule: {
+        enabled?: boolean
+        cron_expression?: string
+        retention_days?: number
+        compression?: 'none' | 'gzip' | 'zstd'
+        incremental?: boolean
+    }): Promise<void> {
+        await api.patch('/backup/schedule', schedule)
+    },
+
+    /**
+     * Run scheduled backup now
+     */
+    async runScheduledBackup(): Promise<BackupJob> {
+        const response = await api.post('/backup/schedule/run-now')
+        return response.data
+    },
+
+    /**
+     * Get backup history
+     */
+    async getBackupHistory(options?: {
+        limit?: number
+        since?: string
+    }): Promise<Array<{
+        id: string
+        type: 'manual' | 'scheduled'
+        status: 'success' | 'failed'
+        started_at: string
+        completed_at?: string
+        size_bytes?: number
+        error?: string
+    }>> {
+        const params = new URLSearchParams()
+        if (options?.limit) params.append('limit', options.limit.toString())
+        if (options?.since) params.append('since', options.since)
+
+        const response = await api.get(`/backup/history?${params}`)
+        return response.data
+    },
+
+    /**
+     * Apply retention policy (cleanup old backups)
+     */
+    async applyRetention(): Promise<{
+        deleted_count: number
+        freed_bytes: number
+    }> {
+        const response = await api.post('/backup/retention/apply')
+        return response.data
+    },
 }
+

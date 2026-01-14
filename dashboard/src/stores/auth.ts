@@ -115,6 +115,7 @@ export const useAuthStore = defineStore('auth', () => {
     return {
         // State
         token,
+        accessToken: token, // Alias for compatibility
         user,
         loading,
         error,

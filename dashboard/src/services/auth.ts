@@ -151,4 +151,61 @@ export const authService = {
     async toggleRLSPolicy(tableName: string, policyId: string, enabled: boolean): Promise<void> {
         await api.patch(`/auth/rls/${tableName}/${policyId}`, { enabled })
     },
+
+    // ========== Password Management ==========
+
+    /**
+     * Request password reset email
+     */
+    async forgotPassword(email: string): Promise<void> {
+        await api.post('/auth/forgot-password', { email })
+    },
+
+    /**
+     * Reset password using token from email
+     */
+    async resetPassword(token: string, newPassword: string): Promise<void> {
+        await api.post('/auth/reset-password', { token, new_password: newPassword })
+    },
+
+    /**
+     * Change password for authenticated user
+     */
+    async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+        await api.post('/auth/change-password', {
+            current_password: currentPassword,
+            new_password: newPassword
+        })
+    },
+
+    /**
+     * Get password policy requirements
+     */
+    async getPasswordPolicy(): Promise<{
+        min_length: number
+        require_uppercase: boolean
+        require_lowercase: boolean
+        require_numbers: boolean
+        require_symbols: boolean
+    }> {
+        const response = await api.get('/auth/password-policy')
+        return response.data
+    },
+
+    // ========== Email Verification ==========
+
+    /**
+     * Verify email using token
+     */
+    async verifyEmail(token: string): Promise<void> {
+        await api.post('/auth/verify-email', { token })
+    },
+
+    /**
+     * Resend verification email
+     */
+    async resendVerificationEmail(userId: string): Promise<void> {
+        await api.post(`/auth/users/${userId}/resend-verification`)
+    },
 }
+

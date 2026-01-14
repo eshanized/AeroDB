@@ -125,4 +125,130 @@ export const databaseService = {
         const response = await api.get('/api/database/stats')
         return response.data
     },
+
+    // ========== Schema Migrations ==========
+
+    /**
+     * Get list of migrations
+     */
+    async getMigrations(): Promise<Array<{
+        id: string
+        name: string
+        status: 'pending' | 'applied' | 'failed'
+        applied_at?: string
+        sql_up: string
+        sql_down: string
+    }>> {
+        const response = await api.get('/api/migrations')
+        return response.data
+    },
+
+    /**
+     * Apply a migration
+     */
+    async applyMigration(migrationId: string): Promise<void> {
+        await api.post(`/api/migrations/${migrationId}/apply`)
+    },
+
+    /**
+     * Rollback a migration
+     */
+    async rollbackMigration(migrationId: string): Promise<void> {
+        await api.post(`/api/migrations/${migrationId}/rollback`)
+    },
+
+    /**
+     * Generate migration from schema diff
+     */
+    async generateMigration(name: string, changes: {
+        create_tables?: Array<{ name: string; columns: unknown[] }>
+        add_columns?: Array<{ table: string; column: unknown }>
+        drop_columns?: Array<{ table: string; column: string }>
+    }): Promise<{ id: string; sql_up: string; sql_down: string }> {
+        const response = await api.post('/api/migrations/generate', { name, changes })
+        return response.data
+    },
+
+    // ========== Index Management ==========
+
+    /**
+     * Get table indexes
+     */
+    async getIndexes(tableName: string): Promise<Array<{
+        name: string
+        columns: string[]
+        unique: boolean
+        type: 'btree' | 'hash' | 'gin'
+    }>> {
+        const response = await api.get(`/api/tables/${tableName}/indexes`)
+        return response.data
+    },
+
+    /**
+     * Create an index
+     */
+    async createIndex(tableName: string, index: {
+        name: string
+        columns: string[]
+        unique?: boolean
+        type?: 'btree' | 'hash' | 'gin'
+    }): Promise<void> {
+        await api.post(`/api/tables/${tableName}/indexes`, index)
+    },
+
+    /**
+     * Drop an index
+     */
+    async dropIndex(tableName: string, indexName: string): Promise<void> {
+        await api.delete(`/api/tables/${tableName}/indexes/${indexName}`)
+    },
+
+    // ========== Relationships ==========
+
+    /**
+     * Get table relationships (foreign keys)
+     */
+    async getRelationships(tableName: string): Promise<Array<{
+        name: string
+        source_column: string
+        target_table: string
+        target_column: string
+        on_delete: 'cascade' | 'set_null' | 'restrict'
+    }>> {
+        const response = await api.get(`/api/tables/${tableName}/relationships`)
+        return response.data
+    },
+
+    /**
+     * Create a relationship (foreign key)
+     */
+    async createRelationship(tableName: string, relationship: {
+        name: string
+        source_column: string
+        target_table: string
+        target_column: string
+        on_delete?: 'cascade' | 'set_null' | 'restrict'
+    }): Promise<void> {
+        await api.post(`/api/tables/${tableName}/relationships`, relationship)
+    },
+
+    /**
+     * Get table ERD data
+     */
+    async getERDData(): Promise<{
+        tables: Array<{
+            name: string
+            columns: Array<{ name: string; type: string; primary_key: boolean }>
+        }>
+        relationships: Array<{
+            source_table: string
+            source_column: string
+            target_table: string
+            target_column: string
+        }>
+    }> {
+        const response = await api.get('/api/database/erd')
+        return response.data
+    },
 }
+

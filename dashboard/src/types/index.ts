@@ -5,6 +5,8 @@ export interface User {
     email: string
     name?: string
     role: string
+    metadata?: Record<string, unknown>
+    email_verified?: boolean
     created_at: string
     last_login?: string
 }
@@ -14,6 +16,15 @@ export interface AuthTokens {
     refresh_token?: string
     expires_in: number
 }
+
+export interface PasswordPolicy {
+    min_length: number
+    require_uppercase: boolean
+    require_lowercase: boolean
+    require_numbers: boolean
+    require_symbols: boolean
+}
+
 
 export interface ApiError {
     message: string
