@@ -10,6 +10,7 @@
 //! - Centralized policy/RLS enforcement
 //! - Automatic observability hooks
 
+pub mod adapter;
 pub mod bridge;
 pub mod context;
 pub mod error;
@@ -18,6 +19,7 @@ pub mod middleware;
 pub mod operation;
 pub mod pipeline;
 
+pub use adapter::{AeroDbConfig, AeroDbStorageBackend, DurableAeroDbBackend};
 pub use bridge::{BridgeConfig, PipelineBridge};
 pub use context::{AuthContext, RequestContext, RlsFilter};
 pub use error::{CoreError, CoreResult};
