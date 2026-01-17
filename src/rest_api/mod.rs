@@ -12,6 +12,7 @@ pub mod parser;
 pub mod pipeline_handler;
 pub mod response;
 pub mod server;
+pub mod unified_api;
 
 pub use database::DatabaseFacade;
 pub use errors::{RestError, RestResult};
@@ -20,3 +21,5 @@ pub use handler::RestHandler;
 pub use parser::QueryParams;
 pub use pipeline_handler::PipelineRestHandler;
 pub use server::RestServer;
+pub use unified_api::{OperationRequest, OperationResponse, UnifiedApiServer};
+
