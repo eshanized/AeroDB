@@ -18,6 +18,7 @@ pub mod executor;
 pub mod middleware;
 pub mod operation;
 pub mod pipeline;
+pub mod write_through;
 
 pub use adapter::{AeroDbConfig, AeroDbStorageBackend, DurableAeroDbBackend};
 pub use bridge::{BridgeConfig, PipelineBridge};
@@ -27,3 +28,4 @@ pub use executor::{InMemoryStorage, StorageBackend, UnifiedExecutor};
 pub use middleware::Middleware;
 pub use operation::Operation;
 pub use pipeline::{Next, OperationExecutor, Pipeline};
+pub use write_through::WriteThroughBackend;
