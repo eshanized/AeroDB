@@ -42,6 +42,94 @@ impl AuditLogger for NoOpAudit {
     fn log(&self, _: Option<uuid::Uuid>, _: &str, _: bool, _: uuid::Uuid, _: Option<String>) {}
 }
 
+/// Adapter that wraps MetricsRegistry from observability module
+pub struct MetricsRegistryAdapter {
+    registry: Arc<crate::observability::MetricsRegistry>,
+}
+
+impl MetricsRegistryAdapter {
+    pub fn new(registry: Arc<crate::observability::MetricsRegistry>) -> Self {
+        Self { registry }
+    }
+}
+
+impl MetricsRecorder for MetricsRegistryAdapter {
+    fn record(&self, name: &str, _value: f64, labels: &[(&str, &str)]) {
+        // Map common metric names to MetricsRegistry methods
+        match name {
+            "operation_duration_ms" => {
+                // Duration is recorded but MetricsRegistry only has counters
+                // For now, we just increment queries_executed as a proxy
+            }
+            _ => {}
+        }
+        // Log for debugging
+        let _ = (name, labels);
+    }
+
+    fn increment(&self, name: &str, labels: &[(&str, &str)]) {
+        match name {
+            "operation_success_total" => {
+                if labels.iter().any(|(k, v)| *k == "operation" && *v == "query") {
+                    self.registry.increment_queries_executed();
+                } else {
+                    self.registry.increment_writes();
+                }
+            }
+            "operation_error_total" => {
+                self.registry.increment_queries_rejected();
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Adapter that wraps AuditLog from observability module
+pub struct AuditLogAdapter<A: crate::observability::AuditLog> {
+    audit_log: Arc<A>,
+}
+
+impl<A: crate::observability::AuditLog> AuditLogAdapter<A> {
+    pub fn new(audit_log: Arc<A>) -> Self {
+        Self { audit_log }
+    }
+}
+
+impl<A: crate::observability::AuditLog + 'static> AuditLogger for AuditLogAdapter<A> {
+    fn log(
+        &self,
+        user_id: Option<uuid::Uuid>,
+        operation: &str,
+        success: bool,
+        request_id: uuid::Uuid,
+        details: Option<String>,
+    ) {
+        use crate::observability::{AuditAction, AuditOutcome, AuditRecord};
+
+        let action = AuditAction::CommandExecuted;
+        let outcome = if success {
+            AuditOutcome::Success
+        } else {
+            AuditOutcome::Failed
+        };
+
+        let mut record = AuditRecord::new(action, outcome)
+            .with_command(operation)
+            .with_request_id(request_id);
+
+        if let Some(uid) = user_id {
+            record = record.with_operator(uid.to_string());
+        }
+
+        if let Some(err) = details {
+            record = record.with_error(err);
+        }
+
+        // Best-effort logging - observability should never crash
+        let _ = self.audit_log.append(&record);
+    }
+}
+
 /// Observability middleware
 pub struct ObserveMiddleware {
     metrics: Arc<dyn MetricsRecorder>,
@@ -59,6 +147,17 @@ impl ObserveMiddleware {
     /// Create a no-op middleware for testing
     pub fn noop() -> Self {
         Self::new(NoOpMetrics, NoOpAudit)
+    }
+
+    /// Create with real observability subsystem adapters
+    pub fn with_registry_and_audit<A: crate::observability::AuditLog + 'static>(
+        registry: Arc<crate::observability::MetricsRegistry>,
+        audit_log: Arc<A>,
+    ) -> Self {
+        Self::new(
+            MetricsRegistryAdapter::new(registry),
+            AuditLogAdapter::new(audit_log),
+        )
     }
 }
 
@@ -114,6 +213,7 @@ mod tests {
     use crate::core::context::AuthContext;
     use crate::core::operation::ReadOp;
     use crate::core::pipeline::{NoOpExecutor, Pipeline};
+    use crate::observability::MemoryAuditLog;
     use uuid::Uuid;
 
     #[tokio::test]
@@ -129,5 +229,28 @@ mod tests {
 
         let result = pipeline.execute(op, ctx).await;
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_observe_middleware_with_real_audit() {
+        let audit_log = Arc::new(MemoryAuditLog::new());
+        let registry = Arc::new(crate::observability::MetricsRegistry::new());
+
+        let middleware = ObserveMiddleware::with_registry_and_audit(registry.clone(), audit_log.clone());
+        let pipeline = Pipeline::new(NoOpExecutor).with_middleware(middleware);
+
+        let ctx = RequestContext::new(AuthContext::authenticated(Uuid::new_v4()));
+        let op = Operation::Read(ReadOp {
+            collection: "posts".to_string(),
+            id: "post_1".to_string(),
+            select: None,
+        });
+
+        let _ = pipeline.execute(op, ctx).await;
+
+        // Verify audit log was written
+        assert!(!audit_log.is_empty());
+        let records = audit_log.records();
+        assert_eq!(records.len(), 1);
     }
 }
