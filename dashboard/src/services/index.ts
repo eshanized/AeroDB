@@ -8,4 +8,4 @@ export * from './cluster'
 export * from './observability'
 export * from './realtime'
 export * from './snapshot'
-
+export * from './unifiedClient'
