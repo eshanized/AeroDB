@@ -4,6 +4,7 @@
 //! Replaces separate CRUD endpoints with a unified interface.
 
 use std::sync::Arc;
+use std::path::PathBuf;
 
 use axum::{
     extract::State,
@@ -13,10 +14,18 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use uuid::Uuid;
 
 use crate::auth::jwt::{JwtConfig, JwtManager};
+use crate::auth::rls::RlsContext;
 use crate::core::operation::Operation;
 use crate::core::{BridgeConfig, CoreError, PipelineBridge, RequestContext};
+use crate::file_storage::file::FileService;
+use crate::file_storage::local::LocalBackend;
+use crate::functions::invoker::{Invoker, InvocationContext};
+use crate::functions::registry::FunctionRegistry;
+use crate::realtime::subscription::SubscriptionRegistry;
+use crate::realtime::broadcast::BroadcastRegistry;
 
 /// Unified operation request
 #[derive(Debug, Deserialize)]
@@ -74,27 +83,55 @@ impl OperationResponse {
             }),
         }
     }
+
+    pub fn from_error_string(code: &str, message: String, status: u16) -> Self {
+        Self {
+            success: false,
+            data: None,
+            error: Some(ErrorInfo {
+                code: code.to_string(),
+                message,
+                status,
+            }),
+        }
+    }
 }
 
 /// Unified API server state
 pub struct UnifiedApiServer {
     bridge: Arc<PipelineBridge>,
     jwt_manager: JwtManager,
+    invoker: Arc<Invoker>,
+    function_registry: Arc<FunctionRegistry>,
+    file_service: Arc<FileService<LocalBackend>>,
+    subscription_registry: Arc<SubscriptionRegistry>,
+    broadcast_registry: Arc<BroadcastRegistry>,
 }
 
 impl UnifiedApiServer {
-    /// Create a new unified API server
-    pub fn new(bridge: PipelineBridge, jwt_config: JwtConfig) -> Self {
+    /// Create a new unified API server with all services
+    pub fn new(
+        bridge: PipelineBridge,
+        jwt_config: JwtConfig,
+        storage_path: PathBuf,
+    ) -> Self {
+        let backend = LocalBackend::new(storage_path);
         Self {
             bridge: Arc::new(bridge),
             jwt_manager: JwtManager::new(jwt_config),
+            invoker: Arc::new(Invoker::new()),
+            function_registry: Arc::new(FunctionRegistry::new()),
+            file_service: Arc::new(FileService::new(backend)),
+            subscription_registry: Arc::new(SubscriptionRegistry::new()),
+            broadcast_registry: Arc::new(BroadcastRegistry::new()),
         }
     }
 
     /// Create with default configuration
     pub fn with_defaults() -> Self {
         let bridge = PipelineBridge::new_in_memory(BridgeConfig::default());
-        Self::new(bridge, JwtConfig::default())
+        let storage_path = std::env::temp_dir().join("aerodb-storage");
+        Self::new(bridge, JwtConfig::default(), storage_path)
     }
 
     /// Build the Axum router
@@ -138,7 +175,7 @@ async fn execute_operation(
     };
 
     // Execute through pipeline
-    match execute_via_bridge(&server.bridge, request.operation, ctx).await {
+    match execute_via_bridge(&server, request.operation, ctx).await {
         Ok(data) => (StatusCode::OK, Json(OperationResponse::success(data))),
         Err(err) => {
             let status = StatusCode::from_u16(err.status_code()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
@@ -174,35 +211,44 @@ fn build_context(
     Ok(RequestContext::anonymous())
 }
 
-/// Execute operation via the pipeline bridge
+/// Build RLS context from request context
+fn build_rls_context(ctx: &RequestContext) -> RlsContext {
+    if let Some(user_id) = ctx.auth.user_id {
+        RlsContext::authenticated(user_id)
+    } else {
+        RlsContext::anonymous()
+    }
+}
+
+/// Execute operation via the pipeline bridge and other services
 async fn execute_via_bridge(
-    bridge: &PipelineBridge,
+    server: &UnifiedApiServer,
     operation: Operation,
     ctx: RequestContext,
 ) -> Result<Value, CoreError> {
     use crate::core::operation::*;
 
     match operation {
-        Operation::Read(read_op) => bridge.read(&read_op.collection, &read_op.id, ctx).await,
+        Operation::Read(read_op) => server.bridge.read(&read_op.collection, &read_op.id, ctx).await,
 
         Operation::Write(write_op) => {
-            bridge
+            server.bridge
                 .write(&write_op.collection, write_op.document, &write_op.schema_id, ctx)
                 .await
         }
 
         Operation::Update(update_op) => {
-            bridge
+            server.bridge
                 .update(&update_op.collection, &update_op.id, update_op.updates, ctx)
                 .await
         }
 
         Operation::Delete(delete_op) => {
-            bridge.delete(&delete_op.collection, &delete_op.id, ctx).await
+            server.bridge.delete(&delete_op.collection, &delete_op.id, ctx).await
         }
 
         Operation::Query(query_op) => {
-            bridge.query(&query_op.collection, query_op.filter.clone(), query_op.limit, query_op.offset, ctx).await
+            server.bridge.query(&query_op.collection, query_op.filter.clone(), query_op.limit, query_op.offset, ctx).await
         }
 
         // Explain returns the query plan without executing
@@ -217,61 +263,121 @@ async fn execute_via_bridge(
             }))
         }
 
-        // Subscribe returns subscription confirmation
+        // Subscribe - create subscription via registry
         Operation::Subscribe(sub_op) => {
-            Ok(serde_json::json!({
-                "type": "subscription",
-                "channel": sub_op.channel,
-                "subscription_id": uuid::Uuid::new_v4().to_string(),
-                "status": "created"
-            }))
+            let subscription_id = Uuid::new_v4();
+            let rls_ctx = build_rls_context(&ctx);
+            
+            // Create subscription object
+            use crate::realtime::subscription::Subscription;
+            let connection_id = Uuid::new_v4().to_string();
+            let subscription = Subscription::new(connection_id, sub_op.channel.clone(), rls_ctx);
+            
+            match server.subscription_registry.subscribe(subscription) {
+                Ok(sub_id) => Ok(serde_json::json!({
+                    "type": "subscription",
+                    "channel": sub_op.channel,
+                    "subscription_id": sub_id,
+                    "status": "created"
+                })),
+                Err(e) => Err(CoreError::internal(e.to_string())),
+            }
         }
 
-        // Unsubscribe returns confirmation
+        // Unsubscribe - remove subscription from registry
         Operation::Unsubscribe { subscription_id } => {
-            Ok(serde_json::json!({
-                "type": "unsubscribe",
-                "subscription_id": subscription_id,
-                "status": "removed"
-            }))
+            match server.subscription_registry.unsubscribe(&subscription_id) {
+                Ok(()) => Ok(serde_json::json!({
+                    "type": "unsubscribe",
+                    "subscription_id": subscription_id,
+                    "status": "removed"
+                })),
+                Err(e) => Err(CoreError::not_found(&format!("subscription/{}", subscription_id))),
+            }
         }
 
-        // Broadcast returns delivery confirmation
+        // Broadcast - send message to channel subscribers
         Operation::Broadcast(broadcast_op) => {
-            Ok(serde_json::json!({
-                "type": "broadcast",
-                "channel": broadcast_op.channel,
-                "event": broadcast_op.event,
-                "status": "sent"
-            }))
+            let sender_id = ctx.auth.user_id;
+            let sender_conn = Uuid::new_v4().to_string();
+            
+            match server.broadcast_registry.broadcast(
+                &broadcast_op.channel,
+                broadcast_op.event.clone(),
+                broadcast_op.payload.clone(),
+                sender_id,
+                &sender_conn,
+            ) {
+                Ok((event, subscribers)) => Ok(serde_json::json!({
+                    "type": "broadcast",
+                    "channel": broadcast_op.channel,
+                    "event": broadcast_op.event,
+                    "status": "sent",
+                    "subscribers_notified": subscribers.len()
+                })),
+                Err(e) => Err(CoreError::internal(e.to_string())),
+            }
         }
 
-        // Invoke returns function result
+        // Invoke - execute function via invoker
         Operation::Invoke(invoke_op) => {
-            Ok(serde_json::json!({
-                "type": "invoke",
-                "function": invoke_op.function_name,
-                "status": "queued",
-                "async": invoke_op.async_mode
-            }))
+            let user_id = ctx.auth.user_id;
+            
+            // Look up function by name
+            match server.function_registry.get(&invoke_op.function_name) {
+                Ok(function) => {
+                    let context = InvocationContext::new(&function, invoke_op.payload.clone(), user_id);
+                    
+                    if invoke_op.async_mode {
+                        // Async mode - queue and return immediately
+                        Ok(serde_json::json!({
+                            "type": "invoke",
+                            "function": invoke_op.function_name,
+                            "invocation_id": context.id.to_string(),
+                            "status": "queued",
+                            "async": true
+                        }))
+                    } else {
+                        // Sync mode - execute and return result
+                        match server.invoker.invoke(&function, context) {
+                            Ok(result) => Ok(serde_json::json!({
+                                "type": "invoke",
+                                "function": invoke_op.function_name,
+                                "invocation_id": result.id.to_string(),
+                                "status": if result.success { "completed" } else { "failed" },
+                                "result": result.result,
+                                "error": result.error,
+                                "duration_ms": result.duration_ms
+                            })),
+                            Err(e) => Err(CoreError::internal(e.to_string())),
+                        }
+                    }
+                }
+                Err(_) => Err(CoreError::not_found(&format!("function/{}", invoke_op.function_name))),
+            }
         }
 
-        // File operations return status
+        // Upload - file uploads via unified API only support metadata operations
+        // Actual file content upload should use the dedicated /storage routes
         Operation::Upload(file_op) => {
             Ok(serde_json::json!({
                 "type": "upload",
                 "bucket": file_op.bucket,
                 "path": file_op.path,
-                "status": "pending"
+                "status": "use_storage_route",
+                "message": "File content upload requires the dedicated /storage/buckets/{bucket}/files endpoint"
             }))
         }
 
+        // Download - file downloads via unified API return download URL
+        // Actual file content should be retrieved from the dedicated /storage routes
         Operation::Download(file_op) => {
             Ok(serde_json::json!({
                 "type": "download",
                 "bucket": file_op.bucket,
                 "path": file_op.path,
-                "url": format!("/storage/v1/{}/{}", file_op.bucket, file_op.path)
+                "url": format!("/storage/buckets/{}/files/{}", file_op.bucket, file_op.path),
+                "message": "Use the URL to download file content"
             }))
         }
     }

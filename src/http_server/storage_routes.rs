@@ -190,16 +190,17 @@ pub fn storage_routes(state: Arc<StorageState>) -> Router {
         .route("/buckets/{name}", patch(update_bucket_handler))
         .route("/buckets/{name}", delete(delete_bucket_handler))
         .route("/buckets/{name}/stats", get(get_bucket_stats_handler))
-        // File operations
+        // File operations (non-wildcard routes first)
         .route("/buckets/{name}/files", get(list_files_handler))
         .route("/buckets/{name}/files", post(upload_file_handler))
-        .route("/buckets/{name}/files/*path", get(download_file_handler))
-        .route("/buckets/{name}/files/*path", delete(delete_file_handler))
         .route("/buckets/{name}/files/move", post(move_file_handler))
-        // Signed URLs
-        .route("/buckets/{name}/files/*path/sign", post(create_signed_url_handler))
+        // Signed URLs - use separate path prefix to avoid wildcard conflict
+        .route("/buckets/{name}/sign/*path", post(create_signed_url_handler))
         // Folders
         .route("/buckets/{name}/folders", post(create_folder_handler))
+        // Wildcard file routes (must come last)
+        .route("/buckets/{name}/files/*path", get(download_file_handler))
+        .route("/buckets/{name}/files/*path", delete(delete_file_handler))
         .with_state(state)
 }
 
