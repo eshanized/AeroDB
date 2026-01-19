@@ -11,11 +11,24 @@
 //! - `/rest/v1/*` - REST API for database operations
 //! - `/auth/*` - Authentication endpoints
 //! - `/observability/*` - Metrics and monitoring
+//! - `/storage/*` - File storage endpoints
+//! - `/functions/*` - Serverless functions endpoints
+//! - `/realtime/*` - Real-time subscriptions and WebSocket
+//! - `/backup/*` - Backup and restore endpoints
+//! - `/cluster/*` - Cluster management endpoints
 
 pub mod auth_routes;
+pub mod auth_management_routes;
 pub mod config;
 pub mod observability_routes;
 pub mod server;
+pub mod storage_routes;
+pub mod database_routes;
+pub mod functions_routes;
+pub mod realtime_routes;
+pub mod backup_routes;
+pub mod cluster_routes;
 
 pub use config::HttpServerConfig;
 pub use server::HttpServer;
+

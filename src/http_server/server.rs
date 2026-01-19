@@ -12,8 +12,15 @@ use tokio::net::TcpListener;
 use tower_http::cors::{Any, CorsLayer};
 
 use super::auth_routes::{auth_routes, AuthState};
+use super::auth_management_routes::auth_management_routes;
 use super::config::HttpServerConfig;
 use super::observability_routes::{health_routes, observability_routes};
+use super::storage_routes::{storage_routes, StorageState};
+use super::database_routes::{database_routes, DatabaseState};
+use super::functions_routes::{functions_routes, FunctionsState};
+use super::realtime_routes::{realtime_routes, RealtimeState};
+use super::backup_routes::{backup_routes, BackupState};
+use super::cluster_routes::{cluster_routes, ClusterState};
 
 /// HTTP Server for AeroDB Dashboard
 pub struct HttpServer {
@@ -35,8 +42,14 @@ impl HttpServer {
 
     /// Build the combined router with all endpoints
     fn build_router(config: &HttpServerConfig) -> Router {
-        // Create shared state
+        // Create shared states for each module
         let auth_state = Arc::new(AuthState::new());
+        let storage_state = Arc::new(StorageState::with_default_path());
+        let database_state = Arc::new(DatabaseState::new());
+        let functions_state = Arc::new(FunctionsState::new());
+        let realtime_state = Arc::new(RealtimeState::new());
+        let backup_state = Arc::new(BackupState::new());
+        let cluster_state = Arc::new(ClusterState::new());
 
         // Configure CORS from config
         let cors = if config.cors_origins.is_empty() {
@@ -65,9 +78,23 @@ impl HttpServer {
             // Health check at root level
             .merge(health_routes())
             // Auth routes under /auth
-            .nest("/auth", auth_routes(auth_state))
+            .nest("/auth", auth_routes(auth_state.clone()))
+            // Auth management routes (extends /auth with user management, sessions, RLS, etc.)
+            .nest("/auth", auth_management_routes(auth_state))
             // Observability routes under /observability
             .nest("/observability", observability_routes())
+            // Storage routes under /storage
+            .nest("/storage", storage_routes(storage_state))
+            // Database routes under /api
+            .nest("/api", database_routes(database_state))
+            // Functions routes under /functions
+            .nest("/functions", functions_routes(functions_state))
+            // Realtime routes under /realtime (includes WebSocket endpoint)
+            .nest("/realtime", realtime_routes(realtime_state))
+            // Backup routes under /backup
+            .nest("/backup", backup_routes(backup_state))
+            // Cluster routes under /cluster
+            .nest("/cluster", cluster_routes(cluster_state))
             // Apply CORS middleware
             .layer(cors)
     }
@@ -93,6 +120,15 @@ impl HttpServer {
         println!("Starting AeroDB HTTP server on {}", addr);
         println!("Dashboard API available at http://{}", addr);
         println!("Health check: http://{}/health", addr);
+        println!("API endpoints:");
+        println!("  - /auth/* - Authentication & user management");
+        println!("  - /api/* - Database operations");
+        println!("  - /storage/* - File storage");
+        println!("  - /functions/* - Serverless functions");
+        println!("  - /realtime/* - Subscriptions & WebSocket");
+        println!("  - /backup/* - Backup & restore");
+        println!("  - /cluster/* - Cluster management");
+        println!("  - /observability/* - Metrics & monitoring");
 
         let listener = TcpListener::bind(addr).await?;
         axum::serve(listener, self.router).await?;
@@ -131,3 +167,4 @@ mod tests {
         // If we get here, router construction succeeded
     }
 }
+

@@ -16,7 +16,7 @@ uuid = { version = "1.6", features = ["v4", "serde"] }
 
 # Phase 8: Authentication
 tokio = { version = "1.0", features = ["full"] }
-axum = "0.7"
+axum = { version = "0.7", features = ["multipart", "ws"] }
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "trace"] }
 argon2 = "0.5"
