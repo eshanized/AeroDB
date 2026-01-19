@@ -2,12 +2,19 @@
 import { RouterView } from 'vue-router'
 import { onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useSetupStore } from '@/stores/setup'
 
 const authStore = useAuthStore()
+const setupStore = useSetupStore()
 
-onMounted(() => {
+onMounted(async () => {
+  // Check setup status first (required before any other initialization)
+  await setupStore.fetchStatus()
+  
   // Initialize auth store (fetch user if token exists)
-  authStore.initialize()
+  if (setupStore.isReady) {
+    authStore.initialize()
+  }
 })
 </script>
 
@@ -17,3 +24,4 @@ onMounted(() => {
 
 <style scoped>
 </style>
+

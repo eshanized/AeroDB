@@ -15,6 +15,7 @@ use super::auth_routes::{auth_routes, AuthState};
 use super::auth_management_routes::auth_management_routes;
 use super::config::HttpServerConfig;
 use super::observability_routes::{health_routes, observability_routes};
+use super::setup_routes::{setup_routes, SetupState};
 use super::storage_routes::{storage_routes, StorageState};
 use super::database_routes::{database_routes, DatabaseState};
 use super::functions_routes::{functions_routes, FunctionsState};
@@ -43,6 +44,7 @@ impl HttpServer {
     /// Build the combined router with all endpoints
     fn build_router(config: &HttpServerConfig) -> Router {
         // Create shared states for each module
+        let setup_state = Arc::new(SetupState::new());
         let auth_state = Arc::new(AuthState::new());
         let storage_state = Arc::new(StorageState::with_default_path());
         let database_state = Arc::new(DatabaseState::new());
@@ -77,6 +79,8 @@ impl HttpServer {
         Router::new()
             // Health check at root level
             .merge(health_routes())
+            // Setup routes under /setup (first-run wizard, locked after complete)
+            .nest("/setup", setup_routes(setup_state))
             // Auth routes under /auth
             .nest("/auth", auth_routes(auth_state.clone()))
             // Auth management routes (extends /auth with user management, sessions, RLS, etc.)

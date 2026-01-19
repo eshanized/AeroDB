@@ -8,6 +8,7 @@
 //! # Endpoints
 //!
 //! - `/health` - Health check
+//! - `/setup/*` - First-run setup wizard (locked after complete)
 //! - `/rest/v1/*` - REST API for database operations
 //! - `/auth/*` - Authentication endpoints
 //! - `/observability/*` - Metrics and monitoring
@@ -22,6 +23,7 @@ pub mod auth_management_routes;
 pub mod config;
 pub mod observability_routes;
 pub mod server;
+pub mod setup_routes;
 pub mod storage_routes;
 pub mod database_routes;
 pub mod functions_routes;
