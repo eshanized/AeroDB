@@ -140,15 +140,19 @@ impl RestHandler for PipelineRestHandler {
         // Execute query through pipeline
         let result = self
             .runtime
-            .block_on(self.bridge.query(&collection, None, limit + offset, 0, context))
+            .block_on(
+                self.bridge
+                    .query(&collection, None, limit + offset, 0, context),
+            )
             .map_err(|e| RestError::Internal(e.to_string()))?;
 
         // Convert query result to Vec<Value>
-        let mut records: Vec<Value> = if let Some(arr) = result.get("results").and_then(|v| v.as_array()) {
-            arr.clone()
-        } else {
-            vec![]
-        };
+        let mut records: Vec<Value> =
+            if let Some(arr) = result.get("results").and_then(|v| v.as_array()) {
+                arr.clone()
+            } else {
+                vec![]
+            };
 
         // Apply query filters (already RLS filtered by pipeline)
         records = Self::apply_query_filters(&records, &params);
@@ -239,7 +243,11 @@ impl RestHandler for PipelineRestHandler {
             .map_err(|e| RestError::Internal(e.to_string()))?;
 
         // Check if delete was successful
-        if result.get("deleted").and_then(|v| v.as_bool()).unwrap_or(false) {
+        if result
+            .get("deleted")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
             Ok(DeleteResponse::success())
         } else {
             Err(RestError::NotFound)

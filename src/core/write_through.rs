@@ -67,10 +67,10 @@ impl WriteThroughBackend {
     pub fn open(data_dir: &Path, collection: impl Into<String>) -> Result<Self, String> {
         let wal_writer = WalWriter::open(data_dir).map_err(|e| e.to_string())?;
         let storage_writer = StorageWriter::open(data_dir).map_err(|e| e.to_string())?;
-        
+
         let mut backend = Self::new(collection, wal_writer, storage_writer);
         backend.load_from_storage(data_dir)?;
-        
+
         Ok(backend)
     }
 
@@ -90,22 +90,17 @@ impl WriteThroughBackend {
     /// Load existing documents from storage into cache
     fn load_from_storage(&mut self, data_dir: &Path) -> Result<usize, String> {
         let storage_path = data_dir.join("data").join("documents.dat");
-        
+
         if !storage_path.exists() {
             return Ok(0);
         }
 
-        let mut reader = StorageReader::open(&storage_path)
-            .map_err(|e| e.to_string())?;
+        let mut reader = StorageReader::open(&storage_path).map_err(|e| e.to_string())?;
 
-        let doc_map = reader
-            .build_document_map()
-            .map_err(|e| e.to_string())?;
+        let doc_map = reader.build_document_map().map_err(|e| e.to_string())?;
 
         let mut cache = self.cache.write().map_err(|e| e.to_string())?;
-        let collection_cache = cache
-            .entry(self.collection.clone())
-            .or_default();
+        let collection_cache = cache.entry(self.collection.clone()).or_default();
 
         let mut count = 0;
         for (composite_id, record) in doc_map {
@@ -117,8 +112,8 @@ impl WriteThroughBackend {
                 .to_string();
 
             if !record.is_tombstone {
-                let doc: Value = serde_json::from_slice(&record.document_body)
-                    .map_err(|e| e.to_string())?;
+                let doc: Value =
+                    serde_json::from_slice(&record.document_body).map_err(|e| e.to_string())?;
                 collection_cache.insert(doc_id, doc);
                 count += 1;
             }
@@ -131,10 +126,7 @@ impl WriteThroughBackend {
 impl StorageBackend for WriteThroughBackend {
     fn read(&self, collection: &str, id: &str) -> Result<Option<Value>, String> {
         let cache = self.cache.read().map_err(|e| e.to_string())?;
-        Ok(cache
-            .get(collection)
-            .and_then(|c| c.get(id))
-            .cloned())
+        Ok(cache.get(collection).and_then(|c| c.get(id)).cloned())
     }
 
     fn write(&self, collection: &str, mut document: Value) -> Result<String, String> {
@@ -180,7 +172,8 @@ impl StorageBackend for WriteThroughBackend {
 
         let offset = {
             let mut storage = self.storage_writer.lock().map_err(|e| e.to_string())?;
-            storage.write(&storage_payload)
+            storage
+                .write(&storage_payload)
                 .map_err(|e| format!("Storage write failed: {}", e))?
         };
 
@@ -212,7 +205,8 @@ impl StorageBackend for WriteThroughBackend {
 
     fn update(&self, collection: &str, id: &str, updates: Value) -> Result<Value, String> {
         // Read current document
-        let current = self.read(collection, id)?
+        let current = self
+            .read(collection, id)?
             .ok_or_else(|| format!("Document {} not found", id))?;
 
         // Merge updates
@@ -253,7 +247,8 @@ impl StorageBackend for WriteThroughBackend {
 
         let offset = {
             let mut storage = self.storage_writer.lock().map_err(|e| e.to_string())?;
-            storage.write(&storage_payload)
+            storage
+                .write(&storage_payload)
                 .map_err(|e| format!("Storage write failed: {}", e))?
         };
 
@@ -307,12 +302,14 @@ impl StorageBackend for WriteThroughBackend {
         // 2. Storage write tombstone
         let offset = {
             let mut storage = self.storage_writer.lock().map_err(|e| e.to_string())?;
-            storage.write_tombstone(
-                collection,
-                id,
-                &self.default_schema_id,
-                &self.default_schema_version,
-            ).map_err(|e| format!("Storage write failed: {}", e))?
+            storage
+                .write_tombstone(
+                    collection,
+                    id,
+                    &self.default_schema_id,
+                    &self.default_schema_version,
+                )
+                .map_err(|e| format!("Storage write failed: {}", e))?
         };
 
         // 3. Index update

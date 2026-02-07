@@ -22,9 +22,7 @@ pub enum Operation {
 
     // Realtime operations
     Subscribe(SubscribeOp),
-    Unsubscribe {
-        subscription_id: String,
-    },
+    Unsubscribe { subscription_id: String },
     Broadcast(BroadcastOp),
 
     // Function operations

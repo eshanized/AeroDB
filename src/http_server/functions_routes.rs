@@ -70,14 +70,10 @@ impl From<&Function> for FunctionResponse {
                 "database".to_string(),
                 serde_json::json!({ "collection": collection, "event": format!("{:?}", event) }),
             ),
-            TriggerType::Schedule { cron } => (
-                "schedule".to_string(),
-                serde_json::json!({ "cron": cron }),
-            ),
-            TriggerType::Webhook { .. } => (
-                "webhook".to_string(),
-                serde_json::json!({}),
-            ),
+            TriggerType::Schedule { cron } => {
+                ("schedule".to_string(), serde_json::json!({ "cron": cron }))
+            }
+            TriggerType::Webhook { .. } => ("webhook".to_string(), serde_json::json!({})),
         };
 
         Self {
@@ -275,7 +271,10 @@ fn parse_trigger(trigger_type: &str, config: &Value) -> Option<TriggerType> {
             ))
         }
         "schedule" => {
-            let cron = config.get("cron").and_then(|v| v.as_str()).unwrap_or("0 * * * *");
+            let cron = config
+                .get("cron")
+                .and_then(|v| v.as_str())
+                .unwrap_or("0 * * * *");
             Some(TriggerType::schedule(cron.to_string()))
         }
         _ => None,
@@ -326,15 +325,16 @@ async fn create_function_handler(
     headers: HeaderMap,
     Json(request): Json<CreateFunctionRequest>,
 ) -> Result<(StatusCode, Json<FunctionResponse>), (StatusCode, Json<ErrorResponse>)> {
-    let trigger = parse_trigger(&request.trigger_type, &request.trigger_config).ok_or_else(|| {
-        (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: format!("Invalid trigger type: {}", request.trigger_type),
-                code: 400,
-            }),
-        )
-    })?;
+    let trigger =
+        parse_trigger(&request.trigger_type, &request.trigger_config).ok_or_else(|| {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: format!("Invalid trigger type: {}", request.trigger_type),
+                    code: 400,
+                }),
+            )
+        })?;
 
     // Use provided WASM bytes or empty placeholder
     let wasm_bytes = request.wasm_bytes.unwrap_or_else(|| {

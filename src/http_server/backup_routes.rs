@@ -157,7 +157,10 @@ pub fn backup_routes(state: Arc<BackupState>) -> Router {
         .route("/{id}/download", get(download_backup_handler))
         // Restore operations
         .route("/{id}/restore", post(restore_backup_handler))
-        .route("/restore/status/{restore_id}", get(get_restore_status_handler))
+        .route(
+            "/restore/status/{restore_id}",
+            get(get_restore_status_handler),
+        )
         // Schedule management
         .route("/schedule", get(get_schedule_handler))
         .route("/schedule", patch(update_schedule_handler))
@@ -176,7 +179,7 @@ async fn create_backup_handler(
     Json(request): Json<CreateBackupRequest>,
 ) -> Result<(StatusCode, Json<CreateBackupResponse>), (StatusCode, Json<ErrorResponse>)> {
     let backup_id = Uuid::new_v4();
-    
+
     // Would initiate backup via BackupManager
     Ok((
         StatusCode::ACCEPTED,
@@ -231,9 +234,11 @@ async fn download_backup_handler(
     headers.insert("content-type", "application/octet-stream".parse().unwrap());
     headers.insert(
         "content-disposition",
-        format!("attachment; filename=\"backup-{}.tar.gz\"", id).parse().unwrap(),
+        format!("attachment; filename=\"backup-{}.tar.gz\"", id)
+            .parse()
+            .unwrap(),
     );
-    
+
     // Return empty for now
     Ok((StatusCode::OK, headers, vec![]))
 }
@@ -248,7 +253,7 @@ async fn restore_backup_handler(
     Json(request): Json<RestoreRequest>,
 ) -> Result<(StatusCode, Json<RestoreResponse>), (StatusCode, Json<ErrorResponse>)> {
     let restore_id = Uuid::new_v4();
-    
+
     // Would initiate restore via BackupManager
     Ok((
         StatusCode::ACCEPTED,
@@ -294,9 +299,13 @@ async fn update_schedule_handler(
 ) -> Result<Json<BackupSchedule>, (StatusCode, Json<ErrorResponse>)> {
     Ok(Json(BackupSchedule {
         enabled: request.enabled.unwrap_or(false),
-        cron_expression: request.cron_expression.unwrap_or_else(|| "0 0 * * *".to_string()),
+        cron_expression: request
+            .cron_expression
+            .unwrap_or_else(|| "0 0 * * *".to_string()),
         retention_days: request.retention_days.unwrap_or(30),
-        backup_type: request.backup_type.unwrap_or_else(|| "incremental".to_string()),
+        backup_type: request
+            .backup_type
+            .unwrap_or_else(|| "incremental".to_string()),
         last_run: None,
         next_run: None,
     }))

@@ -18,6 +18,6 @@ pub use errors::{FunctionError, FunctionResult};
 pub use function::{Function, FunctionConfig};
 pub use invoker::{InvocationContext, InvocationResult, Invoker};
 pub use registry::FunctionRegistry;
-pub use runtime::{ExecutionContext, ExecutionResult, RuntimeConfig, WasmtimeRuntime, WasmRuntime};
+pub use runtime::{ExecutionContext, ExecutionResult, RuntimeConfig, WasmRuntime, WasmtimeRuntime};
 pub use scheduler::Scheduler;
 pub use trigger::TriggerType;

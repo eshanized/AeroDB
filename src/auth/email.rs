@@ -157,9 +157,8 @@ impl SmtpEmailSender {
 impl EmailSender for SmtpEmailSender {
     fn send(&self, template: EmailTemplate) -> AuthResult<()> {
         use lettre::{
-            message::header::ContentType,
-            transport::smtp::authentication::Credentials,
-            Message, SmtpTransport, Transport,
+            message::header::ContentType, transport::smtp::authentication::Credentials, Message,
+            SmtpTransport, Transport,
         };
 
         let (to, subject, body) = self.render_template(&template);

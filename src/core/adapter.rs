@@ -74,15 +74,11 @@ impl AeroDbStorageBackend {
 
     /// Load existing documents from storage into cache
     pub fn load_from_storage(&self, reader: &mut StorageReader) -> Result<usize, String> {
-        let doc_map = reader
-            .build_document_map()
-            .map_err(|e| e.to_string())?;
+        let doc_map = reader.build_document_map().map_err(|e| e.to_string())?;
 
         let mut cache = self.cache.write().map_err(|e| e.to_string())?;
 
-        let collection_cache = cache
-            .entry(self.config.collection.clone())
-            .or_default();
+        let collection_cache = cache.entry(self.config.collection.clone()).or_default();
 
         let mut count = 0;
         for (doc_id, record) in doc_map {
@@ -90,8 +86,8 @@ impl AeroDbStorageBackend {
             if record.is_tombstone {
                 collection_cache.remove(&doc_id);
             } else {
-                let doc: Value = serde_json::from_slice(&record.document_body)
-                    .map_err(|e| e.to_string())?;
+                let doc: Value =
+                    serde_json::from_slice(&record.document_body).map_err(|e| e.to_string())?;
                 collection_cache.insert(doc_id, doc);
                 count += 1;
             }
@@ -110,10 +106,7 @@ impl StorageBackend for AeroDbStorageBackend {
     fn read(&self, collection: &str, id: &str) -> Result<Option<Value>, String> {
         let cache = self.cache.read().map_err(|e| e.to_string())?;
 
-        Ok(cache
-            .get(collection)
-            .and_then(|c| c.get(id))
-            .cloned())
+        Ok(cache.get(collection).and_then(|c| c.get(id)).cloned())
     }
 
     fn write(&self, collection: &str, mut document: Value) -> Result<String, String> {
@@ -185,11 +178,7 @@ impl StorageBackend for AeroDbStorageBackend {
             .unwrap_or_default();
 
         // Apply pagination (filtering would be done here too)
-        let paginated: Vec<Value> = results
-            .into_iter()
-            .skip(offset)
-            .take(limit)
-            .collect();
+        let paginated: Vec<Value> = results.into_iter().skip(offset).take(limit).collect();
 
         Ok(paginated)
     }
@@ -213,7 +202,7 @@ impl DurableAeroDbBackend {
     pub fn new(config: AeroDbConfig, schema_loader: Arc<SchemaLoader>) -> Self {
         let wal_path = config.data_dir.join("wal");
         let storage_path = config.data_dir.join("storage");
-        
+
         Self {
             config,
             cache: RwLock::new(HashMap::new()),
@@ -229,23 +218,18 @@ impl DurableAeroDbBackend {
             return Ok(0);
         }
 
-        let mut reader = StorageReader::open(&self.storage_path)
-            .map_err(|e| e.to_string())?;
+        let mut reader = StorageReader::open(&self.storage_path).map_err(|e| e.to_string())?;
 
-        let doc_map = reader
-            .build_document_map()
-            .map_err(|e| e.to_string())?;
+        let doc_map = reader.build_document_map().map_err(|e| e.to_string())?;
 
         let mut cache = self.cache.write().map_err(|e| e.to_string())?;
-        let collection_cache = cache
-            .entry(self.config.collection.clone())
-            .or_default();
+        let collection_cache = cache.entry(self.config.collection.clone()).or_default();
 
         let mut count = 0;
         for (doc_id, record) in doc_map {
             if !record.is_tombstone {
-                let doc: Value = serde_json::from_slice(&record.document_body)
-                    .map_err(|e| e.to_string())?;
+                let doc: Value =
+                    serde_json::from_slice(&record.document_body).map_err(|e| e.to_string())?;
                 collection_cache.insert(doc_id, doc);
                 count += 1;
             }
@@ -258,10 +242,7 @@ impl DurableAeroDbBackend {
 impl StorageBackend for DurableAeroDbBackend {
     fn read(&self, collection: &str, id: &str) -> Result<Option<Value>, String> {
         let cache = self.cache.read().map_err(|e| e.to_string())?;
-        Ok(cache
-            .get(collection)
-            .and_then(|c| c.get(id))
-            .cloned())
+        Ok(cache.get(collection).and_then(|c| c.get(id)).cloned())
     }
 
     fn write(&self, collection: &str, mut document: Value) -> Result<String, String> {

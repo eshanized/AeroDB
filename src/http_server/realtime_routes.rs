@@ -164,7 +164,10 @@ pub fn realtime_routes(state: Arc<RealtimeState>) -> Router {
     Router::new()
         // HTTP endpoints for managing subscriptions
         .route("/subscriptions", get(list_subscriptions_handler))
-        .route("/subscriptions/{id}", delete(disconnect_subscription_handler))
+        .route(
+            "/subscriptions/{id}",
+            delete(disconnect_subscription_handler),
+        )
         // Broadcast endpoint
         .route("/broadcast", post(broadcast_handler))
         // Stats
@@ -286,7 +289,9 @@ async fn handle_ws_message(
             }
         }
         "broadcast" => {
-            if let (Some(channel), Some(event), Some(payload)) = (msg.channel, msg.event, msg.payload) {
+            if let (Some(channel), Some(event), Some(payload)) =
+                (msg.channel, msg.event, msg.payload)
+            {
                 // Count subscribers for this channel
                 let subs = state.subscriptions.read().await;
                 let count = subs.iter().filter(|s| s.channel == channel).count();
@@ -298,7 +303,9 @@ async fn handle_ws_message(
                     error: None,
                 }
             } else {
-                WebSocketMessage::error("Channel, event, and payload required for broadcast".to_string())
+                WebSocketMessage::error(
+                    "Channel, event, and payload required for broadcast".to_string(),
+                )
             }
         }
         "ping" => WebSocketMessage::pong(),

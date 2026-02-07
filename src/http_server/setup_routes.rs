@@ -150,7 +150,13 @@ impl SetupState {
     pub fn all_steps_complete(&self) -> bool {
         self.storage.read().unwrap().is_some()
             && self.auth.read().unwrap().is_some()
-            && self.admin.read().unwrap().as_ref().map(|a| a.created).unwrap_or(false)
+            && self
+                .admin
+                .read()
+                .unwrap()
+                .as_ref()
+                .map(|a| a.created)
+                .unwrap_or(false)
     }
 }
 
@@ -244,9 +250,7 @@ pub struct ErrorResponse {
 // ==================
 
 /// GET /setup/status - Check current setup status
-async fn get_status(
-    State(state): State<Arc<SetupState>>,
-) -> Json<StatusResponse> {
+async fn get_status(State(state): State<Arc<SetupState>>) -> Json<StatusResponse> {
     Json(StatusResponse {
         status: state.get_status(),
         storage_configured: state.get_storage().is_some(),

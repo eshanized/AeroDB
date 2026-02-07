@@ -11,17 +11,17 @@ use axum::Router;
 use tokio::net::TcpListener;
 use tower_http::cors::{Any, CorsLayer};
 
-use super::auth_routes::{auth_routes, AuthState};
 use super::auth_management_routes::auth_management_routes;
-use super::config::HttpServerConfig;
-use super::observability_routes::{health_routes, observability_routes};
-use super::setup_routes::{setup_routes, SetupState};
-use super::storage_routes::{storage_routes, StorageState};
-use super::database_routes::{database_routes, DatabaseState};
-use super::functions_routes::{functions_routes, FunctionsState};
-use super::realtime_routes::{realtime_routes, RealtimeState};
+use super::auth_routes::{auth_routes, AuthState};
 use super::backup_routes::{backup_routes, BackupState};
 use super::cluster_routes::{cluster_routes, ClusterState};
+use super::config::HttpServerConfig;
+use super::database_routes::{database_routes, DatabaseState};
+use super::functions_routes::{functions_routes, FunctionsState};
+use super::observability_routes::{health_routes, observability_routes};
+use super::realtime_routes::{realtime_routes, RealtimeState};
+use super::setup_routes::{setup_routes, SetupState};
+use super::storage_routes::{storage_routes, StorageState};
 
 /// HTTP Server for AeroDB Dashboard
 pub struct HttpServer {
@@ -171,4 +171,3 @@ mod tests {
         // If we get here, router construction succeeded
     }
 }
-

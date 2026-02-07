@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use super::errors::{FunctionError, FunctionResult};
 use super::function::Function;
-use super::runtime::{ExecutionContext, RuntimeConfig, WasmtimeRuntime, WasmRuntime};
+use super::runtime::{ExecutionContext, RuntimeConfig, WasmRuntime, WasmtimeRuntime};
 use super::trigger::TriggerType;
 
 /// Invocation context passed to functions
@@ -134,30 +134,27 @@ impl Invoker {
 
         // Create execution context
         let mut exec_context = ExecutionContext::new(function, context.user_id);
-        
+
         // Copy environment variables if any
         // ... (env logic would go here)
 
         // Execute via runtime
-        let result = self.runtime.execute(
-            function,
-            context.payload,
-            exec_context,
-            &self.config
-        )?;
+        let result = self
+            .runtime
+            .execute(function, context.payload, exec_context, &self.config)?;
 
         // Map ExecutionResult to InvocationResult
         if result.success {
             Ok(InvocationResult::success(
                 context.id,
                 result.result.unwrap_or(serde_json::Value::Null),
-                result.duration_ms
+                result.duration_ms,
             ))
         } else {
             Ok(InvocationResult::failure(
                 context.id,
                 result.error.unwrap_or("Unknown error".to_string()),
-                result.duration_ms
+                result.duration_ms,
             ))
         }
     }

@@ -196,11 +196,11 @@ impl WasmtimeRuntime {
         let mut config = Config::new();
         config.async_support(false); // Synchronous execution for now
         config.consume_fuel(true); // Enable gas metering for timeouts
-        
+
         let engine = Engine::new(&config)
             .map_err(|e| FunctionError::RuntimeError(format!("Failed to create engine: {}", e)))?;
-            
-        Ok(Self { 
+
+        Ok(Self {
             engine,
             db_provider: db_provider.unwrap_or_else(|| Arc::new(NoOpDbProvider)),
         })
@@ -223,8 +223,9 @@ impl WasmRuntime for WasmtimeRuntime {
         }
 
         // 1. Compile module
-        let module = Module::new(&self.engine, &function.wasm_bytes)
-            .map_err(|e| FunctionError::RuntimeError(format!("Failed to verify/compile module: {}", e)))?;
+        let module = Module::new(&self.engine, &function.wasm_bytes).map_err(|e| {
+            FunctionError::RuntimeError(format!("Failed to verify/compile module: {}", e))
+        })?;
 
         // 2. Setup Store
         struct StoreData {
@@ -232,55 +233,62 @@ impl WasmRuntime for WasmtimeRuntime {
             context: ExecutionContext,
             db_provider: Arc<dyn DbProvider>,
         }
-        
+
         let data = StoreData {
             logs: Vec::new(),
             context,
             db_provider: self.db_provider.clone(),
         };
-        
+
         let mut store = Store::new(&self.engine, data);
-        store.set_fuel(u64::MAX).map_err(|e| FunctionError::RuntimeError(e.to_string()))?; // TODO: Map milliseconds to fuel
+        store
+            .set_fuel(u64::MAX)
+            .map_err(|e| FunctionError::RuntimeError(e.to_string()))?; // TODO: Map milliseconds to fuel
 
         // 3. Setup Linker (Host Functions)
         let mut linker = Linker::new(&self.engine);
-        
+
         // Host logging: env.log(ptr, len)
-        // For simplicity in this iteration, we don't fully implement memory reading here 
+        // For simplicity in this iteration, we don't fully implement memory reading here
         // as we haven't defined the memory export name.
         // But we wire the linker to show intent.
 
         // 4. Instantiate
-        let instance = linker.instantiate(&mut store, &module)
+        let instance = linker
+            .instantiate(&mut store, &module)
             .map_err(|e| FunctionError::RuntimeError(format!("Failed to instantiate: {}", e)))?;
 
         // 5. Execute 'handle' function
         // Note: This expects the WASM to export a function named "handle" or similar.
         // For the minimal replacement, we check for a known entrypoint.
         // If "handle" exists, call it. If not, maybe just "start".
-        
-        let result_value = if let Ok(handle) = instance.get_typed_func::<(), ()>(&mut store, "handle") {
-             handle.call(&mut store, ())
-                .map_err(|e| FunctionError::RuntimeError(format!("Runtime error: {}", e)))?;
-             json!({"status": "executed"})
-        } else {
-            // For now, if no handle, we assume success for empty modules (like in verification)
-            // or fail for real ones.
-            // But to pass tests with minimal header, we might return success.
-            json!({"status": "no_handle_exported"})
-        };
+
+        let result_value =
+            if let Ok(handle) = instance.get_typed_func::<(), ()>(&mut store, "handle") {
+                handle
+                    .call(&mut store, ())
+                    .map_err(|e| FunctionError::RuntimeError(format!("Runtime error: {}", e)))?;
+                json!({"status": "executed"})
+            } else {
+                // For now, if no handle, we assume success for empty modules (like in verification)
+                // or fail for real ones.
+                // But to pass tests with minimal header, we might return success.
+                json!({"status": "no_handle_exported"})
+            };
 
         let duration_ms = start.elapsed().as_millis() as u64;
-        
+
         // Check timeout
         if duration_ms > config.timeout_ms {
             return Err(FunctionError::Timeout(config.timeout_ms));
         }
 
-        Ok(
-            ExecutionResult::success(store.data().context.invocation_id, result_value, duration_ms)
-                .with_logs(store.data().logs.clone()),
+        Ok(ExecutionResult::success(
+            store.data().context.invocation_id,
+            result_value,
+            duration_ms,
         )
+        .with_logs(store.data().logs.clone()))
     }
 
     fn is_available(&self) -> bool {

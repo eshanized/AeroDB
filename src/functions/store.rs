@@ -1,5 +1,5 @@
 //! # Job Store
-//! 
+//!
 //! Durable storage for scheduled jobs.
 
 use std::fs;
@@ -41,7 +41,7 @@ impl FileJobStore {
 
         let content = fs::read_to_string(&self.path)
             .map_err(|e| FunctionError::Internal(format!("Failed to read job store: {}", e)))?;
-        
+
         if content.is_empty() {
             return Ok(Vec::new());
         }
@@ -53,10 +53,11 @@ impl FileJobStore {
     fn save_jobs(&self, jobs: &[ScheduledJob]) -> FunctionResult<()> {
         let content = serde_json::to_string_pretty(jobs)
             .map_err(|e| FunctionError::Internal(format!("Failed to serialize jobs: {}", e)))?;
-        
+
         if let Some(parent) = self.path.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|e| FunctionError::Internal(format!("Failed to create job store directory: {}", e)))?;
+            fs::create_dir_all(parent).map_err(|e| {
+                FunctionError::Internal(format!("Failed to create job store directory: {}", e))
+            })?;
         }
 
         fs::write(&self.path, content)
@@ -71,26 +72,26 @@ impl JobStore for FileJobStore {
 
     fn save(&self, job: &ScheduledJob) -> FunctionResult<()> {
         let mut jobs = self.load_jobs()?;
-        
+
         // Update or insert
         if let Some(idx) = jobs.iter().position(|j| j.id == job.id) {
             jobs[idx] = job.clone();
         } else {
             jobs.push(job.clone());
         }
-        
+
         self.save_jobs(&jobs)
     }
 
     fn delete(&self, job_id: &Uuid) -> FunctionResult<()> {
         let mut jobs = self.load_jobs()?;
-        
+
         // Remove
         if let Some(idx) = jobs.iter().position(|j| j.id == *job_id) {
             jobs.remove(idx);
             self.save_jobs(&jobs)?;
         }
-        
+
         Ok(())
     }
 }

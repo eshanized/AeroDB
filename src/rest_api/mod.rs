@@ -22,4 +22,3 @@ pub use parser::QueryParams;
 pub use pipeline_handler::PipelineRestHandler;
 pub use server::RestServer;
 pub use unified_api::{OperationRequest, OperationResponse, UnifiedApiServer};
-

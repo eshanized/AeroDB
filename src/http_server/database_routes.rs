@@ -219,9 +219,15 @@ pub fn database_routes(state: Arc<DatabaseState>) -> Router {
         // Indexes
         .route("/tables/{name}/indexes", get(list_indexes_handler))
         .route("/tables/{name}/indexes", post(create_index_handler))
-        .route("/tables/{name}/indexes/{index_name}", delete(drop_index_handler))
+        .route(
+            "/tables/{name}/indexes/{index_name}",
+            delete(drop_index_handler),
+        )
         // Relationships
-        .route("/tables/{name}/relationships", get(list_relationships_handler))
+        .route(
+            "/tables/{name}/relationships",
+            get(list_relationships_handler),
+        )
         .with_state(state)
 }
 
@@ -231,7 +237,12 @@ pub fn database_routes(state: Arc<DatabaseState>) -> Router {
 
 fn get_request_context(headers: &HeaderMap) -> RequestContext {
     if let Some(auth) = headers.get("authorization") {
-        if auth.to_str().ok().map(|s| s.starts_with("Bearer ")).unwrap_or(false) {
+        if auth
+            .to_str()
+            .ok()
+            .map(|s| s.starts_with("Bearer "))
+            .unwrap_or(false)
+        {
             return RequestContext::new(crate::core::context::AuthContext::service_role());
         }
     }

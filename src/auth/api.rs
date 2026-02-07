@@ -60,7 +60,7 @@ impl ResetTokenStore {
     pub fn store(&self, user_id: Uuid) -> String {
         let raw_token = super::crypto::generate_token();
         let token_hash = super::crypto::hash_token(&raw_token);
-        
+
         let entry = ResetTokenEntry {
             token_hash: token_hash.clone(),
             user_id,

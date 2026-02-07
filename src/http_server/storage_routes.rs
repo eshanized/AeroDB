@@ -8,7 +8,7 @@ use axum::{
     body::Bytes,
     extract::{Multipart, Path, Query, State},
     http::{HeaderMap, StatusCode},
-    routing::{delete, get, post, patch},
+    routing::{delete, get, patch, post},
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
@@ -195,7 +195,10 @@ pub fn storage_routes(state: Arc<StorageState>) -> Router {
         .route("/buckets/{name}/files", post(upload_file_handler))
         .route("/buckets/{name}/files/move", post(move_file_handler))
         // Signed URLs - use separate path prefix to avoid wildcard conflict
-        .route("/buckets/{name}/sign/*path", post(create_signed_url_handler))
+        .route(
+            "/buckets/{name}/sign/*path",
+            post(create_signed_url_handler),
+        )
         // Folders
         .route("/buckets/{name}/folders", post(create_folder_handler))
         // Wildcard file routes (must come last)
@@ -211,7 +214,12 @@ pub fn storage_routes(state: Arc<StorageState>) -> Router {
 fn get_rls_context_from_headers(headers: &HeaderMap) -> RlsContext {
     // In a real implementation, extract user ID from JWT token
     if let Some(auth) = headers.get("authorization") {
-        if auth.to_str().ok().map(|s| s.starts_with("Bearer ")).unwrap_or(false) {
+        if auth
+            .to_str()
+            .ok()
+            .map(|s| s.starts_with("Bearer "))
+            .unwrap_or(false)
+        {
             // Would validate token and extract user_id
             return RlsContext::service_role(); // Simplified for now
         }
@@ -270,7 +278,11 @@ async fn create_bucket_handler(
     let ctx = get_rls_context_from_headers(&headers);
 
     let config = BucketConfig {
-        policy: request.policy.as_deref().map(parse_bucket_policy).unwrap_or_default(),
+        policy: request
+            .policy
+            .as_deref()
+            .map(parse_bucket_policy)
+            .unwrap_or_default(),
         allowed_mime_types: request.allowed_mime_types,
         max_file_size: request.max_file_size.unwrap_or(100 * 1024 * 1024),
     };
@@ -392,7 +404,10 @@ async fn upload_file_handler(
         )
     })? {
         let file_name = field.file_name().unwrap_or("unnamed").to_string();
-        let content_type = field.content_type().unwrap_or("application/octet-stream").to_string();
+        let content_type = field
+            .content_type()
+            .unwrap_or("application/octet-stream")
+            .to_string();
         let data = field.bytes().await.map_err(|e| {
             (
                 StatusCode::BAD_REQUEST,
@@ -459,12 +474,11 @@ async fn download_file_handler(
     let mut response_headers = HeaderMap::new();
     response_headers.insert(
         "content-type",
-        obj.content_type.parse().unwrap_or_else(|_| "application/octet-stream".parse().unwrap()),
+        obj.content_type
+            .parse()
+            .unwrap_or_else(|_| "application/octet-stream".parse().unwrap()),
     );
-    response_headers.insert(
-        "content-length",
-        obj.size.to_string().parse().unwrap(),
-    );
+    response_headers.insert("content-length", obj.size.to_string().parse().unwrap());
 
     Ok((StatusCode::OK, response_headers, Bytes::from(data)))
 }
@@ -517,7 +531,10 @@ async fn create_signed_url_handler(
     let expires_at = chrono::Utc::now() + chrono::Duration::seconds(expires_in as i64);
 
     Ok(Json(SignedUrlResponse {
-        url: format!("/storage/v1/{}/{}?token=signed_placeholder", bucket_name, path),
+        url: format!(
+            "/storage/v1/{}/{}?token=signed_placeholder",
+            bucket_name, path
+        ),
         expires_at: expires_at.to_rfc3339(),
     }))
 }
@@ -541,9 +558,21 @@ mod tests {
 
     #[test]
     fn test_parse_bucket_policy() {
-        assert!(matches!(parse_bucket_policy("public"), BucketPolicy::Public));
-        assert!(matches!(parse_bucket_policy("private"), BucketPolicy::Private));
-        assert!(matches!(parse_bucket_policy("authenticated"), BucketPolicy::Authenticated));
-        assert!(matches!(parse_bucket_policy("unknown"), BucketPolicy::Private));
+        assert!(matches!(
+            parse_bucket_policy("public"),
+            BucketPolicy::Public
+        ));
+        assert!(matches!(
+            parse_bucket_policy("private"),
+            BucketPolicy::Private
+        ));
+        assert!(matches!(
+            parse_bucket_policy("authenticated"),
+            BucketPolicy::Authenticated
+        ));
+        assert!(matches!(
+            parse_bucket_policy("unknown"),
+            BucketPolicy::Private
+        ));
     }
 }

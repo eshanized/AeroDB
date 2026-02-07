@@ -3,8 +3,8 @@
 //! Single operation endpoint that routes all requests through the pipeline.
 //! Replaces separate CRUD endpoints with a unified interface.
 
-use std::sync::Arc;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use axum::{
     extract::State,
@@ -22,10 +22,10 @@ use crate::core::operation::Operation;
 use crate::core::{BridgeConfig, CoreError, PipelineBridge, RequestContext};
 use crate::file_storage::file::FileService;
 use crate::file_storage::local::LocalBackend;
-use crate::functions::invoker::{Invoker, InvocationContext};
+use crate::functions::invoker::{InvocationContext, Invoker};
 use crate::functions::registry::FunctionRegistry;
-use crate::realtime::subscription::SubscriptionRegistry;
 use crate::realtime::broadcast::BroadcastRegistry;
+use crate::realtime::subscription::SubscriptionRegistry;
 
 /// Unified operation request
 #[derive(Debug, Deserialize)]
@@ -110,11 +110,7 @@ pub struct UnifiedApiServer {
 
 impl UnifiedApiServer {
     /// Create a new unified API server with all services
-    pub fn new(
-        bridge: PipelineBridge,
-        jwt_config: JwtConfig,
-        storage_path: PathBuf,
-    ) -> Self {
+    pub fn new(bridge: PipelineBridge, jwt_config: JwtConfig, storage_path: PathBuf) -> Self {
         let backend = LocalBackend::new(storage_path);
         Self {
             bridge: Arc::new(bridge),
@@ -178,7 +174,8 @@ async fn execute_operation(
     match execute_via_bridge(&server, request.operation, ctx).await {
         Ok(data) => (StatusCode::OK, Json(OperationResponse::success(data))),
         Err(err) => {
-            let status = StatusCode::from_u16(err.status_code()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+            let status = StatusCode::from_u16(err.status_code())
+                .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
             (status, Json(OperationResponse::error(&err)))
         }
     }
@@ -229,50 +226,72 @@ async fn execute_via_bridge(
     use crate::core::operation::*;
 
     match operation {
-        Operation::Read(read_op) => server.bridge.read(&read_op.collection, &read_op.id, ctx).await,
+        Operation::Read(read_op) => {
+            server
+                .bridge
+                .read(&read_op.collection, &read_op.id, ctx)
+                .await
+        }
 
         Operation::Write(write_op) => {
-            server.bridge
-                .write(&write_op.collection, write_op.document, &write_op.schema_id, ctx)
+            server
+                .bridge
+                .write(
+                    &write_op.collection,
+                    write_op.document,
+                    &write_op.schema_id,
+                    ctx,
+                )
                 .await
         }
 
         Operation::Update(update_op) => {
-            server.bridge
+            server
+                .bridge
                 .update(&update_op.collection, &update_op.id, update_op.updates, ctx)
                 .await
         }
 
         Operation::Delete(delete_op) => {
-            server.bridge.delete(&delete_op.collection, &delete_op.id, ctx).await
+            server
+                .bridge
+                .delete(&delete_op.collection, &delete_op.id, ctx)
+                .await
         }
 
         Operation::Query(query_op) => {
-            server.bridge.query(&query_op.collection, query_op.filter.clone(), query_op.limit, query_op.offset, ctx).await
+            server
+                .bridge
+                .query(
+                    &query_op.collection,
+                    query_op.filter.clone(),
+                    query_op.limit,
+                    query_op.offset,
+                    ctx,
+                )
+                .await
         }
 
         // Explain returns the query plan without executing
-        Operation::Explain(query_op) => {
-            Ok(serde_json::json!({
-                "type": "explain",
-                "collection": query_op.collection,
-                "filter": query_op.filter,
-                "limit": query_op.limit,
-                "offset": query_op.offset,
-                "plan": "full_collection_scan"
-            }))
-        }
+        Operation::Explain(query_op) => Ok(serde_json::json!({
+            "type": "explain",
+            "collection": query_op.collection,
+            "filter": query_op.filter,
+            "limit": query_op.limit,
+            "offset": query_op.offset,
+            "plan": "full_collection_scan"
+        })),
 
         // Subscribe - create subscription via registry
         Operation::Subscribe(sub_op) => {
             let subscription_id = Uuid::new_v4();
             let rls_ctx = build_rls_context(&ctx);
-            
+
             // Create subscription object
             use crate::realtime::subscription::Subscription;
             let connection_id = Uuid::new_v4().to_string();
             let subscription = Subscription::new(connection_id, sub_op.channel.clone(), rls_ctx);
-            
+
             match server.subscription_registry.subscribe(subscription) {
                 Ok(sub_id) => Ok(serde_json::json!({
                     "type": "subscription",
@@ -292,7 +311,10 @@ async fn execute_via_bridge(
                     "subscription_id": subscription_id,
                     "status": "removed"
                 })),
-                Err(e) => Err(CoreError::not_found(&format!("subscription/{}", subscription_id))),
+                Err(e) => Err(CoreError::not_found(&format!(
+                    "subscription/{}",
+                    subscription_id
+                ))),
             }
         }
 
@@ -300,7 +322,7 @@ async fn execute_via_bridge(
         Operation::Broadcast(broadcast_op) => {
             let sender_id = ctx.auth.user_id;
             let sender_conn = Uuid::new_v4().to_string();
-            
+
             match server.broadcast_registry.broadcast(
                 &broadcast_op.channel,
                 broadcast_op.event.clone(),
@@ -322,12 +344,13 @@ async fn execute_via_bridge(
         // Invoke - execute function via invoker
         Operation::Invoke(invoke_op) => {
             let user_id = ctx.auth.user_id;
-            
+
             // Look up function by name
             match server.function_registry.get(&invoke_op.function_name) {
                 Ok(function) => {
-                    let context = InvocationContext::new(&function, invoke_op.payload.clone(), user_id);
-                    
+                    let context =
+                        InvocationContext::new(&function, invoke_op.payload.clone(), user_id);
+
                     if invoke_op.async_mode {
                         // Async mode - queue and return immediately
                         Ok(serde_json::json!({
@@ -353,33 +376,32 @@ async fn execute_via_bridge(
                         }
                     }
                 }
-                Err(_) => Err(CoreError::not_found(&format!("function/{}", invoke_op.function_name))),
+                Err(_) => Err(CoreError::not_found(&format!(
+                    "function/{}",
+                    invoke_op.function_name
+                ))),
             }
         }
 
         // Upload - file uploads via unified API only support metadata operations
         // Actual file content upload should use the dedicated /storage routes
-        Operation::Upload(file_op) => {
-            Ok(serde_json::json!({
-                "type": "upload",
-                "bucket": file_op.bucket,
-                "path": file_op.path,
-                "status": "use_storage_route",
-                "message": "File content upload requires the dedicated /storage/buckets/{bucket}/files endpoint"
-            }))
-        }
+        Operation::Upload(file_op) => Ok(serde_json::json!({
+            "type": "upload",
+            "bucket": file_op.bucket,
+            "path": file_op.path,
+            "status": "use_storage_route",
+            "message": "File content upload requires the dedicated /storage/buckets/{bucket}/files endpoint"
+        })),
 
         // Download - file downloads via unified API return download URL
         // Actual file content should be retrieved from the dedicated /storage routes
-        Operation::Download(file_op) => {
-            Ok(serde_json::json!({
-                "type": "download",
-                "bucket": file_op.bucket,
-                "path": file_op.path,
-                "url": format!("/storage/buckets/{}/files/{}", file_op.bucket, file_op.path),
-                "message": "Use the URL to download file content"
-            }))
-        }
+        Operation::Download(file_op) => Ok(serde_json::json!({
+            "type": "download",
+            "bucket": file_op.bucket,
+            "path": file_op.path,
+            "url": format!("/storage/buckets/{}/files/{}", file_op.bucket, file_op.path),
+            "message": "Use the URL to download file content"
+        })),
     }
 }
 

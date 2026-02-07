@@ -389,12 +389,20 @@ impl ControlPlaneHandler {
             DiagnosticCommand::RunDiagnostics => {
                 let repl_state = self.kernel.get_replication_state();
                 let promo_state = self.kernel.get_promotion_state();
-                
+
                 let sections = vec![
                     DiagnosticSection {
                         name: "replication".to_string(),
                         entries: vec![
-                            ("status".to_string(), if repl_state.is_halted() { "error" } else { "ok" }.to_string()),
+                            (
+                                "status".to_string(),
+                                if repl_state.is_halted() {
+                                    "error"
+                                } else {
+                                    "ok"
+                                }
+                                .to_string(),
+                            ),
                             ("state".to_string(), repl_state.state_name().to_string()),
                             ("can_write".to_string(), repl_state.can_write().to_string()),
                             ("can_read".to_string(), repl_state.can_read().to_string()),
@@ -411,13 +419,22 @@ impl ControlPlaneHandler {
                         name: "wal".to_string(),
                         entries: vec![
                             ("status".to_string(), "ok".to_string()),
-                            ("position".to_string(), self.kernel.get_wal_position().to_string()),
-                            ("oldest".to_string(), self.kernel.get_wal_oldest_position().to_string()),
-                            ("size_bytes".to_string(), self.kernel.get_wal_size_bytes().to_string()),
+                            (
+                                "position".to_string(),
+                                self.kernel.get_wal_position().to_string(),
+                            ),
+                            (
+                                "oldest".to_string(),
+                                self.kernel.get_wal_oldest_position().to_string(),
+                            ),
+                            (
+                                "size_bytes".to_string(),
+                                self.kernel.get_wal_size_bytes().to_string(),
+                            ),
                         ],
                     },
                 ];
-                
+
                 let result = DiagnosticResult {
                     sections,
                     collected_at: SystemTime::now(),
@@ -444,7 +461,7 @@ impl ControlPlaneHandler {
             DiagnosticCommand::InspectSnapshots => {
                 let snapshots_data = self.kernel.get_snapshots();
                 let checkpoints_data = self.kernel.get_checkpoints();
-                
+
                 let info = SnapshotInfo {
                     snapshots: snapshots_data
                         .into_iter()
@@ -495,7 +512,11 @@ impl ControlPlaneHandler {
                 let result = PromotionResultData {
                     replica_id: *replica_id,
                     success,
-                    new_role: if success { Some(NodeRole::Primary) } else { None },
+                    new_role: if success {
+                        Some(NodeRole::Primary)
+                    } else {
+                        None
+                    },
                     explanation,
                 };
                 Ok(CommandResponse::success(
@@ -505,10 +526,9 @@ impl ControlPlaneHandler {
                 ))
             }
             ControlCommand::RequestDemotion { node_id, reason } => {
-                let result_msg = self.kernel.request_demotion(
-                    *node_id,
-                    reason.as_deref().unwrap_or("operator request"),
-                );
+                let result_msg = self
+                    .kernel
+                    .request_demotion(*node_id, reason.as_deref().unwrap_or("operator request"));
                 let (success, explanation) = match result_msg {
                     Ok(msg) => (true, msg),
                     Err(msg) => (false, msg),
@@ -516,7 +536,11 @@ impl ControlPlaneHandler {
                 let result = PromotionResultData {
                     replica_id: *node_id,
                     success,
-                    new_role: if success { Some(NodeRole::Replica) } else { None },
+                    new_role: if success {
+                        Some(NodeRole::Replica)
+                    } else {
+                        None
+                    },
                     explanation,
                 };
                 Ok(CommandResponse::success(
@@ -530,10 +554,7 @@ impl ControlPlaneHandler {
                 reason,
                 acknowledged_risks: _,
             } => {
-                let result_msg = self.kernel.force_promotion(
-                    *replica_id,
-                    reason.as_str(),
-                );
+                let result_msg = self.kernel.force_promotion(*replica_id, reason.as_str());
                 let (success, explanation) = match result_msg {
                     Ok(msg) => (true, msg),
                     Err(msg) => (false, msg),
@@ -541,7 +562,11 @@ impl ControlPlaneHandler {
                 let result = PromotionResultData {
                     replica_id: *replica_id,
                     success,
-                    new_role: if success { Some(NodeRole::Primary) } else { None },
+                    new_role: if success {
+                        Some(NodeRole::Primary)
+                    } else {
+                        None
+                    },
                     explanation,
                 };
                 Ok(CommandResponse::success(

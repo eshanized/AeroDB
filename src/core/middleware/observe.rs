@@ -70,7 +70,10 @@ impl MetricsRecorder for MetricsRegistryAdapter {
     fn increment(&self, name: &str, labels: &[(&str, &str)]) {
         match name {
             "operation_success_total" => {
-                if labels.iter().any(|(k, v)| *k == "operation" && *v == "query") {
+                if labels
+                    .iter()
+                    .any(|(k, v)| *k == "operation" && *v == "query")
+                {
                     self.registry.increment_queries_executed();
                 } else {
                     self.registry.increment_writes();
@@ -236,7 +239,8 @@ mod tests {
         let audit_log = Arc::new(MemoryAuditLog::new());
         let registry = Arc::new(crate::observability::MetricsRegistry::new());
 
-        let middleware = ObserveMiddleware::with_registry_and_audit(registry.clone(), audit_log.clone());
+        let middleware =
+            ObserveMiddleware::with_registry_and_audit(registry.clone(), audit_log.clone());
         let pipeline = Pipeline::new(NoOpExecutor).with_middleware(middleware);
 
         let ctx = RequestContext::new(AuthContext::authenticated(Uuid::new_v4()));

@@ -18,19 +18,18 @@
 //! - `/backup/*` - Backup and restore endpoints
 //! - `/cluster/*` - Cluster management endpoints
 
-pub mod auth_routes;
 pub mod auth_management_routes;
+pub mod auth_routes;
+pub mod backup_routes;
+pub mod cluster_routes;
 pub mod config;
+pub mod database_routes;
+pub mod functions_routes;
 pub mod observability_routes;
+pub mod realtime_routes;
 pub mod server;
 pub mod setup_routes;
 pub mod storage_routes;
-pub mod database_routes;
-pub mod functions_routes;
-pub mod realtime_routes;
-pub mod backup_routes;
-pub mod cluster_routes;
 
 pub use config::HttpServerConfig;
 pub use server::HttpServer;
-

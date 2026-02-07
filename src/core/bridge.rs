@@ -234,24 +234,14 @@ mod tests {
         // Anonymous should fail
         let ctx = RequestContext::anonymous();
         let result = bridge
-            .write(
-                "users",
-                serde_json::json!({"name": "Alice"}),
-                "users",
-                ctx,
-            )
+            .write("users", serde_json::json!({"name": "Alice"}), "users", ctx)
             .await;
         assert!(result.is_err());
 
         // Authenticated should work
         let ctx = RequestContext::new(AuthContext::authenticated(Uuid::new_v4()));
         let result = bridge
-            .write(
-                "users",
-                serde_json::json!({"name": "Alice"}),
-                "users",
-                ctx,
-            )
+            .write("users", serde_json::json!({"name": "Alice"}), "users", ctx)
             .await;
         assert!(result.is_ok());
     }

@@ -108,8 +108,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_anonymous_reads_allowed() {
-        let pipeline =
-            Pipeline::new(NoOpExecutor).with_middleware(AuthMiddleware::new().with_anonymous_reads());
+        let pipeline = Pipeline::new(NoOpExecutor)
+            .with_middleware(AuthMiddleware::new().with_anonymous_reads());
 
         let ctx = RequestContext::anonymous();
         let op = Operation::Read(ReadOp {

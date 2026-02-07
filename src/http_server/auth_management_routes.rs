@@ -14,7 +14,10 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::auth::api::{AuthService, ChangePasswordRequest, ErrorResponse, ForgotPasswordRequest, ResetPasswordRequest, UpdateUserRequest, UserResponse};
+use crate::auth::api::{
+    AuthService, ChangePasswordRequest, ErrorResponse, ForgotPasswordRequest, ResetPasswordRequest,
+    UpdateUserRequest, UserResponse,
+};
 use crate::auth::crypto::PasswordPolicy;
 use crate::auth::errors::AuthError;
 use crate::auth::rls::{DefaultRlsEnforcer, RlsPolicy};
@@ -126,7 +129,10 @@ pub fn auth_management_routes(state: Arc<AuthState>) -> Router {
         .route("/rls/{table}", delete(delete_rls_policy_handler))
         // Email verification
         .route("/verify-email", post(verify_email_handler))
-        .route("/users/{id}/resend-verification", post(resend_verification_handler))
+        .route(
+            "/users/{id}/resend-verification",
+            post(resend_verification_handler),
+        )
         .with_state(state)
 }
 
@@ -189,7 +195,7 @@ async fn list_users_handler(
     // Get all users from repository
     // Note: In a real implementation, this would use pagination
     let users: Vec<UserResponse> = Vec::new(); // Placeholder - need to add list_all to UserRepository
-    
+
     Ok(Json(UsersListResponse {
         total: users.len(),
         users,

@@ -37,14 +37,16 @@ impl ScheduledJob {
     /// Create a new scheduled job
     pub fn new(function_name: String, cron: String) -> FunctionResult<Self> {
         // Validate cron expression
-        let cron_parser = Cron::new(&cron)
-            .parse()
-            .map_err(|e| FunctionError::InvalidCron(format!("Invalid cron expression '{}': {}", cron, e)))?;
+        let cron_parser = Cron::new(&cron).parse().map_err(|e| {
+            FunctionError::InvalidCron(format!("Invalid cron expression '{}': {}", cron, e))
+        })?;
 
         let next_run = cron_parser
             .find_next_occurrence(&Utc::now(), false)
             .map(|dt| dt.with_timezone(&Utc))
-            .map_err(|e| FunctionError::InvalidCron(format!("Error calculating next run: {}", e)))?;
+            .map_err(|e| {
+                FunctionError::InvalidCron(format!("Error calculating next run: {}", e))
+            })?;
 
         Ok(Self {
             id: Uuid::new_v4(),
@@ -59,17 +61,17 @@ impl ScheduledJob {
     /// Mark as run
     pub fn mark_run(&mut self) -> FunctionResult<()> {
         self.last_run = Some(Utc::now());
-        
+
         // Calculate next run
-        let cron_parser = Cron::new(&self.cron)
-            .parse()
-            .map_err(|e| FunctionError::InvalidCron(format!("Invalid cron expression '{}': {}", self.cron, e)))?;
+        let cron_parser = Cron::new(&self.cron).parse().map_err(|e| {
+            FunctionError::InvalidCron(format!("Invalid cron expression '{}': {}", self.cron, e))
+        })?;
 
         self.next_run = cron_parser
             .find_next_occurrence(&Utc::now(), false)
             .map(|dt| dt.with_timezone(&Utc))
             .ok();
-            
+
         Ok(())
     }
 }
