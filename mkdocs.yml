@@ -191,118 +191,118 @@ nav:
     - Explanation Model: DX_EXPLANATION_MODEL.md
   
   - Implementation Phases:
-    - Phase 1 (Readiness): PHASE1_READINESS.md
+    - Phase 1 (Readiness): INIT_READINESS.md
     - Phase 2 (Replication):
-      - Vision: PHASE2_VISION.md
-      - Invariants: PHASE2_INVARIANTS.md
-      - Proofs: PHASE2_PROOFS.md
-      - Roadmap: PHASE2_ROADMAP.md
-      - Replication Roadmap: PHASE2_REPLICATION_ROADMAP.md
-      - Readiness: PHASE2_REPL_READINESS.md
+      - Vision: REPLICATION_VISION.md
+      - Invariants: REPLICATION_INVARIANTS.md
+      - Proofs: REPLICATION_PROOFS.md
+      - Roadmap: REPLICATION_ROADMAP.md
+      - Replication Roadmap: REPLICATION_ROADMAP.md
+      - Readiness: REPLICATION_READINESS.md
     - Phase 5 (Observability):
-      - Vision: PHASE5_VISION.md
-      - Invariants: PHASE5_INVARIANTS.md
-      - Implementation Order: PHASE5_IMPLEMENTATION_ORDER.md
-      - Failure Matrix: PHASE5_FAILURE_MATRIX.md
-      - Testing Strategy: PHASE5_TESTING_STRATEGY.md
-      - Observability Mapping: PHASE5_OBSERVABILITY_MAPPING.md
-      - Readiness: PHASE5_READINESS.md
+      - Vision: OBSERVABILITY_VISION.md
+      - Invariants: OBSERVABILITY_INVARIANTS.md
+      - Implementation Order: OBSERVABILITY_IMPLEMENTATION_ORDER.md
+      - Failure Matrix: OBSERVABILITY_FAILURE_MATRIX.md
+      - Testing Strategy: OBSERVABILITY_TESTING_STRATEGY.md
+      - Observability Mapping: OBSERVABILITY_OBSERVABILITY_MAPPING.md
+      - Readiness: OBSERVABILITY_READINESS.md
     - Phase 6 (Failover):
-      - Vision: PHASE6_VISION.md
-      - Architecture: PHASE6_ARCHITECTURE.md
-      - Scope: PHASE6_SCOPE.md
-      - State Machine: PHASE6_STATE_MACHINE.md
-      - Invariants: PHASE6_INVARIANTS.md
-      - Failure Model: PHASE6_FAILURE_MODEL.md
-      - Implementation Order: PHASE6_IMPLEMENTATION_ORDER.md
-      - Testing Strategy: PHASE6_TESTING_STRATEGY.md
-      - Observability Mapping: PHASE6_OBSERVABILITY_MAPPING.md
-      - Readiness: PHASE6_READINESS.md
+      - Vision: FAILOVER_VISION.md
+      - Architecture: FAILOVER_ARCHITECTURE.md
+      - Scope: FAILOVER_SCOPE.md
+      - State Machine: FAILOVER_STATE_MACHINE.md
+      - Invariants: FAILOVER_INVARIANTS.md
+      - Failure Model: FAILOVER_FAILURE_MODEL.md
+      - Implementation Order: FAILOVER_IMPLEMENTATION_ORDER.md
+      - Testing Strategy: FAILOVER_TESTING_STRATEGY.md
+      - Observability Mapping: FAILOVER_OBSERVABILITY_MAPPING.md
+      - Readiness: FAILOVER_READINESS.md
     - Phase 7 (Control Plane):
-      - Vision: PHASE7_VISION.md
-      - Scope: PHASE7_SCOPE.md
-      - Architecture: PHASE7_CONTROL_PLANE_ARCHITECTURE.md
-      - Authority Model: PHASE7_AUTHORITY_MODEL.md
-      - State Model: PHASE7_STATE_MODEL.md
-      - Command Model: PHASE7_COMMAND_MODEL.md
-      - Confirmation Model: PHASE7_CONFIRMATION_MODEL.md
-      - Error Model: PHASE7_ERROR_MODEL.md
-      - Invariants: PHASE7_INVARIANTS.md
-      - Failure Model: PHASE7_FAILURE_MODEL.md
-      - Auditability: PHASE7_AUDITABILITY.md
-      - Testing Strategy: PHASE7_TESTING_STRATEGY.md
-      - Observability Model: PHASE7_OBSERVABILITY_MODEL.md
-      - Freeze Checklist: PHASE7_FREEZE_CHECKLIST.md
-      - Readiness: PHASE7_READINESS.md
+      - Vision: CONTROL_PLANE_VISION.md
+      - Scope: CONTROL_PLANE_SCOPE.md
+      - Architecture: CONTROL_PLANE_CONTROL_PLANE_ARCHITECTURE.md
+      - Authority Model: CONTROL_PLANE_AUTHORITY_MODEL.md
+      - State Model: CONTROL_PLANE_STATE_MODEL.md
+      - Command Model: CONTROL_PLANE_COMMAND_MODEL.md
+      - Confirmation Model: CONTROL_PLANE_CONFIRMATION_MODEL.md
+      - Error Model: CONTROL_PLANE_ERROR_MODEL.md
+      - Invariants: CONTROL_PLANE_INVARIANTS.md
+      - Failure Model: CONTROL_PLANE_FAILURE_MODEL.md
+      - Auditability: CONTROL_PLANE_AUDITABILITY.md
+      - Testing Strategy: CONTROL_PLANE_TESTING_STRATEGY.md
+      - Observability Model: CONTROL_PLANE_OBSERVABILITY_MODEL.md
+      - Freeze Checklist: CONTROL_PLANE_FREEZE_CHECKLIST.md
+      - Readiness: CONTROL_PLANE_READINESS.md
     - Phase 8 (Authentication):
-      - Vision: PHASE8_AUTH_VISION.md
-      - Architecture: PHASE8_AUTH_ARCHITECTURE.md
-      - Token Model: PHASE8_TOKEN_MODEL.md
-      - Session Model: PHASE8_SESSION_MODEL.md
-      - RLS Model: PHASE8_RLS_MODEL.md
-      - Invariants: PHASE8_INVARIANTS.md
-      - Failure Model: PHASE8_FAILURE_MODEL.md
-      - Testing Strategy: PHASE8_TESTING_STRATEGY.md
-      - Observability Mapping: PHASE8_OBSERVABILITY_MAPPING.md
-      - Readiness: PHASE8_READINESS.md
+      - Vision: AUTH_VISION.md
+      - Architecture: AUTH_ARCHITECTURE.md
+      - Token Model: AUTH_TOKEN_MODEL.md
+      - Session Model: AUTH_SESSION_MODEL.md
+      - RLS Model: AUTH_RLS_MODEL.md
+      - Invariants: AUTH_INVARIANTS.md
+      - Failure Model: AUTH_FAILURE_MODEL.md
+      - Testing Strategy: AUTH_TESTING_STRATEGY.md
+      - Observability Mapping: AUTH_OBSERVABILITY_MAPPING.md
+      - Readiness: AUTH_READINESS.md
     - Phase 9 (Auto API):
-      - Vision: PHASE9_VISION.md
-      - Architecture: PHASE9_ARCHITECTURE.md
-      - Relation Model: PHASE9_RELATION_MODEL.md
-      - Schema Model: PHASE9_SCHEMA_MODEL.md
-      - Query Model: PHASE9_QUERY_MODEL.md
-      - REST Spec: PHASE9_REST_SPEC.md
-      - Invariants: PHASE9_INVARIANTS.md
-      - Failure Model: PHASE9_FAILURE_MODEL.md
-      - Observability Mapping: PHASE9_OBSERVABILITY_MAPPING.md
-      - Readiness: PHASE9_READINESS.md
+      - Vision: AUTO_API_VISION.md
+      - Architecture: AUTO_API_ARCHITECTURE.md
+      - Relation Model: AUTO_API_RELATION_MODEL.md
+      - Schema Model: AUTO_API_SCHEMA_MODEL.md
+      - Query Model: AUTO_API_QUERY_MODEL.md
+      - REST Spec: AUTO_API_REST_SPEC.md
+      - Invariants: AUTO_API_INVARIANTS.md
+      - Failure Model: AUTO_API_FAILURE_MODEL.md
+      - Observability Mapping: AUTO_API_OBSERVABILITY_MAPPING.md
+      - Readiness: AUTO_API_READINESS.md
     - Phase 10 (Realtime):
-      - Vision: PHASE10_VISION.md
-      - Architecture: PHASE10_ARCHITECTURE.md
-      - Event Model: PHASE10_EVENT_MODEL.md
-      - Subscription Model: PHASE10_SUBSCRIPTION_MODEL.md
-      - Broadcast Model: PHASE10_BROADCAST_MODEL.md
-      - Presence Model: PHASE10_PRESENCE_MODEL.md
-      - Determinism Boundary: PHASE10_DETERMINISM_BOUNDARY.md
-      - Invariants: PHASE10_INVARIANTS.md
-      - Testing Strategy: PHASE10_TESTING_STRATEGY.md
-      - Readiness: PHASE10_READINESS.md
+      - Vision: REALTIME_VISION.md
+      - Architecture: REALTIME_ARCHITECTURE.md
+      - Event Model: REALTIME_EVENT_MODEL.md
+      - Subscription Model: REALTIME_SUBSCRIPTION_MODEL.md
+      - Broadcast Model: REALTIME_BROADCAST_MODEL.md
+      - Presence Model: REALTIME_PRESENCE_MODEL.md
+      - Determinism Boundary: REALTIME_DETERMINISM_BOUNDARY.md
+      - Invariants: REALTIME_INVARIANTS.md
+      - Testing Strategy: REALTIME_TESTING_STRATEGY.md
+      - Readiness: REALTIME_READINESS.md
     - Phase 11 (Storage):
-      - Vision: PHASE11_VISION.md
-      - Architecture: PHASE11_ARCHITECTURE.md
-      - Bucket Model: PHASE11_BUCKET_MODEL.md
-      - Metadata Model: PHASE11_METADATA_MODEL.md
-      - Access Model: PHASE11_ACCESS_MODEL.md
-      - Invariants: PHASE11_INVARIANTS.md
-      - Failure Model: PHASE11_FAILURE_MODEL.md
-      - Testing Strategy: PHASE11_TESTING_STRATEGY.md
-      - Readiness: PHASE11_READINESS.md
+      - Vision: OBJECT_STORAGE_VISION.md
+      - Architecture: OBJECT_STORAGE_ARCHITECTURE.md
+      - Bucket Model: OBJECT_STORAGE_BUCKET_MODEL.md
+      - Metadata Model: OBJECT_STORAGE_METADATA_MODEL.md
+      - Access Model: OBJECT_STORAGE_ACCESS_MODEL.md
+      - Invariants: OBJECT_STORAGE_INVARIANTS.md
+      - Failure Model: OBJECT_STORAGE_FAILURE_MODEL.md
+      - Testing Strategy: OBJECT_STORAGE_TESTING_STRATEGY.md
+      - Readiness: OBJECT_STORAGE_READINESS.md
     - Phase 12 (Functions):
-      - Vision: PHASE12_VISION.md
-      - Architecture: PHASE12_ARCHITECTURE.md
-      - Function Model: PHASE12_FUNCTION_MODEL.md
-      - Execution Model: PHASE12_EXECUTION_MODEL.md
-      - Invariants: PHASE12_INVARIANTS.md
-      - Failure Model: PHASE12_FAILURE_MODEL.md
-      - Testing Strategy: PHASE12_TESTING_STRATEGY.md
-      - Readiness: PHASE12_READINESS.md
+      - Vision: FUNCTIONS_VISION.md
+      - Architecture: FUNCTIONS_ARCHITECTURE.md
+      - Function Model: FUNCTIONS_FUNCTION_MODEL.md
+      - Execution Model: FUNCTIONS_EXECUTION_MODEL.md
+      - Invariants: FUNCTIONS_INVARIANTS.md
+      - Failure Model: FUNCTIONS_FAILURE_MODEL.md
+      - Testing Strategy: FUNCTIONS_TESTING_STRATEGY.md
+      - Readiness: FUNCTIONS_READINESS.md
     - Phase 13 (Admin UI):
-      - Vision: PHASE13_VISION.md
-      - Architecture: PHASE13_ARCHITECTURE.md
-      - UI Model: PHASE13_UI_MODEL.md
-      - Invariants: PHASE13_INVARIANTS.md
-      - Testing Strategy: PHASE13_TESTING_STRATEGY.md
-      - Readiness: PHASE13_READINESS.md
+      - Vision: ADMIN_UI_VISION.md
+      - Architecture: ADMIN_UI_ARCHITECTURE.md
+      - UI Model: ADMIN_UI_UI_MODEL.md
+      - Invariants: ADMIN_UI_INVARIANTS.md
+      - Testing Strategy: ADMIN_UI_TESTING_STRATEGY.md
+      - Readiness: ADMIN_UI_READINESS.md
     - Phase 14 (JS SDK):
-      - Vision: PHASE14_VISION.md
-      - Architecture: PHASE14_JS_SDK_ARCHITECTURE.md
-      - Readiness: PHASE14_READINESS.md
+      - Vision: JS_SDK_VISION.md
+      - Architecture: JS_SDK_ARCHITECTURE.md
+      - Readiness: JS_SDK_READINESS.md
     - Phase 15:
-      - Vision: PHASE15_VISION.md
-      - Readiness: PHASE15_READINESS.md
+      - Vision: MANAGED_HOSTING_VISION.md
+      - Readiness: MANAGED_HOSTING_READINESS.md
     - Phase 16:
-      - Vision: PHASE16_VISION.md
-      - Readiness: PHASE16_READINESS.md
+      - Vision: DEV_TOOLS_VISION.md
+      - Readiness: DEV_TOOLS_READINESS.md
   
   - Reference:
     - Project Plan: PROJECT_PLAN.md
