@@ -31,7 +31,7 @@ Minimum:
 rustc 1.75+
 cargo 1.75+
 
-````
+```
 
 Check:
 

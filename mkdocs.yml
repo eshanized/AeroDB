@@ -17,8 +17,8 @@ theme:
     primary: deep purple
     accent: pink
   font:
-    text: Playwrite NZ Basic
-    code: JetBrains Mono
+    text: Noto Sans
+    code: Fira Code
   logo: assets/logo.png
   favicon: assets/favicon.ico
   features:
@@ -96,9 +96,7 @@ extra:
       link: https://github.com/eshanized/AeroDB
     - icon: fontawesome/brands/discord
       link: https://discord.gg/aerodb
-  version:
-    provider: mike
-    default: latest
+
 
 # Custom CSS for Dracula theme
 extra_css:
