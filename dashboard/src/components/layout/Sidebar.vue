@@ -31,7 +31,11 @@ const navItems = [
     ]"
   >
     <div class="p-4 border-b border-border flex items-center justify-between">
-      <h1 v-if="open" class="text-xl font-bold">AeroDB</h1>
+      <div v-if="open" class="flex items-center gap-2">
+        <img src="/logo.svg" alt="AeroDB" class="w-8 h-8" />
+        <h1 class="text-xl font-bold">AeroDB</h1>
+      </div>
+      <img v-else src="/logo.svg" alt="AeroDB" class="w-8 h-8 mb-2" />
       <button
         @click="uiStore.toggleSidebar"
         class="p-2 rounded hover:bg-secondary"
