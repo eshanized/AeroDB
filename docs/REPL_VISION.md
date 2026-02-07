@@ -1,4 +1,4 @@
-# PHASE2_REPLICATION_VISION.md
+# REPLICATION_VISION.md
 
 ## AeroDB Phase 2B — Replication Vision
 

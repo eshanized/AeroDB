@@ -1,9 +1,9 @@
-# PHASE8_INVARIANTS.md — Authentication Invariants
+# AUTH_INVARIANTS.md — Authentication Invariants
 
 ## Status
 - Phase: **8**
 - Authority: **Normative**
-- Depends on: PHASE8_AUTH_VISION.md, PHASE8_AUTH_ARCHITECTURE.md
+- Depends on: AUTH_VISION.md, AUTH_ARCHITECTURE.md
 - Date: 2026-02-06
 
 ---

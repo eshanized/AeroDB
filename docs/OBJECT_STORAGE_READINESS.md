@@ -8,15 +8,15 @@
 
 ## Documentation Checklist
 
-- [x] PHASE11_VISION.md - Goals and philosophy
-- [x] PHASE11_ARCHITECTURE.md - Backend abstraction design
-- [x] PHASE11_BUCKET_MODEL.md - Bucket policies and validation
-- [x] PHASE11_ACCESS_MODEL.md - Signed URLs and RLS
-- [x] PHASE11_METADATA_MODEL.md - File metadata in AeroDB
-- [x] PHASE11_INVARIANTS.md - Storage invariants (FS-I1, FS-I2, FS-I3, FS-I4)
-- [x] PHASE11_FAILURE_MODEL.md - Failure handling and recovery
-- [x] PHASE11_TESTING_STRATEGY.md - Test coverage plan
-- [x] PHASE11_READINESS.md - Freeze criteria (this document)
+- [x] OBJECT_STORAGE_VISION.md - Goals and philosophy
+- [x] OBJECT_STORAGE_ARCHITECTURE.md - Backend abstraction design
+- [x] OBJECT_STORAGE_BUCKET_MODEL.md - Bucket policies and validation
+- [x] OBJECT_STORAGE_ACCESS_MODEL.md - Signed URLs and RLS
+- [x] OBJECT_STORAGE_METADATA_MODEL.md - File metadata in AeroDB
+- [x] OBJECT_STORAGE_INVARIANTS.md - Storage invariants (FS-I1, FS-I2, FS-I3, FS-I4)
+- [x] OBJECT_STORAGE_FAILURE_MODEL.md - Failure handling and recovery
+- [x] OBJECT_STORAGE_TESTING_STRATEGY.md - Test coverage plan
+- [x] OBJECT_STORAGE_READINESS.md - Freeze criteria (this document)
 
 **Status:** ✅ All 9 documents complete
 

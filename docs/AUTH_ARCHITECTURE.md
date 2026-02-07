@@ -1,9 +1,9 @@
-# PHASE8_AUTH_ARCHITECTURE.md — Authentication Architecture
+# AUTH_ARCHITECTURE.md — Authentication Architecture
 
 ## Status
 - Phase: **8**
 - Authority: **Normative**
-- Depends on: PHASE8_AUTH_VISION.md
+- Depends on: AUTH_VISION.md
 - Date: 2026-02-06
 
 ---

@@ -6,9 +6,9 @@
 - Authority: **Normative**
 - Scope: **In-memory layout and allocation optimizations**
 - Dependencies:
-  - PHASE3_VISION.md
-  - PHASE3_INVARIANTS.md
-  - PHASE3_PROOF_RULES.md
+  - PERF_VISION.md
+  - PERF_INVARIANTS.md
+  - PERF_PROOF_RULES.md
   - PERFORMANCE_BASELINE.md
   - CRITICAL_PATHS.md
   - SEMANTIC_EQUIVALENCE.md
@@ -236,7 +236,7 @@ If correctness depends on CPU behavior, it is invalid.
 
 ## 6. Invariant Preservation Matrix
 
-(Referenced from `PHASE3_INVARIANTS.md`)
+(Referenced from `PERF_INVARIANTS.md`)
 
 ### Durability
 - D-1, D-2, D-3: **Not Applicable (In-Memory Only)**

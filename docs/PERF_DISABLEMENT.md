@@ -6,9 +6,9 @@
 - Authority: **Normative**
 - Scope: **All Phase 3 optimizations**
 - Dependencies:
-  - PHASE3_VISION.md
-  - PHASE3_INVARIANTS.md
-  - PHASE3_PROOF_RULES.md
+  - PERF_VISION.md
+  - PERF_INVARIANTS.md
+  - PERF_PROOF_RULES.md
   - SEMANTIC_EQUIVALENCE.md
   - FAILURE_MODEL_PHASE3.md
 

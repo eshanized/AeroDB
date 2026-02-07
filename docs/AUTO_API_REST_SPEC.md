@@ -1,4 +1,4 @@
-# PHASE9_REST_SPEC.md — REST API Generator Specification
+# AUTO_API_REST_SPEC.md — REST API Generator Specification
 
 ## Status
 - Phase: **9**

@@ -1,4 +1,4 @@
-# PHASE2_REPLICATION_READINESS.md
+# REPLICATION_READINESS.md
 
 ## AeroDB — Phase 2 Replication Readiness Checklist
 
@@ -121,7 +121,7 @@ Per REPLICATION_COMPATIBILITY.md §3:
 
 ## 6. Invariant Summary
 
-From PHASE2_REPLICATION_INVARIANTS.md:
+From REPLICATION_INVARIANTS.md:
 
 | # | Invariant | Status |
 |---|-----------|--------|

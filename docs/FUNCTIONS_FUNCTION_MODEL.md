@@ -60,7 +60,7 @@ pub struct FunctionConfig {
 ### trigger
 - **Type:** Enum (TriggerType)
 - **Purpose:** How function is invoked
-- **See:** PHASE12_EXECUTION_MODEL.md for details
+- **See:** FUNCTIONS_EXECUTION_MODEL.md for details
 
 ### wasm_hash
 - **Type:** String (hex SHA-256)
@@ -131,7 +131,7 @@ pub enum DatabaseOperation {
 }
 ```
 
-See PHASE12_EXECUTION_MODEL.md for trigger details.
+See FUNCTIONS_EXECUTION_MODEL.md for trigger details.
 
 ---
 

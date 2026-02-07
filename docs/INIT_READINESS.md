@@ -235,4 +235,4 @@ Phase 1 is complete **only if**:
 
 ---
 
-END PHASE1_READINESS.md
+END INIT_READINESS.md

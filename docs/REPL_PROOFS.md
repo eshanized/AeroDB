@@ -1,4 +1,4 @@
-# PHASE2_REPLICATION_PROOFS.md
+# REPLICATION_PROOFS.md
 
 ## AeroDB Phase 2B — Replication Correctness Proofs
 

@@ -16,16 +16,16 @@ This document defines the criteria for Phase 8 to be considered complete and rea
 
 | Document | Status | Reviewed |
 |----------|--------|----------|
-| PHASE8_AUTH_VISION.md | ✅ Complete | ☐ |
-| PHASE8_AUTH_ARCHITECTURE.md | ✅ Complete | ☐ |
-| PHASE8_RLS_MODEL.md | ✅ Complete | ☐ |
-| PHASE8_INVARIANTS.md | ✅ Complete | ☐ |
-| PHASE8_SESSION_MODEL.md | ✅ Complete | ☐ |
-| PHASE8_TOKEN_MODEL.md | ✅ Complete | ☐ |
-| PHASE8_FAILURE_MODEL.md | ✅ Complete | ☐ |
-| PHASE8_OBSERVABILITY_MAPPING.md | ✅ Complete | ☐ |
-| PHASE8_TESTING_STRATEGY.md | ✅ Complete | ☐ |
-| PHASE8_READINESS.md | ✅ Complete | ☐ |
+| AUTH_VISION.md | ✅ Complete | ☐ |
+| AUTH_ARCHITECTURE.md | ✅ Complete | ☐ |
+| AUTH_RLS_MODEL.md | ✅ Complete | ☐ |
+| AUTH_INVARIANTS.md | ✅ Complete | ☐ |
+| AUTH_SESSION_MODEL.md | ✅ Complete | ☐ |
+| AUTH_TOKEN_MODEL.md | ✅ Complete | ☐ |
+| AUTH_FAILURE_MODEL.md | ✅ Complete | ☐ |
+| AUTH_OBSERVABILITY_MAPPING.md | ✅ Complete | ☐ |
+| AUTH_TESTING_STRATEGY.md | ✅ Complete | ☐ |
+| AUTH_READINESS.md | ✅ Complete | ☐ |
 
 ---
 

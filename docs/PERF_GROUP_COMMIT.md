@@ -6,9 +6,9 @@
 - Authority: **Normative**
 - Scope: **Write-path performance optimization**
 - Dependencies:
-  - PHASE3_VISION.md
-  - PHASE3_INVARIANTS.md
-  - PHASE3_PROOF_RULES.md
+  - PERF_VISION.md
+  - PERF_INVARIANTS.md
+  - PERF_PROOF_RULES.md
   - PERFORMANCE_BASELINE.md
   - CRITICAL_PATHS.md
   - SEMANTIC_EQUIVALENCE.md
@@ -139,7 +139,7 @@ If only one commit is present, behavior is identical to baseline.
 
 ## 5. Invariant Preservation Matrix
 
-This section references `PHASE3_INVARIANTS.md`.
+This section references `PERF_INVARIANTS.md`.
 
 ### Durability
 - D-1 (Acknowledged Write Durability): **Preserved**

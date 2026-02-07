@@ -6,9 +6,9 @@
 - Authority: **Normative**
 - Scope: **All replication failure scenarios**
 - Depends on:
-  - `PHASE5_VISION.md`
-  - `PHASE5_INVARIANTS.md`
-  - `PHASE5_IMPLEMENTATION_ORDER.md`
+  - `OBSERVABILITY_VISION.md`
+  - `OBSERVABILITY_INVARIANTS.md`
+  - `OBSERVABILITY_IMPLEMENTATION_ORDER.md`
   - `REPLICATION_RUNTIME_ARCHITECTURE.md`
   - `REPL_*` specifications
   - `MVCC_*` specifications

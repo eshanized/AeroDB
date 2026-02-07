@@ -1,9 +1,9 @@
-# PHASE6_SCOPE.md — Failover & Promotion
+# FAILOVER_SCOPE.md — Failover & Promotion
 
 ## Status
 - Phase: **6**
 - Authority: **Normative**
-- Depends on: **PHASE6_VISION.md**
+- Depends on: **FAILOVER_VISION.md**
 - Frozen Dependencies: **Phases 0–5**
 
 ---
@@ -208,7 +208,7 @@ Phase 6 scope is considered complete when:
 
 ## 7. Scope Lock Rule
 
-Once **PHASE6_SCOPE.md** is approved:
+Once **FAILOVER_SCOPE.md** is approved:
 
 > Any request not covered by this document  
 > MUST be deferred to a later phase.

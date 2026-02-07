@@ -242,10 +242,10 @@ These documents guide usage and contribution.
 They have **no semantic authority**.
 
 57. `PROJECT_PLAN.md`  
-58. `PHASE1_READINESS.md`  
-59. `PHASE2_VISION.md`  
-60. `PHASE2_ROADMAP.md`  
-61. `PHASE2_REPL_READINESS.md`  
+58. `INIT_READINESS.md`  
+59. `REPLICATION_VISION.md`  
+60. `REPLICATION_ROADMAP.md`  
+61. `REPLICATION_READINESS.md`  
 62. `INSTALL.md`  
 63. `CONFIG.md`  
 64. `CRASH_TESTING.md`  

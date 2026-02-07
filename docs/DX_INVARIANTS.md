@@ -7,7 +7,7 @@
 - Scope: **All Phase 4 observability, APIs, and UI**
 - Depends on:
   - INVARIANTS.md (global)
-  - PHASE3_INVARIANTS.md
+  - PERF_INVARIANTS.md
   - PERFORMANCE_OBSERVABILITY.md
 
 This document defines the **non-negotiable invariants** governing Phase 4.

@@ -65,6 +65,8 @@ generate_dates.py
 
 # Documentation build artifacts
 /docs/build/
+/site/
+venv/
 
 # macOS
 .DS_Store

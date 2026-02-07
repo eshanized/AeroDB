@@ -6,9 +6,9 @@
 - Authority: **Normative**
 - Scope: **Baseline-only (no optimization)**
 - Dependency:
-  - PHASE3_VISION.md
-  - PHASE3_INVARIANTS.md
-  - PHASE3_PROOF_RULES.md
+  - PERF_VISION.md
+  - PERF_INVARIANTS.md
+  - PERF_PROOF_RULES.md
 
 This document defines the **reference execution behavior** against which all Phase 3 optimizations are proven equivalent.
 

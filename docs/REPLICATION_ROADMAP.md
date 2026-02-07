@@ -1,4 +1,4 @@
-# PHASE2_REPLICATION_ROADMAP.md
+# REPLICATION_ROADMAP.md
 
 ## AeroDB Phase 2B — Replication Roadmap
 
@@ -197,7 +197,7 @@ This stage proves replication does not break AeroDB.
 
 ---
 
-#### 3.8 `PHASE2_REPLICATION_PROOFS.md`
+#### 3.8 `REPLICATION_PROOFS.md`
 
 **Purpose**
 
@@ -216,7 +216,7 @@ Replication correctness must be provable without code.
 
 Only after all design documents are approved:
 
-#### 3.9 `PHASE2_REPLICATION_BUILD_PROMPTS.md`
+#### 3.9 `REPLICATION_BUILD_PROMPTS.md`
 
 * Step-by-step implementation prompts
 * Crash-gated, spec-linked
@@ -224,7 +224,7 @@ Only after all design documents are approved:
 
 ---
 
-#### 3.10 `PHASE2_REPLICATION_READINESS.md`
+#### 3.10 `REPLICATION_READINESS.md`
 
 * Readiness checklist
 * Semantic freeze statement

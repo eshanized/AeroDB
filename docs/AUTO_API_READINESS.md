@@ -10,16 +10,16 @@
 
 | Document | Status |
 |----------|--------|
-| PHASE9_REST_SPEC.md | ✅ |
-| PHASE9_VISION.md | ✅ |
-| PHASE9_ARCHITECTURE.md | ✅ |
-| PHASE9_QUERY_MODEL.md | ✅ |
-| PHASE9_SCHEMA_MODEL.md | ✅ |
-| PHASE9_RELATION_MODEL.md | ✅ |
-| PHASE9_INVARIANTS.md | ✅ |
-| PHASE9_FAILURE_MODEL.md | ✅ |
-| PHASE9_OBSERVABILITY_MAPPING.md | ✅ |
-| PHASE9_READINESS.md | ✅ |
+| AUTO_API_REST_SPEC.md | ✅ |
+| AUTO_API_VISION.md | ✅ |
+| AUTO_API_ARCHITECTURE.md | ✅ |
+| AUTO_API_QUERY_MODEL.md | ✅ |
+| AUTO_API_SCHEMA_MODEL.md | ✅ |
+| AUTO_API_RELATION_MODEL.md | ✅ |
+| AUTO_API_INVARIANTS.md | ✅ |
+| AUTO_API_FAILURE_MODEL.md | ✅ |
+| AUTO_API_OBSERVABILITY_MAPPING.md | ✅ |
+| AUTO_API_READINESS.md | ✅ |
 
 ---
 

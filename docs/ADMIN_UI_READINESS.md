@@ -108,7 +108,7 @@ Phase 13 is ready to freeze when **all items below** are complete:
 
 ## 4. Invariants Enforced
 
-All invariants from [PHASE13_INVARIANTS.md](PHASE13_INVARIANTS.md) verified:
+All invariants from [ADMIN_UI_INVARIANTS.md](ADMIN_UI_INVARIANTS.md) verified:
 
 - [ ] I1: Dashboard failures don't break database
 - [ ] I2: Database is source of truth
@@ -129,14 +129,14 @@ All invariants from [PHASE13_INVARIANTS.md](PHASE13_INVARIANTS.md) verified:
 
 ## 5. Documentation Complete
 
-- [x] PHASE13_VISION.md
-- [x] PHASE13_ARCHITECTURE.md
-- [x] PHASE13_UI_MODEL.md
-- [x] PHASE13_INVARIANTS.md
-- [x] PHASE13_TESTING_STRATEGY.md
-- [x] PHASE13_READINESS.md (this file)
-- [ ] PHASE13_DEPLOYMENT.md
-- [ ] PHASE13_OBSERVABILITY.md
+- [x] ADMIN_UI_VISION.md
+- [x] ADMIN_UI_ARCHITECTURE.md
+- [x] ADMIN_UI_UI_MODEL.md
+- [x] ADMIN_UI_INVARIANTS.md
+- [x] ADMIN_UI_TESTING_STRATEGY.md
+- [x] ADMIN_UI_READINESS.md (this file)
+- [ ] ADMIN_UI_DEPLOYMENT.md
+- [ ] ADMIN_UI_OBSERVABILITY.md
 - [ ] README.md in dashboard/
 
 ---

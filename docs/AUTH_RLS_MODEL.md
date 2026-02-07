@@ -1,9 +1,9 @@
-# PHASE8_RLS_MODEL.md — Row-Level Security Model
+# AUTH_RLS_MODEL.md — Row-Level Security Model
 
 ## Status
 - Phase: **8**
 - Authority: **Normative**
-- Depends on: PHASE8_AUTH_ARCHITECTURE.md
+- Depends on: AUTH_ARCHITECTURE.md
 - Date: 2026-02-06
 
 ---

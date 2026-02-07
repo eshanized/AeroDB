@@ -1,11 +1,11 @@
-# PHASE6_INVARIANTS.md — Failover & Promotion
+# FAILOVER_INVARIANTS.md — Failover & Promotion
 
 ## Status
 - Phase: **6**
 - Authority: **Normative**
 - Depends on:
-  - PHASE6_VISION.md
-  - PHASE6_SCOPE.md
+  - FAILOVER_VISION.md
+  - FAILOVER_SCOPE.md
 - Frozen Dependencies: **Phases 0–5**
 
 ---

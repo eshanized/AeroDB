@@ -42,21 +42,21 @@ Confirm that the following documents:
 
 ### Required Documents
 
-* [ ] PHASE7_VISION.md
-* [ ] PHASE7_SCOPE.md
-* [ ] PHASE7_INVARIANTS.md
-* [ ] PHASE7_AUTHORITY_MODEL.md
-* [ ] PHASE7_FAILURE_MODEL.md
-* [ ] PHASE7_STATE_MODEL.md
-* [ ] PHASE7_CONTROL_PLANE_ARCHITECTURE.md
-* [ ] PHASE7_COMMAND_MODEL.md
-* [ ] PHASE7_CONFIRMATION_MODEL.md
-* [ ] PHASE7_OBSERVABILITY_MODEL.md
-* [ ] PHASE7_ERROR_MODEL.md
-* [ ] PHASE7_AUDITABILITY.md
-* [ ] PHASE7_TESTING_STRATEGY.md
-* [ ] PHASE7_READINESS.md
-* [ ] PHASE7_FREEZE_CHECKLIST.md
+* [ ] CONTROL_PLANE_VISION.md
+* [ ] CONTROL_PLANE_SCOPE.md
+* [ ] CONTROL_PLANE_INVARIANTS.md
+* [ ] CONTROL_PLANE_AUTHORITY_MODEL.md
+* [ ] CONTROL_PLANE_FAILURE_MODEL.md
+* [ ] CONTROL_PLANE_STATE_MODEL.md
+* [ ] CONTROL_PLANE_CONTROL_PLANE_ARCHITECTURE.md
+* [ ] CONTROL_PLANE_COMMAND_MODEL.md
+* [ ] CONTROL_PLANE_CONFIRMATION_MODEL.md
+* [ ] CONTROL_PLANE_OBSERVABILITY_MODEL.md
+* [ ] CONTROL_PLANE_ERROR_MODEL.md
+* [ ] CONTROL_PLANE_AUDITABILITY.md
+* [ ] CONTROL_PLANE_TESTING_STRATEGY.md
+* [ ] CONTROL_PLANE_READINESS.md
+* [ ] CONTROL_PLANE_FREEZE_CHECKLIST.md
 
 If any document is missing or contradictory → **FAIL**.
 
@@ -79,7 +79,7 @@ Any invariant that exists only on paper → **FAIL**.
 
 Confirm that:
 
-* [ ] All operator commands are defined in PHASE7_COMMAND_MODEL.md
+* [ ] All operator commands are defined in CONTROL_PLANE_COMMAND_MODEL.md
 * [ ] No undocumented or experimental commands exist
 * [ ] Each command maps to exactly one kernel action
 
@@ -155,7 +155,7 @@ Any interference → **FAIL**.
 
 Confirm that:
 
-* [ ] All tests defined in PHASE7_TESTING_STRATEGY.md pass
+* [ ] All tests defined in CONTROL_PLANE_TESTING_STRATEGY.md pass
 * [ ] All invariants have negative tests
 * [ ] No flaky or nondeterministic tests exist
 

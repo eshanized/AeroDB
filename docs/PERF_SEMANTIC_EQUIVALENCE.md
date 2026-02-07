@@ -6,9 +6,9 @@
 - Authority: **Normative**
 - Scope: **Equivalence definition for all Phase 3 optimizations**
 - Dependencies:
-  - PHASE3_VISION.md
-  - PHASE3_INVARIANTS.md
-  - PHASE3_PROOF_RULES.md
+  - PERF_VISION.md
+  - PERF_INVARIANTS.md
+  - PERF_PROOF_RULES.md
   - PERFORMANCE_BASELINE.md
   - CRITICAL_PATHS.md
 

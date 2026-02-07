@@ -6,8 +6,8 @@
 - Authority: **Normative**
 - Scope: **Replication implementation sequencing**
 - Depends on:
-  - `PHASE5_VISION.md`
-  - `PHASE5_INVARIANTS.md`
+  - `OBSERVABILITY_VISION.md`
+  - `OBSERVABILITY_INVARIANTS.md`
   - `REPL_*` specifications
   - `MVCC_*` specifications
   - `CORE_*` specifications

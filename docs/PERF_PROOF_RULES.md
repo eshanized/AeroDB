@@ -6,8 +6,8 @@
 - Authority: **Normative**
 - Applies to: **All Phase 3 optimization specifications and implementations**
 - Dependency:
-  - PHASE3_VISION.md
-  - PHASE3_INVARIANTS.md
+  - PERF_VISION.md
+  - PERF_INVARIANTS.md
 
 No Phase 3 code may be written, merged, or enabled without satisfying the proof rules in this document.
 
@@ -106,7 +106,7 @@ If the optimization cannot be described mechanically, it is invalid.
 
 ### 4.3 Invariant Impact Matrix
 
-This section MUST list **every invariant** from `PHASE3_INVARIANTS.md`
+This section MUST list **every invariant** from `PERF_INVARIANTS.md`
 and classify it as:
 
 - Preserved without interaction

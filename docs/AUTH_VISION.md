@@ -1,4 +1,4 @@
-# PHASE8_AUTH_VISION.md — Authentication & Authorization Vision
+# AUTH_VISION.md — Authentication & Authorization Vision
 
 ## Status
 - Phase: **8**

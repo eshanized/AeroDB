@@ -6,13 +6,13 @@
 - Authority: **Normative (Closure Document)**
 - Scope: **Replication implementation readiness and freeze**
 - Depends on:
-  - `PHASE5_VISION.md`
-  - `PHASE5_INVARIANTS.md`
-  - `PHASE5_IMPLEMENTATION_ORDER.md`
+  - `OBSERVABILITY_VISION.md`
+  - `OBSERVABILITY_INVARIANTS.md`
+  - `OBSERVABILITY_IMPLEMENTATION_ORDER.md`
   - `REPLICATION_RUNTIME_ARCHITECTURE.md`
-  - `PHASE5_FAILURE_MATRIX.md`
-  - `PHASE5_TESTING_STRATEGY.md`
-  - `PHASE5_OBSERVABILITY_MAPPING.md`
+  - `OBSERVABILITY_FAILURE_MATRIX.md`
+  - `OBSERVABILITY_TESTING_STRATEGY.md`
+  - `OBSERVABILITY_OBSERVABILITY_MAPPING.md`
   - All `REPL_*`, `MVCC_*`, and `CORE_*` documents
 
 This document formally declares whether **Phase 5 is complete, correct, and frozen**.
@@ -70,7 +70,7 @@ All items below MUST be satisfied.
 
 ### 3.2 Invariant Compliance
 
-- [ ] All `PHASE5_INVARIANTS.md` invariants enforced
+- [ ] All `OBSERVABILITY_INVARIANTS.md` invariants enforced
 - [ ] All `REPL_INVARIANTS.md` invariants enforced
 - [ ] No temporary invariant violations exist
 - [ ] No heuristic or timing-based logic introduced
@@ -79,7 +79,7 @@ All items below MUST be satisfied.
 
 ### 3.3 Failure Coverage
 
-- [ ] All scenarios in `PHASE5_FAILURE_MATRIX.md` tested
+- [ ] All scenarios in `OBSERVABILITY_FAILURE_MATRIX.md` tested
 - [ ] Crash injection verified for:
   - WAL receive
   - WAL validation
@@ -92,7 +92,7 @@ All items below MUST be satisfied.
 
 ### 3.4 Testing Coverage
 
-- [ ] All tests in `PHASE5_TESTING_STRATEGY.md` implemented
+- [ ] All tests in `OBSERVABILITY_TESTING_STRATEGY.md` implemented
 - [ ] Crash tests deterministic
 - [ ] No skipped or ignored tests
 - [ ] Phase 0–4 tests unchanged and still passing

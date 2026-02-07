@@ -6,9 +6,9 @@
 - Authority: **Normative**
 - Scope: **Checkpoint execution performance optimization**
 - Dependencies:
-  - PHASE3_VISION.md
-  - PHASE3_INVARIANTS.md
-  - PHASE3_PROOF_RULES.md
+  - PERF_VISION.md
+  - PERF_INVARIANTS.md
+  - PERF_PROOF_RULES.md
   - PERFORMANCE_BASELINE.md
   - CRITICAL_PATHS.md
   - SEMANTIC_EQUIVALENCE.md
@@ -151,7 +151,7 @@ These steps:
 
 ## 5. Invariant Preservation Matrix
 
-(Referenced from `PHASE3_INVARIANTS.md`)
+(Referenced from `PERF_INVARIANTS.md`)
 
 ### Durability
 - D-1 (Acknowledged Write Durability): **Preserved**

@@ -6,11 +6,11 @@
 - Authority: **Normative**
 - Scope: **All replication-related tests**
 - Depends on:
-  - `PHASE5_VISION.md`
-  - `PHASE5_INVARIANTS.md`
-  - `PHASE5_IMPLEMENTATION_ORDER.md`
+  - `OBSERVABILITY_VISION.md`
+  - `OBSERVABILITY_INVARIANTS.md`
+  - `OBSERVABILITY_IMPLEMENTATION_ORDER.md`
   - `REPLICATION_RUNTIME_ARCHITECTURE.md`
-  - `PHASE5_FAILURE_MATRIX.md`
+  - `OBSERVABILITY_FAILURE_MATRIX.md`
   - `REPL_*` specifications
   - `MVCC_*` specifications
   - `CORE_INVARIANTS.md`
@@ -147,7 +147,7 @@ All layers MUST exist.
 ## 7. Layer 4 — Crash Matrix Tests (Critical)
 
 ### Scope
-- All crash points defined in `PHASE5_FAILURE_MATRIX.md`
+- All crash points defined in `OBSERVABILITY_FAILURE_MATRIX.md`
 
 ### Mandatory Crash Points
 - Before WAL persist

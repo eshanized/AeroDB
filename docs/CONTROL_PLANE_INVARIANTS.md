@@ -269,7 +269,7 @@ Kernel behavior must be identical with or without Phase 7.
 
 ### P7-S3 — No Expansion Beyond Scope
 
-Any feature not explicitly allowed in PHASE7_SCOPE.md is forbidden.
+Any feature not explicitly allowed in CONTROL_PLANE_SCOPE.md is forbidden.
 
 This invariant is enforced socially and technically.
 

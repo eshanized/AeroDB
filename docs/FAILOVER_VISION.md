@@ -1,4 +1,4 @@
-# PHASE6_VISION.md — Failover & Promotion
+# FAILOVER_VISION.md — Failover & Promotion
 
 ## Status
 - Phase: **6**

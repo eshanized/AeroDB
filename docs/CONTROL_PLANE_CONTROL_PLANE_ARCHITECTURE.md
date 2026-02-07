@@ -188,7 +188,7 @@ At no point does Phase 7 assume success.
 
 ## 7. State Placement Rules
 
-Phase 7 state placement MUST follow `PHASE7_STATE_MODEL.md`:
+Phase 7 state placement MUST follow `CONTROL_PLANE_STATE_MODEL.md`:
 
 * No authoritative state stored in Phase 7
 * Only ephemeral and derived state allowed

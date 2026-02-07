@@ -71,5 +71,5 @@ The documentation is organized into clear sections matching the system's archite
 
 AeroDB is open source software. We welcome contributions that align with our core values of reliability and correctness.
 
-[Contribution Guidelines](../CONTRIBUTING.md){ .md-button .md-button--primary }
-[Security Policy](../SECURITY.md){ .md-button }
+[Contribution Guidelines](CONTRIBUTING.md){ .md-button .md-button--primary }
+[Security Policy](SECURITY.md){ .md-button }

@@ -17,15 +17,13 @@ theme:
     primary: deep purple
     accent: pink
   font:
-    text: Roboto
+    text: Playwrite NZ Basic
     code: JetBrains Mono
   logo: assets/logo.png
   favicon: assets/favicon.ico
   features:
     - navigation.instant
     - navigation.tracking
-    - navigation.tabs
-    - navigation.tabs.sticky
     - navigation.sections
     - navigation.expand
     - navigation.path
@@ -310,8 +308,8 @@ nav:
     - Claude Guidelines: CLAUDE.md
   
   - Contributing:
-    - How to Contribute: ../CONTRIBUTING.md
-    - Security Policy: ../SECURITY.md
-    - Changelog: ../CHANGELOG.md
+    - How to Contribute: CONTRIBUTING.md
+    - Security Policy: SECURITY.md
+    - Changelog: CHANGELOG.md
 
 copyright: Copyright &copy; 2026 AeroDB Contributors

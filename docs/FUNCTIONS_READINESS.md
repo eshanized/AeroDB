@@ -8,14 +8,14 @@
 
 ## Documentation Checklist
 
-- [x] PHASE12_VISION.md - Goals and philosophy
-- [x] PHASE12_ARCHITECTURE.md - WASM runtime and components
-- [x] PHASE12_FUNCTION_MODEL.md - Function structure and metadata
-- [x] PHASE12_EXECUTION_MODEL.md - Trigger types and execution flow
-- [x] PHASE12_INVARIANTS.md - Security and isolation invariants
-- [x] PHASE12_FAILURE_MODEL.md - Error handling and recovery
-- [x] PHASE12_TESTING_STRATEGY.md - Test coverage plan
-- [x] PHASE12_READINESS.md - Freeze criteria (this document)
+- [x] FUNCTIONS_VISION.md - Goals and philosophy
+- [x] FUNCTIONS_ARCHITECTURE.md - WASM runtime and components
+- [x] FUNCTIONS_FUNCTION_MODEL.md - Function structure and metadata
+- [x] FUNCTIONS_EXECUTION_MODEL.md - Trigger types and execution flow
+- [x] FUNCTIONS_INVARIANTS.md - Security and isolation invariants
+- [x] FUNCTIONS_FAILURE_MODEL.md - Error handling and recovery
+- [x] FUNCTIONS_TESTING_STRATEGY.md - Test coverage plan
+- [x] FUNCTIONS_READINESS.md - Freeze criteria (this document)
 
 **Status:** ✅ All 8 documents complete
 

@@ -1,17 +1,17 @@
-# PHASE6_IMPLEMENTATION_ORDER.md — Failover & Promotion
+# FAILOVER_IMPLEMENTATION_ORDER.md — Failover & Promotion
 
 ## Status
 - Phase: **6**
 - Authority: **Normative**
 - Depends on:
-  - PHASE6_VISION.md
-  - PHASE6_SCOPE.md
-  - PHASE6_INVARIANTS.md
-  - PHASE6_ARCHITECTURE.md
-  - PHASE6_FAILURE_MODEL.md
-  - PHASE6_STATE_MACHINE.md
-  - PHASE6_OBSERVABILITY_MAPPING.md
-  - PHASE6_TESTING_STRATEGY.md
+  - FAILOVER_VISION.md
+  - FAILOVER_SCOPE.md
+  - FAILOVER_INVARIANTS.md
+  - FAILOVER_ARCHITECTURE.md
+  - FAILOVER_FAILURE_MODEL.md
+  - FAILOVER_STATE_MACHINE.md
+  - FAILOVER_OBSERVABILITY_MAPPING.md
+  - FAILOVER_TESTING_STRATEGY.md
 - Frozen Dependencies: **Phases 0–5**
 
 ---
@@ -52,7 +52,7 @@ Phase 6 implementation MUST obey:
 - Integrate them as a distinct, orthogonal state machine
 
 **Requirements**
-- States exactly as defined in `PHASE6_STATE_MACHINE.md`
+- States exactly as defined in `FAILOVER_STATE_MACHINE.md`
 - No implicit transitions
 - No persistence of transient promotion states
 

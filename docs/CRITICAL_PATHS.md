@@ -6,9 +6,9 @@
 - Authority: **Normative**
 - Scope: **Identification-only**
 - Dependencies:
-  - PHASE3_VISION.md
-  - PHASE3_INVARIANTS.md
-  - PHASE3_PROOF_RULES.md
+  - PERF_VISION.md
+  - PERF_INVARIANTS.md
+  - PERF_PROOF_RULES.md
   - PERFORMANCE_BASELINE.md
 
 This document defines the **canonical critical execution paths** in AeroDB.

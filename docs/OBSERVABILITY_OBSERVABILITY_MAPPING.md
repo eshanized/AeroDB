@@ -9,8 +9,8 @@
   - `DX_OBSERVABILITY_API.md`
   - `DX_EXPLANATION_MODEL.md`
   - `REPLICATION_RUNTIME_ARCHITECTURE.md`
-  - `PHASE5_INVARIANTS.md`
-  - `PHASE5_FAILURE_MATRIX.md`
+  - `OBSERVABILITY_INVARIANTS.md`
+  - `OBSERVABILITY_FAILURE_MATRIX.md`
 
 This document defines **how replication runtime state is exposed**
 via existing **Phase 4 observability and explanation mechanisms**.
@@ -170,7 +170,7 @@ Hidden state is forbidden.
 
 ## 6. Failure Visibility Requirements
 
-For every failure in `PHASE5_FAILURE_MATRIX.md`:
+For every failure in `OBSERVABILITY_FAILURE_MATRIX.md`:
 
 - The failure MUST be visible via DX
 - The failure MUST have an explanation

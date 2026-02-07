@@ -1,4 +1,4 @@
-# PHASE2_PROOFS.md
+# REPLICATION_PROOFS.md
 
 ## AeroDB Phase 2 — MVCC Correctness Proofs
 

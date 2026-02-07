@@ -6,7 +6,7 @@
 - Authority: **Normative**
 - Scope: **All replication implementation code**
 - Depends on:
-  - `PHASE5_VISION.md`
+  - `OBSERVABILITY_VISION.md`
   - `REPL_INVARIANTS.md`
   - `REPL_PROOFS.md`
   - `MVCC_*` documents

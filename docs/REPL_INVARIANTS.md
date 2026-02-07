@@ -1,4 +1,4 @@
-# PHASE2_REPLICATION_INVARIANTS.md
+# REPLICATION_INVARIANTS.md
 
 ## AeroDB Phase 2B — Replication Invariants
 

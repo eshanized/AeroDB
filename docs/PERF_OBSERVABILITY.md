@@ -6,9 +6,9 @@
 - Authority: **Normative**
 - Scope: **Measurement-only, non-influential**
 - Dependencies:
-  - PHASE3_VISION.md
-  - PHASE3_INVARIANTS.md
-  - PHASE3_PROOF_RULES.md
+  - PERF_VISION.md
+  - PERF_INVARIANTS.md
+  - PERF_PROOF_RULES.md
   - PERFORMANCE_BASELINE.md
   - CRITICAL_PATHS.md
   - SEMANTIC_EQUIVALENCE.md

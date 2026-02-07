@@ -31,7 +31,7 @@ Everything else is deferred by design.
 
 ## Phase 0: Minimum Viable Infrastructure (MVI)
 
-> **Note on Terminology:** "Phase 0" and "Phase 1" refer to the same foundational phase in AeroDB's development. Current documentation (e.g., PHASE3_VISION.md) uses "Phase 1" terminology. This document preserves the original "Phase 0" naming for historical continuity.
+> **Note on Terminology:** "Phase 0" and "Phase 1" refer to the same foundational phase in AeroDB's development. Current documentation (e.g., PERF_VISION.md) uses "Phase 1" terminology. This document preserves the original "Phase 0" naming for historical continuity.
 
 Phase 0 defines the first **production-credible** version of aerodb.
 This is not a demo phase.
