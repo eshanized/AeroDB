@@ -19,8 +19,8 @@ theme:
   font:
     text: Noto Sans
     code: Fira Code
-  logo: assets/logo.png
-  favicon: assets/favicon.ico
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
   features:
     - navigation.instant
     - navigation.tracking
