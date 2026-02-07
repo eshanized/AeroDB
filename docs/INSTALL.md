@@ -27,10 +27,8 @@ Windows is not supported in Phase 0.
 Minimum:
 
 ```
-
 rustc 1.75+
 cargo 1.75+
-
 ```
 
 Check:
@@ -38,7 +36,7 @@ Check:
 ```bash
 rustc --version
 cargo --version
-````
+```
 
 If not installed:
 
