@@ -100,7 +100,7 @@ extra:
 
 # Custom CSS for Dracula theme
 extra_css:
-  - stylesheets/dracula.css
+  - stylesheets/everblush.css
   - stylesheets/extra.css
 
 # Navigation Structure
